@@ -299,6 +299,8 @@ describe("reply messages", () => {
     expect(looksLikeSummaryRequest("สรุป")).toBe(true);
     expect(looksLikeSummaryRequest("หนองปิง สรุปพรุ่งนี้")).toBe(true);
     expect(looksLikeSummaryRequest("ดูยอด")).toBe(true);
+    expect(looksLikeSummaryRequest("หนองปิงด้วย")).toBe(true);
+    expect(looksLikeSummaryRequest("สรุปทุกสาขา")).toBe(true);
     expect(looksLikeSummaryRequest("โอน 5000")).toBe(false);
   });
 

@@ -583,14 +583,8 @@ export interface RecordConfirmationOptions {
 const SHOP_LINE_RE =
   /^(?:หนองปิง|ญี่ปุ่น|ตลาดญี่ปุ่น|สายหนองปิง|พรุ่งนี้|เมื่อวาน|วันนี้)$/u;
 
-/** User asks for full daily breakdown. */
-export function looksLikeSummaryRequest(text: string): boolean {
-  const stripped = text
-    .trim()
-    .replace(/^(?:หนองปิง|ญี่ปุ่น|ตลาดญี่ปุ่น|สายหนองปิง)\s+/u, "")
-    .trim();
-  return /^(?:สรุป|ดูยอด|ยอดวัน)(?:วันนี้|พรุ่งนี้|เมื่อวาน)?$/u.test(stripped);
-}
+/** @deprecated import from summary-command.service */
+export { looksLikeSummaryRequest } from "@/lib/services/summary-command.service";
 
 /** Human-readable list of fields present in this parsed message. */
 export function formatParsedDeltaItems(parsed: ParsedFinancialInput): string[] {

@@ -7,6 +7,7 @@ import {
 import { createLogger } from "@/lib/middleware/logger";
 import type { FinancialRecord } from "@/lib/types/financial.types";
 import { detectShopFromText } from "@/lib/services/financial-parser.service";
+import { parseSummaryIntent } from "@/lib/services/summary-command.service";
 
 const logger = createLogger("NaturalReply");
 const MAX_REPLY_CHARS = 4800;
@@ -19,6 +20,7 @@ export type NaturalReplyKind =
   | "record_saved_short"
   | "record_saved_full"
   | "summary"
+  | "all_branches_summary"
   | "correction"
   | "summary_not_found"
   | "unrecognized"
@@ -44,6 +46,7 @@ const KIND_LABELS: Record<NaturalReplyKind, string> = {
   record_saved_short: "บันทึกยอดสำเร็จ (ตอบสั้น)",
   record_saved_full: "บันทึกยอดสำเร็จ (ตอบเต็ม)",
   summary: "สรุปยอดรายวัน",
+  all_branches_summary: "สรุปทุกสาขา",
   correction: "แก้ไขข้อมูล",
   summary_not_found: "ไม่มียอดวันนั้น",
   unrecognized: "ไม่เข้าใจข้อความ",
@@ -146,11 +149,20 @@ async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   ]);
 }
 
-/** "หนองปิงด้วย" / "ญี่ปุ่นด้วย" — ask for the other branch summary. */
+/** @deprecated use parseSummaryIntent from summary-command.service */
 export function looksLikeShopSummaryFollowUp(text: string): boolean {
-  return /^(?:หนองปิง|สายหนองปิง|ญี่ปุ่น|ตลาดญี่ปุ่น)\s*(?:ด้วย|ด้วยนะ|ด้วยครับ|ด้วยค่ะ|ด้วยจ้า)?$/u.test(
-    text.trim()
-  );
+  return parseSummaryIntent(text)?.type === "single_shop";
+}
+
+/** @deprecated use parseSummaryIntent from summary-command.service */
+export function shopFromSummaryFollowUp(
+  text: string
+): { shopId: string; shopName: string } | null {
+  const intent = parseSummaryIntent(text);
+  if (intent?.type === "single_shop") {
+    return { shopId: intent.shopId, shopName: intent.shopName };
+  }
+  return null;
 }
 
 function stripMarkdownFences(raw: string): string {
@@ -260,12 +272,4 @@ export async function pingGemini(): Promise<{ latencyMs: number; ok: boolean; er
       error: error instanceof Error ? error.message : String(error),
     };
   }
-}
-
-/** Resolve shop from follow-up like "หนองปิงด้วย". */
-export function shopFromSummaryFollowUp(
-  text: string
-): { shopId: string; shopName: string } | null {
-  if (!looksLikeShopSummaryFollowUp(text)) return null;
-  return detectShopFromText(`${text.trim()}\n`);
 }

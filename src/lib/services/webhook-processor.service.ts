@@ -13,16 +13,19 @@ import { extractTextFromImage } from "@/lib/services/gemini.service";
 import {
   parseFinancialMessage,
   looksLikeFinancialData,
-  looksLikeSummaryRequest,
   buildRecordConfirmation,
   buildSummaryNotFoundMessage,
   formatParsedDeltaItems,
   shouldUseShortConfirmation,
 } from "@/lib/services/financial-parser.service";
+import {
+  parseSummaryIntent,
+  buildAllBranchesSummary,
+  getAllBranchShops,
+} from "@/lib/services/summary-command.service";
 import { upsertParsedRecord, applyLineCorrection, getRecordByShopDate } from "@/lib/services/financial-records.service";
 import {
   naturalizeReply,
-  shopFromSummaryFollowUp,
   type NaturalReplyKind,
 } from "@/lib/services/natural-reply.service";
 import {
@@ -183,40 +186,38 @@ async function processTextMessage(
     };
   }
 
-  if (looksLikeSummaryRequest(text)) {
-    const summaryDate = resolveRecordDateFromText(text) ?? today;
-    const record = await getRecordByShopDate(
-      shop?.shopId ?? ENV.DEFAULT_SHOP_ID(),
-      summaryDate
-    );
+  const summaryIntent = parseSummaryIntent(text, today);
+  if (summaryIntent) {
+    if (summaryIntent.type === "all_branches") {
+      const records = (
+        await Promise.all(
+          getAllBranchShops().map((s) => getRecordByShopDate(s.shopId, summaryIntent.date))
+        )
+      ).filter((r): r is NonNullable<typeof r> => r !== null);
+
+      const template = buildAllBranchesSummary(records, summaryIntent.date, today);
+      return {
+        processed: { ...msg, content: "[SUMMARY] all branches", status: "completed" },
+        replyMsg: await geminiReply(text, template, "all_branches_summary"),
+      };
+    }
+
+    const { shopId, date } = summaryIntent;
+    const record = await getRecordByShopDate(shopId, date);
     if (!record) {
-      const template = buildSummaryNotFoundMessage(summaryDate, today);
+      const template = buildSummaryNotFoundMessage(date, today);
       return {
         processed: { ...msg, content: "[SUMMARY] empty", status: "completed" },
         replyMsg: await geminiReply(text, template, "summary_not_found"),
       };
     }
-    const template = buildRecordConfirmation(record, { mode: "full" });
-    return {
-      processed: { ...msg, content: "[SUMMARY] full", status: "completed" },
-      replyMsg: await geminiReply(text, template, "summary", { record }),
-    };
-  }
 
-  const followShop = shopFromSummaryFollowUp(text);
-  if (followShop) {
-    const record = await getRecordByShopDate(followShop.shopId, today);
-    const template = record
-      ? buildRecordConfirmation(record, { mode: "full" })
-      : buildSummaryNotFoundMessage(today, today);
+    const template = buildRecordConfirmation(record, { mode: "full" });
+    const kind: NaturalReplyKind =
+      summaryIntent.type === "single_shop" ? "shop_summary" : "summary";
     return {
-      processed: { ...msg, content: `[SHOP_SUMMARY] ${text}`, status: "completed" },
-      replyMsg: await geminiReply(
-        text,
-        template,
-        record ? "shop_summary" : "summary_not_found",
-        { record: record ?? undefined }
-      ),
+      processed: { ...msg, content: `[SUMMARY] ${kind}`, status: "completed" },
+      replyMsg: await geminiReply(text, template, kind, { record }),
     };
   }
 
