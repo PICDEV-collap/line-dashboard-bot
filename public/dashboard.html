@@ -383,6 +383,11 @@ tbody td{padding:8px 11px;color:var(--text)}
       <div class="form-field"><div class="form-lbl">โอนเงิน (฿)</div><input type="number" class="form-input" id="fTransfer" placeholder="0" oninput="calcModal()"></div>
       <div class="form-field"><div class="form-lbl">เงินสด (฿)</div><input type="number" class="form-input" id="fCash" placeholder="0" oninput="calcModal()"></div>
       <div class="form-field full"><div class="form-lbl">Delivery (฿)</div><input type="number" class="form-input" id="fDelivery" placeholder="0" oninput="calcModal()"></div>
+      <div class="form-section full" style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
+        <span>➕ รายรับพิเศษ</span>
+        <button class="btn btn-ghost" style="font-size:11px;padding:3px 10px" onclick="addExtraIncome()">+ เพิ่มรายการ</button>
+      </div>
+      <div class="form-field full" id="extraIncomeList"></div>
       <div class="form-field full">
         <div class="form-lbl">รายรับรวม (คำนวณอัตโนมัติ)</div>
         <input type="text" class="form-input" id="fRevDisp" readonly style="background:rgba(59,130,246,.07);color:#60a5fa;font-family:'Chakra Petch',sans-serif;font-size:16px;font-weight:700">
@@ -733,7 +738,8 @@ function renderAnalysis() {
 // ════════════════════════════════════════════
 function calcModal() {
   const t=+($('fTransfer').value||0), c=+($('fCash').value||0), d=+($('fDelivery').value||0);
-  const rev=t+c+d;
+  const incomeTotal=getExtraIncome().reduce((s,e)=>s+e.amount,0);
+  const rev=t+c+d+incomeTotal;
   $('fRevDisp').value=rev>0?'฿'+fmt(rev):'';
   const redTotal=(+($('fRedQty').value||0))*(+($('fRedPrice').value||0));
   const mincedTotal=(+($('fMincedQty').value||0))*(+($('fMincedPrice').value||0));
@@ -763,6 +769,25 @@ function addExtraExpense(name='',amount=''){
   list.appendChild(row);
 }
 
+function getExtraIncome(){
+  return [...document.querySelectorAll('.income-row')].map(row=>({
+    name:row.querySelector('.income-name').value.trim(),
+    amount:+(row.querySelector('.income-amount').value||0)
+  })).filter(e=>e.name||e.amount>0);
+}
+
+function addExtraIncome(name='',amount=''){
+  const list=$('extraIncomeList');
+  const row=document.createElement('div');
+  row.className='income-row';
+  row.style.cssText='display:grid;grid-template-columns:1fr 100px 32px;gap:6px;margin-bottom:6px;align-items:center';
+  row.innerHTML=`<input type="text" class="form-input income-name" placeholder="ชื่อรายรับ" value="${name}" oninput="calcModal()" style="font-size:12px"><input type="number" class="form-input income-amount" placeholder="฿" value="${amount}" oninput="calcModal()" style="font-size:12px"><button onclick="this.parentElement.remove();calcModal()" style="background:rgba(34,197,94,.2);border:1px solid rgba(34,197,94,.3);color:#4ade80;border-radius:6px;cursor:pointer;font-size:14px;width:32px;height:32px">✕</button>`;
+  list.appendChild(row);
+}
+
+// Today's date (YYYY-MM-DD) in the shop's timezone — matches the bot, not UTC.
+function todayBangkok(){ return new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Bangkok'}); }
+
 function $(id){return document.getElementById(id);}
 
 function openAddModal(r=null) {
@@ -770,10 +795,10 @@ function openAddModal(r=null) {
   $('modalTitle').textContent='＋ เพิ่มข้อมูลรายวัน';
   ['fTransfer','fCash','fDelivery','fMaterials','fSupplies','fNote','fRedQty','fRedPrice','fMincedQty','fMincedPrice','fFatQty','fFatPrice'].forEach(id=>{$(id).value='';});
   $('fGas').value=150; $('fLabor').value=1500; $('fIce').value=35;
-  $('fDate').value=new Date().toISOString().split('T')[0];
+  $('fDate').value=todayBangkok();
   $('fStatus').value='complete'; $('fShopId').value='shop1';
   $('fRevDisp').value=''; $('fPorkDisp').value=''; $('fSummary').value='';
-  $('extraExpensesList').innerHTML='';
+  $('extraExpensesList').innerHTML=''; $('extraIncomeList').innerHTML='';
   if (r) {
     $('editId').value=r.id; $('modalTitle').textContent='✏️ แก้ไขข้อมูล';
     $('fDate').value=r.date; $('fShopId').value=r.shopId||'shop1';
@@ -786,6 +811,7 @@ function openAddModal(r=null) {
     $('fGas').value=r.gas||150; $('fLabor').value=r.labor||1500; $('fIce').value=r.ice||35;
     $('fNote').value=r.note||''; $('fStatus').value=r.status||'complete';
     (r.extraExpenses||[]).forEach(e=>addExtraExpense(e.name,e.amount));
+    (r.extraIncome||[]).forEach(e=>addExtraIncome(e.name,e.amount));
     calcModal();
   }
   $('modalOverlay').classList.add('open');
@@ -814,7 +840,9 @@ async function saveRecord() {
   const shopNames={shop1:'ก๋วยเตี๋ยวไทยครูตอมตลาดญี่ปุ่น',shop2:'ก๋วยเตี๋ยวไทยครูตอมสายหนองปิง'};
   const shopName=shopNames[shopId]||shopId;
   const transfer=+($('fTransfer').value||0), cash=+($('fCash').value||0), delivery=+($('fDelivery').value||0);
-  const revenue=transfer+cash+delivery;
+  const extraIncome=getExtraIncome();
+  const incomeTotal=extraIncome.reduce((s,e)=>s+e.amount,0);
+  const revenue=transfer+cash+delivery+incomeTotal;
   const redQty=+($('fRedQty').value||0), redPrice=+($('fRedPrice').value||0);
   const mincedQty=+($('fMincedQty').value||0), mincedPrice=+($('fMincedPrice').value||0);
   const fatQty=+($('fFatQty').value||0), fatPrice=+($('fFatPrice').value||0);
@@ -826,7 +854,7 @@ async function saveRecord() {
   const extraExpenses=getExtraExpenses();
   const extraTotal=extraExpenses.reduce((s,e)=>s+e.amount,0);
   const expense=pork+materials+supplies+gas+labor+ice+extraTotal;
-  const body={date,shopId,shopName,revenue,transfer,cash,delivery,expense,pork,porkBreakdown,materials,supplies,gas,labor,ice,extraExpenses,profit:revenue-expense,note:$('fNote').value,status:$('fStatus').value};
+  const body={date,shopId,shopName,revenue,transfer,cash,delivery,expense,pork,porkBreakdown,materials,supplies,gas,labor,ice,extraExpenses,extraIncome,profit:revenue-expense,note:$('fNote').value,status:$('fStatus').value};
   const editId=$('editId').value;
   try {
     if (editId) {
@@ -890,7 +918,7 @@ function exportCSV() {
   const csv='﻿'+[headers.join(','),...rows].join('\n');
   const a=document.createElement('a');
   a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
-  a.download=`kruTom_${new Date().toISOString().split('T')[0]}.csv`; a.click();
+  a.download=`kruTom_${todayBangkok()}.csv`; a.click();
   showToast('📥 Export CSV เสร็จ','success');
 }
 
