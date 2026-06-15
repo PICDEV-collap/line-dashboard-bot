@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateDashboardApiKey } from "@/lib/middleware/signature-validator";
 import { createLogger } from "@/lib/middleware/logger";
-import {
-  bulkImportRecords,
-  initializeFinancialSheets,
-} from "@/lib/services/financial-sheets.service";
+import { bulkImportRecords } from "@/lib/services/financial-records.service";
 import { errorToApiResponse, getStatusCode, toApiResponse } from "@/lib/utils/error-handler";
 import { ENV } from "@/config/constants";
 import type { FinancialRecord } from "@/lib/types/financial.types";
@@ -69,8 +66,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   logger.info("Seed import started", { recordCount: SEED_DATA.length });
 
   try {
-    await initializeFinancialSheets();
-
     const shopId = ENV.DEFAULT_SHOP_ID();
     const shopName = ENV.DEFAULT_SHOP_NAME();
 

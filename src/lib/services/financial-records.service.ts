@@ -1,23 +1,18 @@
 import { getSupabaseClient } from "@/lib/services/supabase.service";
 import { createLogger } from "@/lib/middleware/logger";
 import { generateId, getCurrentTimestamp } from "@/lib/utils/helpers";
+import { DEFAULT_EXPENSES } from "@/config/constants";
 import type {
   FinancialRecord,
   FinancialStats,
   PorkBreakdown,
   ExtraExpense,
   ExtraIncome,
+  ParsedFinancialInput,
+  RecordStatus,
 } from "@/lib/types/financial.types";
 
-const logger = createLogger("FinancialDBService");
-
-// ──────────────────────────────────────────────────────────────
-// Init (no-op — tables created via supabase/schema.sql)
-// ──────────────────────────────────────────────────────────────
-
-export async function initializeFinancialSheets(): Promise<void> {
-  logger.info("Financial DB init skipped — Supabase tables managed via schema.sql");
-}
+const logger = createLogger("FinancialRecordsService");
 
 // ──────────────────────────────────────────────────────────────
 // Row mapper
@@ -40,9 +35,9 @@ function rowToRecord(row: Record<string, unknown>): FinancialRecord {
     porkBreakdown: row.pork_breakdown as PorkBreakdown | undefined,
     materials: Number(row.materials ?? 0),
     supplies: Number(row.supplies ?? 0),
-    gas: Number(row.gas ?? 150),
-    labor: Number(row.labor ?? 1500),
-    ice: Number(row.ice ?? 35),
+    gas: Number(row.gas ?? DEFAULT_EXPENSES.gas),
+    labor: Number(row.labor ?? DEFAULT_EXPENSES.labor),
+    ice: Number(row.ice ?? DEFAULT_EXPENSES.ice),
     extraExpenses: (row.extra_expenses as ExtraExpense[]) ?? [],
     extraIncome: (row.extra_income as ExtraIncome[]) ?? [],
     profit,
@@ -180,6 +175,126 @@ export async function updateRecord(
   if (error) throw new Error(`DB update error (financial_records): ${error.message}`);
   logger.info("Record updated", { id });
   return rowToRecord(updated as Record<string, unknown>);
+}
+
+// ──────────────────────────────────────────────────────────────
+// Merge-upsert from a parsed LINE message
+// Accumulates across multiple messages for the same shop+date
+// instead of overwriting (e.g. revenue in one message, pork in another).
+// ──────────────────────────────────────────────────────────────
+
+async function getByShopDate(
+  shopId: string,
+  date: string
+): Promise<FinancialRecord | null> {
+  const db = getSupabaseClient();
+  const { data, error } = await db
+    .from("financial_records")
+    .select("*")
+    .eq("shop_id", shopId)
+    .eq("date", date)
+    .maybeSingle();
+  if (error) throw new Error(`DB query error (financial_records): ${error.message}`);
+  return data ? rowToRecord(data as Record<string, unknown>) : null;
+}
+
+// A newly-mentioned (non-zero) value wins; otherwise keep what's stored.
+function pickNum(incoming: number | undefined, existing: number): number {
+  return incoming && incoming > 0 ? incoming : existing;
+}
+
+// Pork: update qty/price only when the message provides them (qty from the
+// bot, price often filled later on the dashboard — don't clobber it with 0).
+function mergePork(
+  incoming: { qty: number; price: number } | undefined,
+  oldQty: number,
+  oldPrice: number
+): { qty: number; price: number; total: number } {
+  const qty = incoming && incoming.qty > 0 ? incoming.qty : oldQty;
+  const price = incoming && incoming.price > 0 ? incoming.price : oldPrice;
+  return { qty, price, total: qty * price };
+}
+
+// Append new line-items, skipping exact (name+amount) duplicates.
+function mergeList<T extends { name: string; amount: number }>(
+  existing: T[],
+  incoming: T[]
+): T[] {
+  const out = [...existing];
+  for (const item of incoming) {
+    if (!out.some((e) => e.name === item.name && e.amount === item.amount)) {
+      out.push(item);
+    }
+  }
+  return out;
+}
+
+export async function upsertParsedRecord(input: {
+  date: string;
+  shopId: string;
+  shopName: string;
+  parsed: ParsedFinancialInput;
+}): Promise<FinancialRecord> {
+  const existing = await getByShopDate(input.shopId, input.date);
+  const p = input.parsed;
+  const pb = existing?.porkBreakdown;
+
+  const transfer = pickNum(p.transfer, existing?.transfer ?? 0);
+  const cash = pickNum(p.cash, existing?.cash ?? 0);
+  const delivery = pickNum(p.delivery, existing?.delivery ?? 0);
+
+  const extraIncome = mergeList(existing?.extraIncome ?? [], p.extraIncome ?? []);
+  const extraIncomeTotal = extraIncome.reduce((s, e) => s + e.amount, 0);
+  const revenue = transfer + cash + delivery + extraIncomeTotal;
+
+  const red = mergePork(p.porkRed, pb?.redQty ?? 0, pb?.redPrice ?? 0);
+  const minced = mergePork(p.porkMinced, pb?.mincedQty ?? 0, pb?.mincedPrice ?? 0);
+  const fat = mergePork(p.porkFat, pb?.fatQty ?? 0, pb?.fatPrice ?? 0);
+  const pork = red.total + minced.total + fat.total;
+  const porkBreakdown: PorkBreakdown = {
+    redQty: red.qty, redPrice: red.price, redTotal: red.total,
+    mincedQty: minced.qty, mincedPrice: minced.price, mincedTotal: minced.total,
+    fatQty: fat.qty, fatPrice: fat.price, fatTotal: fat.total,
+    total: pork,
+  };
+
+  const materials = pickNum(p.materials, existing?.materials ?? 0);
+  const supplies = pickNum(p.supplies, existing?.supplies ?? 0);
+  const gas = pickNum(p.gas, existing?.gas ?? DEFAULT_EXPENSES.gas);
+  const labor = pickNum(p.labor, existing?.labor ?? DEFAULT_EXPENSES.labor);
+  const ice = pickNum(p.ice, existing?.ice ?? DEFAULT_EXPENSES.ice);
+
+  const extraExpenses = mergeList(existing?.extraExpenses ?? [], p.extraExpenses ?? []);
+  const extraExpenseTotal = extraExpenses.reduce((s, e) => s + e.amount, 0);
+
+  const expense = pork + materials + supplies + gas + labor + ice + extraExpenseTotal;
+  const profit = revenue - expense;
+
+  // Incomplete when there's no revenue yet, or pork qty was entered without a price.
+  const porkNeedsPrice =
+    (red.qty > 0 && red.price === 0) ||
+    (minced.qty > 0 && minced.price === 0) ||
+    (fat.qty > 0 && fat.price === 0);
+  const status: RecordStatus = revenue === 0 || porkNeedsPrice ? "pending" : "complete";
+
+  const note = p.note?.trim() ? p.note.trim() : existing?.note ?? "";
+
+  const fields = {
+    date: input.date,
+    shopId: input.shopId,
+    shopName: input.shopName,
+    revenue, transfer, cash, delivery,
+    expense, pork, porkBreakdown,
+    materials, supplies, gas, labor, ice,
+    extraExpenses, extraIncome,
+    profit, note, status,
+  };
+
+  if (existing) {
+    const updated = await updateRecord(existing.id, fields);
+    return updated as FinancialRecord;
+  }
+  return createRecord(fields);
 }
 
 export async function deleteRecord(id: string): Promise<boolean> {

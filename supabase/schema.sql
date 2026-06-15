@@ -78,6 +78,7 @@ create table if not exists financial_records (
   labor           numeric not null default 1500,
   ice             numeric not null default 35,
   extra_expenses  jsonb   not null default '[]',
+  extra_income    jsonb   not null default '[]',
   profit          numeric not null default 0,
   margin_pct      numeric not null default 0,
   note            text,
@@ -85,6 +86,10 @@ create table if not exists financial_records (
   created_at      timestamptz default now(),
   updated_at      timestamptz default now()
 );
+
+-- Migration for databases created before extra_income existed (idempotent):
+alter table financial_records
+  add column if not exists extra_income jsonb not null default '[]';
 
 -- unique constraint สำหรับ bulk import idempotency
 create unique index if not exists idx_financial_records_shop_date

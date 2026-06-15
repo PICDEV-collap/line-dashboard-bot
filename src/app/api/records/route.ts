@@ -5,28 +5,20 @@ import {
   getAllRecords,
   createRecord,
   getFinancialStats,
-  initializeFinancialSheets,
-} from "@/lib/services/financial-sheets.service";
+} from "@/lib/services/financial-records.service";
 import {
   errorToApiResponse,
   getStatusCode,
   toApiResponse,
   ValidationError,
 } from "@/lib/utils/error-handler";
-import { ENV } from "@/config/constants";
+import { ENV, DEFAULT_EXPENSES } from "@/config/constants";
 import type { FinancialRecord } from "@/lib/types/financial.types";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
 const logger = createLogger("RecordsRoute");
-
-let initialized = false;
-async function ensureInit() {
-  if (initialized) return;
-  await initializeFinancialSheets();
-  initialized = true;
-}
 
 // ──────────────────────────────────────────────────────────────
 // GET /api/records — list records with filters
@@ -39,8 +31,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       status: getStatusCode(error),
     });
   }
-
-  await ensureInit();
 
   const { searchParams } = new URL(request.url);
   const shopId = searchParams.get("shopId") ?? undefined;
@@ -111,8 +101,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     });
   }
 
-  await ensureInit();
-
   let body: Partial<FinancialRecord>;
   try {
     body = await request.json();
@@ -144,9 +132,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       porkBreakdown: body.porkBreakdown,
       materials: body.materials ?? 0,
       supplies: body.supplies ?? 0,
-      gas: body.gas ?? 150,
-      labor: body.labor ?? 1500,
-      ice: body.ice ?? 35,
+      gas: body.gas ?? DEFAULT_EXPENSES.gas,
+      labor: body.labor ?? DEFAULT_EXPENSES.labor,
+      ice: body.ice ?? DEFAULT_EXPENSES.ice,
       extraExpenses: body.extraExpenses ?? [],
       extraIncome: body.extraIncome ?? [],
       profit: body.profit ?? (body.revenue ?? 0) - (body.expense ?? 0),

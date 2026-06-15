@@ -5,7 +5,7 @@ import {
   getRecordById,
   updateRecord,
   deleteRecord,
-} from "@/lib/services/financial-sheets.service";
+} from "@/lib/services/financial-records.service";
 import {
   errorToApiResponse,
   getStatusCode,

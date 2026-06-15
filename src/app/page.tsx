@@ -12,7 +12,7 @@ export default function HomePage() {
           LINE Dashboard Bot
         </h1>
         <p style={{ color: "#888", marginTop: "0.5rem" }}>
-          Serverless · Next.js 15 · Vercel · Supabase · Gemini OCR
+          Serverless · Next.js 16 · Vercel · Supabase · Gemini OCR
         </p>
       </div>
 

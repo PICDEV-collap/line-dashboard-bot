@@ -1,18 +1,10 @@
 import { getSupabaseClient } from "@/lib/services/supabase.service";
 import { createLogger } from "@/lib/middleware/logger";
 import { getTodayDateString } from "@/lib/utils/helpers";
-import type { MessageRow, OcrResultRow, StatsRow, DashboardStats } from "@/lib/types/sheets.types";
+import type { MessageRow, OcrResultRow, StatsRow, DashboardStats } from "@/lib/types/db.types";
 import type { LogEntry } from "@/lib/types/common.types";
 
-const logger = createLogger("DBService");
-
-// ──────────────────────────────────────────────────────────────
-// Init (no-op — tables created via supabase/schema.sql)
-// ──────────────────────────────────────────────────────────────
-
-export async function initializeSheets(): Promise<void> {
-  logger.info("DB init skipped — Supabase tables managed via schema.sql");
-}
+const logger = createLogger("MessagesService");
 
 // ──────────────────────────────────────────────────────────────
 // Messages
@@ -151,7 +143,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   const [totalRes, todayRes, statRes, errorRes, recentRes] = await Promise.all([
     db.from("messages").select("*", { count: "exact", head: true }),
     db.from("messages").select("*", { count: "exact", head: true })
-      .gte("timestamp", `${today}T00:00:00`),
+      .gte("timestamp", `${today}T00:00:00+07:00`),
     db.from("daily_stats").select("*").eq("date", today).maybeSingle(),
     db.from("messages").select("*", { count: "exact", head: true })
       .eq("status", "failed"),

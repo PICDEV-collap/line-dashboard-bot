@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateDashboardApiKey } from "@/lib/middleware/signature-validator";
 import { createLogger } from "@/lib/middleware/logger";
-import { getMessages } from "@/lib/services/google-sheets.service";
+import { getMessages } from "@/lib/services/messages.service";
 import { errorToApiResponse, getStatusCode, toApiResponse } from "@/lib/utils/error-handler";
 
 export const runtime = "nodejs";

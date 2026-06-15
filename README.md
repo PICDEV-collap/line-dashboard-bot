@@ -1,6 +1,6 @@
 # LINE Dashboard Bot — ร้านครูตอม
 
-> Serverless LINE Bot · Next.js 15 · TypeScript · Vercel · **Supabase** · Gemini OCR
+> Serverless LINE Bot · Next.js 16 · TypeScript · Vercel · **Supabase** · Gemini OCR
 
 ---
 
@@ -44,7 +44,7 @@
                                 │  Header: X-Line-Signature (HMAC-SHA256)
                                 ▼
 ┌──────────────────────────────────────────────────────────────────┐
-│                   VERCEL — Next.js 15 App Router                 │
+│                   VERCEL — Next.js 16 App Router                 │
 │  ┌──────────────────────────────────────────────────────────┐   │
 │  │  Rate Limiter → Signature Validator → Logger             │   │
 │  └──────────────────────┬───────────────────────────────────┘   │
@@ -211,6 +211,7 @@ create table if not exists financial_records (
   labor numeric not null default 1500,
   ice numeric not null default 35,
   extra_expenses jsonb not null default '[]',
+  extra_income jsonb not null default '[]',
   profit numeric not null default 0,
   margin_pct numeric not null default 0,
   note text,
@@ -255,7 +256,7 @@ create index if not exists idx_financial_records_date
 | Gemini 1.5 Flash | 15 req/min, 1 ล้าน tokens/วัน |
 | Gemini 2.0 Flash | 15 req/min, ใหม่กว่า เร็วกว่า |
 
-> ระบบใช้ `gemini-1.5-flash` เป็น default
+> ระบบใช้ `gemini-2.0-flash` เป็น default
 
 ---
 
@@ -330,7 +331,7 @@ git push -u origin main
 | `SUPABASE_URL` | `https://xxx.supabase.co` | จาก Project Settings → API |
 | `SUPABASE_SERVICE_KEY` | `eyJ...` (service_role) | จาก Project Settings → API |
 | `GEMINI_API_KEY` | (จาก AI Studio) | |
-| `GEMINI_MODEL` | `gemini-1.5-flash` | |
+| `GEMINI_MODEL` | `gemini-2.0-flash` | |
 | `DASHBOARD_API_KEY` | (สร้างเอง — ดูด้านล่าง) | |
 | `NEXT_PUBLIC_APP_URL` | `https://your-app.vercel.app` | อัปเดตหลัง deploy |
 | `DEFAULT_SHOP_ID` | `shop1` | |
@@ -385,7 +386,7 @@ GEMINI_API_KEY=AIzaSyA...
 # API Key สำหรับ Gemini Vision OCR และ Financial Message Parsing
 # ได้จาก Google AI Studio (aistudio.google.com) — ไม่ต้อง Google Cloud
 
-GEMINI_MODEL=gemini-1.5-flash
+GEMINI_MODEL=gemini-2.0-flash
 # รุ่น Gemini: gemini-1.5-flash | gemini-1.5-pro | gemini-2.0-flash-exp
 
 # ─── Dashboard ──────────────────────────────────────────────────
@@ -611,7 +612,7 @@ LINE_CHANNEL_SECRET=xxx
 SUPABASE_URL=https://xxx.supabase.co
 SUPABASE_SERVICE_KEY=eyJ...
 GEMINI_API_KEY=AIzaSy...
-GEMINI_MODEL=gemini-1.5-flash
+GEMINI_MODEL=gemini-2.0-flash
 DASHBOARD_API_KEY=my-local-api-key
 DEFAULT_SHOP_ID=shop1
 DEFAULT_SHOP_NAME=ร้านครูตอม
@@ -687,7 +688,8 @@ npm run lint        # ESLint
 | `gas` | numeric | ค่าแก๊ส (฿) default 150 |
 | `labor` | numeric | ค่าแรง (฿) default 1500 |
 | `ice` | numeric | ค่าน้ำแข็ง (฿) default 35 |
-| `extra_expenses` | jsonb | array ของ `{label, amount}` |
+| `extra_expenses` | jsonb | array ของ `{name, amount}` |
+| `extra_income` | jsonb | รายรับพิเศษ array ของ `{name, amount}` |
 | `profit` | numeric | กำไรสุทธิ (฿) |
 | `margin_pct` | numeric | อัตรากำไร (%) |
 | `status` | text | complete / pending / draft |
@@ -906,18 +908,18 @@ line-dashboard-bot/
 │       │   ├── rate-limiter.ts        # Sliding window (per IP)
 │       │   └── signature-validator.ts # LINE HMAC + Bearer auth
 │       ├── services/
-│       │   ├── supabase.service.ts          # Singleton Supabase client
-│       │   ├── line.service.ts              # LINE API client
-│       │   ├── google-sheets.service.ts     # Messages/Stats → Supabase DB
-│       │   ├── google-drive.service.ts      # File upload → Supabase Storage
-│       │   ├── gemini.service.ts            # Vision OCR
-│       │   ├── financial-parser.service.ts  # Thai financial message parse
-│       │   ├── financial-sheets.service.ts  # Financial_Records → Supabase DB
-│       │   └── webhook-processor.service.ts # Orchestration
+│       │   ├── supabase.service.ts            # Singleton Supabase client
+│       │   ├── line.service.ts                # LINE API client
+│       │   ├── messages.service.ts            # Messages/OCR/Stats → Supabase DB
+│       │   ├── storage.service.ts             # File upload → Supabase Storage
+│       │   ├── gemini.service.ts              # Vision OCR
+│       │   ├── financial-parser.service.ts    # Thai financial message parse
+│       │   ├── financial-records.service.ts   # financial_records → Supabase DB
+│       │   └── webhook-processor.service.ts   # Orchestration
 │       ├── types/
 │       │   ├── common.types.ts
 │       │   ├── line.types.ts
-│       │   ├── sheets.types.ts
+│       │   ├── db.types.ts
 │       │   └── financial.types.ts
 │       └── utils/
 │           ├── retry.ts               # Exponential backoff
@@ -934,4 +936,4 @@ line-dashboard-bot/
 
 ---
 
-*Built with Next.js 15 · Deployed on Vercel · Powered by Supabase + Gemini AI*
+*Built with Next.js 16 · Deployed on Vercel · Powered by Supabase + Gemini AI*

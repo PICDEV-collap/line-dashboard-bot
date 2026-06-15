@@ -52,40 +52,6 @@ export interface FinancialRecord {
   updatedAt: string;
 }
 
-// Row layout in Google Sheets (Financial_Records sheet)
-export type FinancialRow = [
-  string, // A: ID
-  string, // B: Date
-  string, // C: ShopID
-  string, // D: ShopName
-  string, // E: Revenue
-  string, // F: Transfer
-  string, // G: Cash
-  string, // H: Delivery
-  string, // I: Expense
-  string, // J: Pork
-  string, // K: PorkBreakdownJSON
-  string, // L: Materials
-  string, // M: Supplies
-  string, // N: Gas
-  string, // O: Labor
-  string, // P: Ice
-  string, // Q: ExtraExpensesJSON
-  string, // R: Profit
-  string, // S: MarginPct
-  string, // T: Note
-  string, // U: Status
-  string, // V: CreatedAt
-  string, // W: UpdatedAt
-];
-
-export const FINANCIAL_HEADERS: string[] = [
-  "ID","Date","ShopID","ShopName",
-  "Revenue","Transfer","Cash","Delivery",
-  "Expense","Pork","PorkBreakdown","Materials","Supplies","Gas","Labor","Ice","ExtraExpenses",
-  "Profit","MarginPct","Note","Status","CreatedAt","UpdatedAt",
-];
-
 // Aggregated stats for dashboard KPIs
 export interface FinancialStats {
   totalRevenue: number;

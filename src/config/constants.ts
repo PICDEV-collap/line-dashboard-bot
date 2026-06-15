@@ -30,6 +30,18 @@ export const ENV = {
   NODE_ENV: () => optionalEnv("NODE_ENV", "development"),
 } as const;
 
+// IANA timezone for the shops — all date strings (record date, daily stats key)
+// are derived in this zone so entries near midnight land on the correct local day.
+export const BANGKOK_TZ = "Asia/Bangkok";
+
+// Default daily expenses applied when a value isn't provided by the parser/API.
+// Centralized here so the bot, the records API, and read-time fallbacks agree.
+export const DEFAULT_EXPENSES = {
+  gas: 150,
+  labor: 1500,
+  ice: 35,
+} as const;
+
 // Retry configuration
 export const RETRY_CONFIG = {
   MAX_ATTEMPTS: 3,

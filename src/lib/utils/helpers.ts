@@ -1,15 +1,19 @@
 import { randomUUID } from "crypto";
+import { BANGKOK_TZ } from "@/config/constants";
 
 export function generateId(): string {
   return randomUUID();
 }
 
+// UTC ISO instant — correct for created_at/updated_at timestamps.
 export function getCurrentTimestamp(): string {
   return new Date().toISOString();
 }
 
+// Calendar date (YYYY-MM-DD) in the shop's timezone. Using the local day —
+// not UTC — keeps records entered after midnight ICT on the right date.
 export function getTodayDateString(): string {
-  return new Date().toISOString().split("T")[0];
+  return new Date().toLocaleDateString("en-CA", { timeZone: BANGKOK_TZ });
 }
 
 export function encodeBase64(str: string): string {
@@ -22,15 +26,6 @@ export function decodeBase64(str: string): string {
 
 export function decodeBase64ToBuffer(str: string): Buffer {
   return Buffer.from(str, "base64");
-}
-
-export function parseServiceAccountKey(base64Key: string) {
-  try {
-    const json = decodeBase64(base64Key);
-    return JSON.parse(json);
-  } catch {
-    throw new Error("Invalid GOOGLE_SERVICE_ACCOUNT_KEY: must be valid base64-encoded JSON");
-  }
 }
 
 export function truncate(str: string, maxLength: number): string {
@@ -69,7 +64,7 @@ export function getFileExtension(filename: string): string {
   return filename.split(".").pop()?.toLowerCase() ?? "";
 }
 
-// Sanitize filename for Google Drive
+// Sanitize filename for object storage (strip path-unsafe characters)
 export function sanitizeFilename(name: string): string {
   return name.replace(/[<>:"/\\|?*]/g, "_").trim();
 }

@@ -3,7 +3,6 @@ import { validateLineSignature } from "@/lib/middleware/signature-validator";
 import { rateLimitMiddleware, getRateLimitHeaders } from "@/lib/middleware/rate-limiter";
 import { createLogger } from "@/lib/middleware/logger";
 import { processWebhookEvents } from "@/lib/services/webhook-processor.service";
-import { initializeSheets } from "@/lib/services/google-sheets.service";
 import { errorToApiResponse, AppError } from "@/lib/utils/error-handler";
 import type { LineWebhookBody } from "@/lib/types/line.types";
 
@@ -11,14 +10,6 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const logger = createLogger("WebhookRoute");
-
-// Initialize sheets on first cold start (idempotent)
-let sheetsInitialized = false;
-async function ensureSheetsInitialized(): Promise<void> {
-  if (sheetsInitialized) return;
-  await initializeSheets();
-  sheetsInitialized = true;
-}
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const startTime = Date.now();
@@ -83,9 +74,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   // 5. Early 200 response — LINE requires < 30s response
   // Process events asynchronously (Vercel allows this via maxDuration)
   const processingPromise = (async () => {
-    await ensureSheetsInitialized().catch((err) =>
-      logger.error("Sheets init failed", err)
-    );
     await processWebhookEvents(body.events);
     logger.info("Webhook processing complete", {
       durationMs: Date.now() - startTime,

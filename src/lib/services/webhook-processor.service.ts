@@ -1,5 +1,5 @@
 import { createLogger } from "@/lib/middleware/logger";
-import { generateId, getCurrentTimestamp, safeJsonStringify } from "@/lib/utils/helpers";
+import { generateId, getCurrentTimestamp, getTodayDateString, safeJsonStringify } from "@/lib/utils/helpers";
 import { normalizeError } from "@/lib/utils/error-handler";
 import {
   getUserProfile,
@@ -7,18 +7,18 @@ import {
   replyText,
   buildSuccessReply,
 } from "@/lib/services/line.service";
-import { appendMessage, appendOcrResult, updateDailyStats } from "@/lib/services/google-sheets.service";
-import { uploadImage, uploadPdf } from "@/lib/services/google-drive.service";
+import { appendMessage, appendOcrResult, updateDailyStats } from "@/lib/services/messages.service";
+import { uploadImage, uploadPdf } from "@/lib/services/storage.service";
 import { extractTextFromImage } from "@/lib/services/gemini.service";
 import {
   parseFinancialMessage,
   looksLikeFinancialData,
-  buildFinancialConfirmation,
+  buildRecordConfirmation,
 } from "@/lib/services/financial-parser.service";
-import { createRecord } from "@/lib/services/financial-sheets.service";
+import { upsertParsedRecord } from "@/lib/services/financial-records.service";
 import { ENV } from "@/config/constants";
 import type { LineEvent, ProcessedMessage } from "@/lib/types/line.types";
-import type { MessageRow, OcrResultRow, StatsRow } from "@/lib/types/sheets.types";
+import type { MessageRow, OcrResultRow, StatsRow } from "@/lib/types/db.types";
 
 const logger = createLogger("WebhookProcessor");
 
@@ -142,75 +142,13 @@ async function processTextMessage(
     if (parsed.isFinancialData && parsed.confidence >= 0.6) {
       logger.info("Financial message detected", { confidence: parsed.confidence });
 
-      const today = parsed.date ?? new Date().toISOString().split("T")[0];
-
-      // Calculate totals
-      const transfer = parsed.transfer ?? 0;
-      const cash = parsed.cash ?? 0;
-      const delivery = parsed.delivery ?? 0;
-      const extraIncome = parsed.extraIncome ?? [];
-      const extraIncomeTotal = extraIncome.reduce((s, e) => s + e.amount, 0);
-      const revenue = transfer + cash + delivery + extraIncomeTotal;
-
-      const porkRed = parsed.porkRed
-        ? parsed.porkRed.qty * parsed.porkRed.price
-        : 0;
-      const porkMinced = parsed.porkMinced
-        ? parsed.porkMinced.qty * parsed.porkMinced.price
-        : 0;
-      const porkFat = parsed.porkFat
-        ? parsed.porkFat.qty * parsed.porkFat.price
-        : 0;
-      const pork = porkRed + porkMinced + porkFat;
-
-      const materials = parsed.materials ?? 0;
-      const supplies = parsed.supplies ?? 0;
-      const gas = parsed.gas ?? 150;
-      const labor = parsed.labor ?? 1500;
-      const ice = parsed.ice ?? 35;
-      const extraTotal = (parsed.extraExpenses ?? []).reduce(
-        (s, e) => s + e.amount,
-        0
-      );
-      const expense = pork + materials + supplies + gas + labor + ice + extraTotal;
-      const profit = revenue - expense;
-
-      // Save to Financial Records sheet
-      await createRecord({
-        date: today,
+      // Merge into the day's record (accumulates across multiple messages)
+      const record = await upsertParsedRecord({
+        date: parsed.date ?? getTodayDateString(),
         shopId: parsed.shopId ?? ENV.DEFAULT_SHOP_ID(),
         shopName: parsed.shopName ?? ENV.DEFAULT_SHOP_NAME(),
-        revenue,
-        transfer,
-        cash,
-        delivery,
-        expense,
-        pork,
-        porkBreakdown: {
-          redQty: parsed.porkRed?.qty ?? 0,
-          redPrice: parsed.porkRed?.price ?? 0,
-          redTotal: porkRed,
-          mincedQty: parsed.porkMinced?.qty ?? 0,
-          mincedPrice: parsed.porkMinced?.price ?? 0,
-          mincedTotal: porkMinced,
-          fatQty: parsed.porkFat?.qty ?? 0,
-          fatPrice: parsed.porkFat?.price ?? 0,
-          fatTotal: porkFat,
-          total: pork,
-        },
-        materials,
-        supplies,
-        gas,
-        labor,
-        ice,
-        extraExpenses: parsed.extraExpenses ?? [],
-        extraIncome,
-        profit,
-        note: parsed.note ?? text.slice(0, 200),
-        status: revenue === 0 ? "pending" : "complete",
+        parsed,
       });
-
-      const replyMsg = buildFinancialConfirmation(parsed, revenue, expense, profit);
 
       return {
         processed: {
@@ -218,7 +156,7 @@ async function processTextMessage(
           content: `[FINANCIAL] ${text.slice(0, 200)}`,
           status: "completed",
         },
-        replyMsg,
+        replyMsg: buildRecordConfirmation(record),
       };
     }
   }
