@@ -196,6 +196,12 @@ tbody td{padding:8px 11px;color:var(--text)}
         <input type="date" class="fi" id="fDateFrom" onchange="applyFilter()"></div>
       <div class="fg"><div class="fl">ถึงวันที่</div>
         <input type="date" class="fi" id="fDateTo" onchange="applyFilter()"></div>
+      <div class="fg"><div class="fl">สาขา</div>
+        <select class="fs" id="fShop" onchange="applyFilter()">
+          <option value="all">ทั้งหมด</option>
+          <option value="shop1">ตลาดญี่ปุ่น</option>
+          <option value="shop2">สายหนองปิง</option>
+        </select></div>
       <div class="fg"><div class="fl">กำไร/ขาดทุน</div>
         <select class="fs" id="fPL" onchange="applyFilter()">
           <option value="all">ทั้งหมด</option>
@@ -517,17 +523,19 @@ function getFilteredData() {
   const from  = document.getElementById('fDateFrom')?.value;
   const to    = document.getElementById('fDateTo')?.value;
   const pl    = document.getElementById('fPL')?.value;
+  const shop  = document.getElementById('fShop')?.value;
   if (month && month !== 'all') r = r.filter(x => x.date.startsWith(month));
   if (from) r = r.filter(x => x.date >= from);
   if (to)   r = r.filter(x => x.date <= to);
   if (pl === 'profit') r = r.filter(x => x.profit >= 0);
   if (pl === 'loss')   r = r.filter(x => x.profit < 0);
+  if (shop && shop !== 'all') r = r.filter(x => x.shopId === shop);
   return r.sort((a,b) => a.date.localeCompare(b.date));
 }
 
 function applyFilter() { renderDashboard(); }
 function resetFilter() {
-  ['fMonth','fPL'].forEach(id => { const el = document.getElementById(id); if(el) el.value='all'; });
+  ['fMonth','fPL','fShop'].forEach(id => { const el = document.getElementById(id); if(el) el.value='all'; });
   ['fDateFrom','fDateTo'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
   renderDashboard();
 }
