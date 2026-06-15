@@ -148,6 +148,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       labor: body.labor ?? 1500,
       ice: body.ice ?? 35,
       extraExpenses: body.extraExpenses ?? [],
+      extraIncome: body.extraIncome ?? [],
       profit: body.profit ?? (body.revenue ?? 0) - (body.expense ?? 0),
       note: body.note ?? "",
       status: body.status ?? "complete",
