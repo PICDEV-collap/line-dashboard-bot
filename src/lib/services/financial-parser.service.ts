@@ -147,11 +147,40 @@ function parseFinancialMessageWithRegex(text: string): ParsedFinancialInput {
   const iceM = text.match(/(?:ค่าน้ำแข็ง|น้ำแข็ง)\s*([\d,]+)/);
   const ice = iceM ? num(iceM[1]) : undefined;
 
-  const hasRevenue = transfer > 0 || cash > 0 || delivery > 0;
-  const hasPork = porkRed !== undefined || porkMinced !== undefined || porkFat !== undefined;
-  const isFinancialData = hasRevenue || hasPork || materials > 0;
+  // Detect free-form extra expenses/income from unrecognized lines
+  const KNOWN = [
+    /โอน/, /เงินสด/, /^สด\s/, /delivery/i, /เดลิเวอรี/,
+    /หมู(?:แดง|เนื้อ|สับ|มัน)/, /มันหมู/, /\d+\s*กก/,
+    /วัตถุดิบ/, /อุปกรณ์/, /บรรจุภัณฑ์/, /ถุง/, /กล่อง/,
+    /ค่าแก๊ส/, /^แก๊ส\s/, /ค่าแรง/, /ค่าน้ำแข็ง/, /^น้ำแข็ง\s/,
+    /ตลาดญี่ปุ่น/, /ญี่ปุ่น/, /หนองปิง/, /สายหนองปิง/,
+    /ขายได้/,
+  ];
+  const extraExpenses: Array<{ name: string; amount: number }> = [];
+  const extraIncome: Array<{ name: string; amount: number }> = [];
 
-  logger.info("Regex parse result", { isFinancialData, transfer, cash, delivery, shopId: shop?.shopId });
+  for (const line of text.split(/\n/).map((l) => l.trim()).filter(Boolean)) {
+    // Extra income: lines starting with "รายรับ", "รายได้", or "+"
+    const incomeM = line.match(/^(?:รายรับ|รายได้|\+)\s*(.+?)\s+([\d,]+)$/);
+    if (incomeM) {
+      const amount = num(incomeM[2]);
+      if (amount > 0) extraIncome.push({ name: incomeM[1].trim(), amount });
+      continue;
+    }
+    // Extra expense: unrecognized "text amount" lines
+    const m = line.match(/^(.+?)\s+([\d,]+)$/);
+    if (!m) continue;
+    if (KNOWN.some((p) => p.test(line))) continue;
+    const name = m[1].trim();
+    const amount = num(m[2]);
+    if (amount > 0 && name.length >= 2) extraExpenses.push({ name, amount });
+  }
+
+  const hasRevenue = transfer > 0 || cash > 0 || delivery > 0 || extraIncome.length > 0;
+  const hasPork = porkRed !== undefined || porkMinced !== undefined || porkFat !== undefined;
+  const isFinancialData = hasRevenue || hasPork || materials > 0 || extraExpenses.length > 0;
+
+  logger.info("Regex parse result", { isFinancialData, transfer, cash, delivery, extraExpenses: extraExpenses.length, extraIncome: extraIncome.length, shopId: shop?.shopId });
 
   return {
     isFinancialData,
@@ -168,7 +197,8 @@ function parseFinancialMessageWithRegex(text: string): ParsedFinancialInput {
     gas,
     labor,
     ice,
-    extraExpenses: [],
+    extraExpenses,
+    extraIncome,
   };
 }
 

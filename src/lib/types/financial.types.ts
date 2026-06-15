@@ -40,6 +40,7 @@ export interface FinancialRecord {
   labor: number;
   ice: number;
   extraExpenses: ExtraExpense[];
+  extraIncome: ExtraIncome[];
   // Summary
   profit: number;            // revenue - expense
   marginPct: number;         // profit / revenue * 100
@@ -114,6 +115,11 @@ export interface FinancialStats {
 }
 
 // Parsed output from Gemini financial parser
+export interface ExtraIncome {
+  name: string;
+  amount: number;
+}
+
 export interface ParsedFinancialInput {
   date?: string;
   shopId?: string;
@@ -121,6 +127,7 @@ export interface ParsedFinancialInput {
   transfer?: number;
   cash?: number;
   delivery?: number;
+  extraIncome?: ExtraIncome[];
   porkRed?: { qty: number; price: number };
   porkMinced?: { qty: number; price: number };
   porkFat?: { qty: number; price: number };

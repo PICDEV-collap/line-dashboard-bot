@@ -6,6 +6,7 @@ import type {
   FinancialStats,
   PorkBreakdown,
   ExtraExpense,
+  ExtraIncome,
 } from "@/lib/types/financial.types";
 
 const logger = createLogger("FinancialDBService");
@@ -43,6 +44,7 @@ function rowToRecord(row: Record<string, unknown>): FinancialRecord {
     labor: Number(row.labor ?? 1500),
     ice: Number(row.ice ?? 35),
     extraExpenses: (row.extra_expenses as ExtraExpense[]) ?? [],
+    extraIncome: (row.extra_income as ExtraIncome[]) ?? [],
     profit,
     marginPct: Number(row.margin_pct ?? 0),
     note: String(row.note ?? ""),
@@ -106,6 +108,7 @@ export async function createRecord(
     labor: data.labor,
     ice: data.ice,
     extra_expenses: data.extraExpenses,
+    extra_income: data.extraIncome ?? [],
     profit: data.profit,
     margin_pct: marginPct,
     note: data.note,

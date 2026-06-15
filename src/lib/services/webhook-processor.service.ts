@@ -148,7 +148,9 @@ async function processTextMessage(
       const transfer = parsed.transfer ?? 0;
       const cash = parsed.cash ?? 0;
       const delivery = parsed.delivery ?? 0;
-      const revenue = transfer + cash + delivery;
+      const extraIncome = parsed.extraIncome ?? [];
+      const extraIncomeTotal = extraIncome.reduce((s, e) => s + e.amount, 0);
+      const revenue = transfer + cash + delivery + extraIncomeTotal;
 
       const porkRed = parsed.porkRed
         ? parsed.porkRed.qty * parsed.porkRed.price
@@ -202,6 +204,7 @@ async function processTextMessage(
         labor,
         ice,
         extraExpenses: parsed.extraExpenses ?? [],
+        extraIncome,
         profit,
         note: parsed.note ?? text.slice(0, 200),
         status: revenue === 0 ? "pending" : "complete",
