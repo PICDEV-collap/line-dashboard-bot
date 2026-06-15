@@ -456,7 +456,7 @@ function apiBase() { return (apiConfig.url || '').replace(/\/$/, ''); }
 
 async function apiFetch(path, options = {}) {
   if (!apiConfig.url || !apiConfig.key) throw new Error('ยังไม่ได้ตั้งค่า API URL และ Key');
-  const res = await fetch(apiBase() + path, { ...options, headers: { ...apiHeaders(), ...(options.headers||{}) } });
+  const res = await fetch(apiBase() + path, { cache: 'no-store', ...options, headers: { ...apiHeaders(), ...(options.headers||{}) } });
   if (!res.ok) {
     const txt = await res.text().catch(() => '');
     throw new Error(`API Error ${res.status}: ${txt.slice(0,200)}`);
@@ -500,7 +500,7 @@ async function refreshData() {
 // ── Auto-refresh: pick up records added by the LINE bot without a manual reload ──
 let lastSignature = '';
 let autoTimer = null;
-const AUTO_REFRESH_MS = 30000;
+const AUTO_REFRESH_MS = 20000;
 
 // Cheap change detector: record count + the latest updatedAt timestamp.
 function recordsSignature(records) {
@@ -528,7 +528,7 @@ async function autoRefreshTick() {
     renderTable();
     updateApiDocs();
     showToast('🔄 มีข้อมูลใหม่ — อัปเดตแล้ว', 'success');
-  } catch (e) { /* keep last data; next tick retries */ }
+  } catch (e) { console.warn('auto-refresh failed:', e); }
 }
 
 function startAutoRefresh() {
@@ -998,8 +998,10 @@ if (apiConfig.url) {
 }
 updateApiDocs();
 startAutoRefresh();
-// Refresh the moment the user returns to the tab
+// Refresh the moment the user returns — visibilitychange covers tab switches,
+// focus covers alt-tabbing back from another app (e.g. the LINE desktop app).
 document.addEventListener('visibilitychange', () => { if (!document.hidden) autoRefreshTick(); });
+window.addEventListener('focus', autoRefreshTick);
 </script>
 </body>
 </html>
