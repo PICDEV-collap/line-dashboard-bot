@@ -88,33 +88,35 @@ export async function createRecord(
   const marginPct = data.revenue > 0 ? (data.profit / data.revenue) * 100 : 0;
 
   const db = getSupabaseClient();
+  const row = {
+    id,
+    date: data.date,
+    shop_id: data.shopId,
+    shop_name: data.shopName,
+    revenue: data.revenue,
+    transfer: data.transfer,
+    cash: data.cash,
+    delivery: data.delivery,
+    expense: data.expense,
+    pork: data.pork,
+    pork_breakdown: data.porkBreakdown ?? null,
+    materials: data.materials,
+    supplies: data.supplies,
+    gas: data.gas,
+    labor: data.labor,
+    ice: data.ice,
+    extra_expenses: data.extraExpenses,
+    profit: data.profit,
+    margin_pct: marginPct,
+    note: data.note,
+    status: data.status,
+    created_at: now,
+    updated_at: now,
+  };
+
   const { data: inserted, error } = await db
     .from("financial_records")
-    .insert({
-      id,
-      date: data.date,
-      shop_id: data.shopId,
-      shop_name: data.shopName,
-      revenue: data.revenue,
-      transfer: data.transfer,
-      cash: data.cash,
-      delivery: data.delivery,
-      expense: data.expense,
-      pork: data.pork,
-      pork_breakdown: data.porkBreakdown ?? null,
-      materials: data.materials,
-      supplies: data.supplies,
-      gas: data.gas,
-      labor: data.labor,
-      ice: data.ice,
-      extra_expenses: data.extraExpenses,
-      profit: data.profit,
-      margin_pct: marginPct,
-      note: data.note,
-      status: data.status,
-      created_at: now,
-      updated_at: now,
-    })
+    .upsert(row, { onConflict: "shop_id,date" })
     .select()
     .single();
 
