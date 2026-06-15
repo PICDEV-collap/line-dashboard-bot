@@ -229,7 +229,10 @@ export function buildFinancialConfirmation(
   expense: number,
   profit: number
 ): string {
-  const lines: string[] = ["✅ บันทึกข้อมูลรายวันเรียบร้อยแล้ว\n"];
+  const shopLabel = input.shopId === "shop2"
+    ? "🏪 สาขา: สายหนองปิง"
+    : "🏪 สาขา: ตลาดญี่ปุ่น";
+  const lines: string[] = [`✅ บันทึกข้อมูลรายวันเรียบร้อยแล้ว\n${shopLabel}\n`];
 
   lines.push("💰 รายรับ:");
   if (input.transfer) lines.push(`  📱 โอน: ฿${input.transfer.toLocaleString("th-TH")}`);
@@ -252,6 +255,16 @@ export function buildFinancialConfirmation(
   }
   if (input.materials) lines.push(`  🫙 วัตถุดิบ: ฿${input.materials.toLocaleString("th-TH")}`);
   if (input.supplies) lines.push(`  📦 อุปกรณ์: ฿${input.supplies.toLocaleString("th-TH")}`);
+  if ((input.extraExpenses ?? []).length > 0) {
+    for (const e of input.extraExpenses!) {
+      lines.push(`  💸 ${e.name}: ฿${e.amount.toLocaleString("th-TH")}`);
+    }
+  }
+  if ((input.extraIncome ?? []).length > 0) {
+    for (const e of input.extraIncome!) {
+      lines.push(`  💚 ${e.name}: ฿${e.amount.toLocaleString("th-TH")}`);
+    }
+  }
   lines.push(`  รวม: ฿${expense.toLocaleString("th-TH")}\n`);
 
   const emoji = profit >= 0 ? "📈" : "📉";
