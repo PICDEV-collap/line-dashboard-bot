@@ -152,6 +152,7 @@ tbody td{padding:8px 11px;color:var(--text)}
     <span class="sync-dot" id="syncDot"></span>
     <span id="syncText">กำลังเชื่อมต่อ API...</span>
     <span id="lastSync" style="color:var(--muted)"></span>
+    <span id="autoSyncHint" style="color:var(--muted);font-size:11px;margin-left:6px" title="อัปเดตอัตโนมัติทุก 15 วินาที"></span>
   </div>
   <div class="api-cfg">
     <input type="text" id="apiUrl" placeholder="https://your-app.vercel.app" title="Vercel URL">
@@ -456,7 +457,12 @@ function apiBase() { return (apiConfig.url || '').replace(/\/$/, ''); }
 
 async function apiFetch(path, options = {}) {
   if (!apiConfig.url || !apiConfig.key) throw new Error('ยังไม่ได้ตั้งค่า API URL และ Key');
-  const res = await fetch(apiBase() + path, { cache: 'no-store', ...options, headers: { ...apiHeaders(), ...(options.headers||{}) } });
+  const bust = options.bustCache ? (path.includes('?') ? '&' : '?') + '_=' + Date.now() : '';
+  const res = await fetch(apiBase() + path + bust, {
+    cache: 'no-store',
+    ...options,
+    headers: { ...apiHeaders(), 'Cache-Control': 'no-cache', Pragma: 'no-cache', ...(options.headers || {}) },
+  });
   if (!res.ok) {
     const txt = await res.text().catch(() => '');
     throw new Error(`API Error ${res.status}: ${txt.slice(0,200)}`);
@@ -481,11 +487,12 @@ async function refreshData() {
   }
   setSyncState('syncing', 'กำลังดึงข้อมูล...');
   try {
-    const res = await apiFetch('/api/records?limit=366');
+    const res = await apiFetch('/api/records?limit=366', { bustCache: true });
     allRecords = res.data?.records || [];
     lastSignature = recordsSignature(allRecords);
     document.getElementById('lastSync').textContent = '· อัปเดต ' + new Date().toLocaleTimeString('th-TH');
     setSyncState('online', `เชื่อมต่อแล้ว · ${allRecords.length} รายการ`);
+    updateAutoSyncHint('active');
     populateMonthDropdowns();
     renderDashboard();
     renderTable();
@@ -500,46 +507,93 @@ async function refreshData() {
 // ── Auto-refresh: pick up records added by the LINE bot without a manual reload ──
 let lastSignature = '';
 let autoTimer = null;
-const AUTO_REFRESH_MS = 20000;
+let autoRefreshInFlight = false;
+const AUTO_REFRESH_MS = 15000;
 
-// Cheap change detector: record count + the latest updatedAt timestamp.
+// Detect any record change — id, totals, extras, and updatedAt (not just count).
 function recordsSignature(records) {
-  let maxU = '';
-  for (const r of records) { if ((r.updatedAt || '') > maxU) maxU = r.updatedAt || ''; }
-  return records.length + '|' + maxU;
+  return records
+    .map(r => [
+      r.id,
+      r.updatedAt || '',
+      r.revenue || 0,
+      r.expense || 0,
+      r.profit || 0,
+      r.transfer || 0,
+      r.cash || 0,
+      r.delivery || 0,
+      (r.extraIncome || []).reduce((s, e) => s + e.amount, 0),
+      (r.extraExpenses || []).reduce((s, e) => s + e.amount, 0),
+    ].join(':'))
+    .sort()
+    .join('|');
+}
+
+function updateAutoSyncHint(state) {
+  const el = document.getElementById('autoSyncHint');
+  if (!el) return;
+  if (state === 'active') {
+    el.textContent = '· 🔄 auto 15s';
+    el.title = 'อัปเดตอัตโนมัติทุก 15 วินาที (เมื่อ LINE bot บันทึกข้อมูลใหม่)';
+  } else if (state === 'polling') {
+    el.textContent = '· 🔄 กำลัง sync...';
+  } else if (state === 'error') {
+    el.textContent = '· ⚠️ auto sync หยุด';
+    el.title = 'Auto-refresh ล้มเหลว — ตรวจสอบ API Key แล้วกดเชื่อมต่อใหม่';
+  } else {
+    el.textContent = '';
+  }
 }
 
 // Silent poll — re-renders (and toasts) only when the data actually changed.
 async function autoRefreshTick() {
-  if (!apiConfig.url || !apiConfig.key) return;                // not connected
-  if (document.hidden) return;                                 // tab not visible
-  if ($('modalOverlay')?.classList.contains('open')) return;   // don't disrupt editing
+  if (!apiConfig.url || !apiConfig.key) return;
+  if (document.hidden) return;
+  if ($('modalOverlay')?.classList.contains('open')) return;
+  if (autoRefreshInFlight) return;
+  autoRefreshInFlight = true;
+  updateAutoSyncHint('polling');
   try {
-    const res = await apiFetch('/api/records?limit=366');
+    const res = await apiFetch('/api/records?limit=366', { bustCache: true });
     const recs = res.data?.records || [];
     const sig = recordsSignature(recs);
-    if (sig === lastSignature) return;                         // nothing new
-    lastSignature = sig;
-    allRecords = recs;
-    document.getElementById('lastSync').textContent = '· อัปเดต ' + new Date().toLocaleTimeString('th-TH');
-    setSyncState('online', `เชื่อมต่อแล้ว · ${allRecords.length} รายการ`);
-    populateMonthDropdowns();
-    renderDashboard();
-    renderTable();
-    updateApiDocs();
-    showToast('🔄 มีข้อมูลใหม่ — อัปเดตแล้ว', 'success');
-  } catch (e) { console.warn('auto-refresh failed:', e); }
+    if (sig !== lastSignature) {
+      lastSignature = sig;
+      allRecords = recs;
+      document.getElementById('lastSync').textContent = '· อัปเดต ' + new Date().toLocaleTimeString('th-TH');
+      setSyncState('online', `เชื่อมต่อแล้ว · ${allRecords.length} รายการ`);
+      populateMonthDropdowns();
+      renderDashboard();
+      renderTable();
+      updateApiDocs();
+      showToast('🔄 มีข้อมูลใหม่ — อัปเดตแล้ว', 'success');
+    }
+    updateAutoSyncHint('active');
+  } catch (e) {
+    console.warn('auto-refresh failed:', e);
+    updateAutoSyncHint('error');
+  } finally {
+    autoRefreshInFlight = false;
+  }
 }
 
 function startAutoRefresh() {
   if (autoTimer) clearInterval(autoTimer);
+  if (!apiConfig.url || !apiConfig.key) {
+    updateAutoSyncHint('idle');
+    return;
+  }
   autoTimer = setInterval(autoRefreshTick, AUTO_REFRESH_MS);
+  updateAutoSyncHint('active');
+  // First silent poll shortly after connect — don't wait a full interval.
+  setTimeout(autoRefreshTick, 3000);
 }
 
 function connectApi() {
   apiConfig.url = document.getElementById('apiUrl').value.trim();
   apiConfig.key = document.getElementById('apiKey').value.trim();
   localStorage.setItem(CFG_KEY, JSON.stringify(apiConfig));
+  startAutoRefresh();
   refreshData();
 }
 
@@ -549,6 +603,7 @@ function saveApiConfig() {
   document.getElementById('apiUrl').value = apiConfig.url;
   document.getElementById('apiKey').value = apiConfig.key;
   localStorage.setItem(CFG_KEY, JSON.stringify(apiConfig));
+  startAutoRefresh();
   refreshData();
 }
 
@@ -830,6 +885,24 @@ function todayBangkok(){ return new Date().toLocaleDateString('en-CA',{timeZone:
 
 function $(id){return document.getElementById(id);}
 
+function sanitizeRecordExtras(r) {
+  const income = [...(r.extraIncome || [])];
+  const expenses = [];
+  for (const e of (r.extraExpenses || [])) {
+    const n = (e.name || '').trim();
+    if (/^(?:ได้|รับ|รายรับ|รายได้|\+)/.test(n) || /คนละครึ่ง|ไลน์\s*แมน|lineman/i.test(n)) {
+      let name = n.replace(/^(?:ได้|รับ|รายรับ|รายได้|\+)\s*/, '').trim();
+      if (/คนละครึ่ง/i.test(n)) name = 'คนละครึ่ง';
+      else if (/ไลน์\s*แมน|lineman/i.test(n)) name = 'ไลน์แมน';
+      if (!name) name = 'รายรับอื่น';
+      if (!income.some(i => i.name === name && i.amount === e.amount)) income.push({ name, amount: e.amount });
+    } else {
+      expenses.push(e);
+    }
+  }
+  return { extraIncome: income, extraExpenses: expenses };
+}
+
 function openAddModal(r=null) {
   $('editId').value='';
   $('modalTitle').textContent='＋ เพิ่มข้อมูลรายวัน';
@@ -850,8 +923,9 @@ function openAddModal(r=null) {
     $('fMaterials').value=r.materials||''; $('fSupplies').value=r.supplies||'';
     $('fGas').value=r.gas||150; $('fLabor').value=r.labor||1500; $('fIce').value=r.ice||35;
     $('fNote').value=r.note||''; $('fStatus').value=r.status||'complete';
-    (r.extraExpenses||[]).forEach(e=>addExtraExpense(e.name,e.amount));
-    (r.extraIncome||[]).forEach(e=>addExtraIncome(e.name,e.amount));
+    const cleaned = sanitizeRecordExtras(r);
+    cleaned.extraExpenses.forEach(e=>addExtraExpense(e.name,e.amount));
+    cleaned.extraIncome.forEach(e=>addExtraIncome(e.name,e.amount));
     calcModal();
   }
   $('modalOverlay').classList.add('open');
@@ -991,15 +1065,13 @@ function showToast(msg, type='success') {
 if (apiConfig.url) {
   document.getElementById('apiUrl').value=apiConfig.url;
   document.getElementById('apiKey').value=apiConfig.key;
+  startAutoRefresh();
   refreshData();
 } else {
   setSyncState('offline','กรุณาตั้งค่า Vercel URL และ API Key ด้านบน');
   renderKPI([]);
 }
 updateApiDocs();
-startAutoRefresh();
-// Refresh the moment the user returns — visibilitychange covers tab switches,
-// focus covers alt-tabbing back from another app (e.g. the LINE desktop app).
 document.addEventListener('visibilitychange', () => { if (!document.hidden) autoRefreshTick(); });
 window.addEventListener('focus', autoRefreshTick);
 </script>

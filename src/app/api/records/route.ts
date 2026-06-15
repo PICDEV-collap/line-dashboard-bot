@@ -76,7 +76,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       }),
       {
         headers: {
-          "Cache-Control": "s-maxage=10, stale-while-revalidate=30",
+          // Dashboard auto-refresh must see fresh data — do not cache at CDN/browser.
+          "Cache-Control": "private, no-store, no-cache, must-revalidate",
           "Access-Control-Allow-Origin": "*",
         },
       }

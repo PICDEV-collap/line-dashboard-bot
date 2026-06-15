@@ -799,11 +799,22 @@ Authorization: Bearer <DASHBOARD_API_KEY>
 2. เปิด URL ใน browser — ถ้าขึ้น `{"error":"Method Not Allowed"}` แสดงว่า route ถูกต้อง
 3. ดู Vercel Logs หา error
 
-### ❌ API ตอบ 401 Unauthorized
+### ❌ API ตอบ 401 Unauthorized / `Missing Authorization header`
+
+**สาเหตุ:** เปิด API URL ตรงๆ ใน browser (เช่น `/api/dashboard/stats`) — browser ไม่ส่ง `Authorization` header ให้เอง
 
 **วิธีแก้:**
-1. ตรวจสอบ `DASHBOARD_API_KEY` ใน Vercel Environment Variables
-2. Header ต้องเป็น: `Authorization: Bearer <key>` (มีช่องว่างหลัง Bearer)
+1. ใช้ **Dashboard** แทน: `https://your-app.vercel.app/dashboard.html`
+2. กรอก **API URL** + **API Key** (`DASHBOARD_API_KEY` จาก Vercel) แล้วกด **เชื่อมต่อ**
+3. หรือทดสอบด้วย curl:
+   ```bash
+   curl -H "Authorization: Bearer YOUR_DASHBOARD_API_KEY" \
+     https://your-app.vercel.app/api/records?limit=10
+   ```
+4. ตรวจสอบ `DASHBOARD_API_KEY` ใน Vercel Environment Variables แล้ว **Redeploy**
+5. Header ต้องเป็น: `Authorization: Bearer <key>` (มีช่องว่างหลัง Bearer)
+
+> **หมายเหตุ:** `/api/health` ไม่ต้องใช้ key — ใช้เช็คว่า deploy ทำงานได้
 
 ### ❌ Supabase Error: relation "financial_records" does not exist
 
@@ -829,7 +840,20 @@ Authorization: Bearer <DASHBOARD_API_KEY>
 
 **สาเหตุ:** ข้อความไม่ผ่าน heuristic filter
 
-**วิธีแก้:** ข้อความต้องมีคำเหล่านี้: `โอน`, `สด`, `delivery`, `หมู`, `กำไร`, `ขาย`, `รายรับ`, `รายได้`, `เงิน`
+**วิธีแก้:** ข้อความต้องมีคำหรือรูปแบบเหล่านี้อย่างน้อยหนึ่งอย่าง:
+- รายรับ: `โอน`, `สด`, `delivery`, `ขายได้`, `ได้...`, `รับ...`, `รายรับ`, `รายได้`
+- รายจ่าย: `จ่าย...`, `ซื้อ...`, `หมู`, `แดง`, `สับ`, `วัตถุดิบ`
+- สาขา: `ตลาดญี่ปุ่น`, `หนองปิง`, `สายหนองปิง` (พร้อมตัวเลข)
+
+**ตัวอย่างข้อความที่ bot รับได้:**
+```
+ตลาดญี่ปุ่น
+โอน 5000 สด 3000
+ได้คนละครึ่ง 1200
+จ่ายค่าขนม 500
+ซื้อของ แม็คโคร 1300
+แดง4 สับ3
+```
 
 ### ❌ Dashboard HTML โหลดไม่ได้ (Network Error)
 

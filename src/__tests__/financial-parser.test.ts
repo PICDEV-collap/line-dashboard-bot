@@ -1,6 +1,11 @@
 import {
+  extractExtraExpenses,
+  extractExtraIncome,
+  isIncomeLikeName,
   looksLikeFinancialData,
+  parseFinancialMessageWithRegex,
   parsePork,
+  sanitizeExtraLedger,
 } from "@/lib/services/financial-parser.service";
 
 const RED = ["หมูแดง", "หมูเนื้อ", "แดง"];
@@ -19,6 +24,13 @@ describe("looksLikeFinancialData", () => {
   it("detects a branch name or purchase together with an amount", () => {
     expect(looksLikeFinancialData("หนองปิง ซื้อของ แม็คโคร 1220")).toBe(true);
     expect(looksLikeFinancialData("ตลาดญี่ปุ่น แดง4 สับ3 แม็คโคร 1300")).toBe(true);
+  });
+
+  it("detects income/expense prefix lines", () => {
+    expect(looksLikeFinancialData("ได้คนละครึ่ง 1200")).toBe(true);
+    expect(looksLikeFinancialData("รับเงินคืน 300")).toBe(true);
+    expect(looksLikeFinancialData("จ่ายค่าขนม 500")).toBe(true);
+    expect(looksLikeFinancialData("ซื้อของ แม็คโคร 1220")).toBe(true);
   });
 
   it("ignores plain chat", () => {
@@ -40,5 +52,192 @@ describe("parsePork", () => {
 
   it("returns undefined when the pork type is absent", () => {
     expect(parsePork("โอน 5000 สด 3000", RED)).toBeUndefined();
+  });
+});
+
+describe("extractExtraIncome", () => {
+  it("always treats คนละครึ่ง as income (never expense)", () => {
+    expect(extractExtraIncome("ได้คนละครึ่ง1265")).toEqual([
+      { name: "คนละครึ่ง", amount: 1265 },
+    ]);
+    expect(extractExtraIncome("คนละครึ่ง1265")).toEqual([
+      { name: "คนละครึ่ง", amount: 1265 },
+    ]);
+    expect(extractExtraExpenses("ได้คนละครึ่ง1265")).toEqual([]);
+    expect(extractExtraExpenses("คนละครึ่ง1265")).toEqual([]);
+  });
+
+  it("parses glued amounts without a space before digits", () => {
+    expect(extractExtraExpenses("จ่ายลูก690")).toEqual([
+      { name: "ลูก", amount: 690 },
+    ]);
+  });
+
+  it("parses ได้ and รับ prefix lines", () => {
+    expect(extractExtraIncome("ได้คนละครึ่ง 1200")).toEqual([
+      { name: "คนละครึ่ง", amount: 1200 },
+    ]);
+    expect(extractExtraIncome("รับเงินคืน 300")).toEqual([
+      { name: "เงินคืน", amount: 300 },
+    ]);
+  });
+
+  it("keeps backward-compatible prefixes", () => {
+    expect(extractExtraIncome("รายรับ คนละครึ่ง 1200")).toEqual([
+      { name: "คนละครึ่ง", amount: 1200 },
+    ]);
+    expect(extractExtraIncome("+โบนัส 500")).toEqual([{ name: "โบนัส", amount: 500 }]);
+  });
+
+  it("does not treat ขายได้ as extra income", () => {
+    expect(extractExtraIncome("ขายได้ 8000")).toEqual([]);
+  });
+});
+
+describe("extractExtraExpenses", () => {
+  it("parses จ่าย and ซื้อ prefix lines", () => {
+    expect(extractExtraExpenses("จ่ายค่าขนม 500")).toEqual([
+      { name: "ค่าขนม", amount: 500 },
+    ]);
+    expect(extractExtraExpenses("ซื้อของ แม็คโคร 1220")).toEqual([
+      { name: "ของ แม็คโคร", amount: 1220 },
+    ]);
+  });
+
+  it("strips branch name before matching", () => {
+    expect(extractExtraExpenses("หนองปิง ซื้อของ แม็คโคร 1220")).toEqual([
+      { name: "ของ แม็คโคร", amount: 1220 },
+    ]);
+  });
+});
+
+describe("parseFinancialMessageWithRegex", () => {
+  it("parses a multi-line daily message with income and expenses", async () => {
+    const text = [
+      "ตลาดญี่ปุ่น",
+      "โอน 5000 สด 3000",
+      "ได้คนละครึ่ง 1200",
+      "จ่ายค่าขนม 500",
+      "ซื้อของ แม็คโคร 1300",
+      "แดง4 สับ3",
+    ].join("\n");
+
+    const parsed = parseFinancialMessageWithRegex(text);
+
+    expect(parsed.isFinancialData).toBe(true);
+    expect(parsed.shopId).toBe("shop1");
+    expect(parsed.transfer).toBe(5000);
+    expect(parsed.cash).toBe(3000);
+    expect(parsed.extraIncome).toEqual([{ name: "คนละครึ่ง", amount: 1200 }]);
+    expect(parsed.extraExpenses).toEqual([
+      { name: "ค่าขนม", amount: 500 },
+      { name: "ของ แม็คโคร", amount: 1300 },
+    ]);
+    expect(parsed.porkRed).toEqual({ qty: 4, price: 0 });
+    expect(parsed.porkMinced).toEqual({ qty: 3, price: 0 });
+  });
+
+  it("parses real LINE shorthand from shop2 (glued amounts)", () => {
+    const text = [
+      "หนองปิง",
+      "โอน3385",
+      "สด1000",
+      "ได้คนละครึ่ง1265",
+      "สับ4",
+      "แดง4",
+      "มันหมู 8",
+      "จ่ายลูก690",
+    ].join("\n");
+
+    const parsed = parseFinancialMessageWithRegex(text);
+
+    expect(parsed.shopId).toBe("shop2");
+    expect(parsed.transfer).toBe(3385);
+    expect(parsed.cash).toBe(1000);
+    expect(parsed.extraIncome).toEqual([{ name: "คนละครึ่ง", amount: 1265 }]);
+    expect(parsed.extraExpenses).toEqual([{ name: "ลูก", amount: 690 }]);
+    expect(parsed.porkRed).toEqual({ qty: 4, price: 0 });
+    expect(parsed.porkMinced).toEqual({ qty: 4, price: 0 });
+    expect(parsed.porkFat).toEqual({ qty: 8, price: 0 });
+  });
+
+  it("parses screenshot message — ได้=รายรับ, จ่าย=รายจ่าย", () => {
+    const text = [
+      "หนองปิง",
+      "โอน 3385",
+      "สด 1000",
+      "ได้คนละครึ่ง 1265",
+      "สับ4",
+      "แดง4",
+      "มันหมู 8",
+      "จ่ายต่อล 670",
+      "ได้ไลน์แมน 450",
+      "จ่ายแม็คโคร 3800",
+    ].join("\n");
+
+    const parsed = parseFinancialMessageWithRegex(text);
+
+    expect(parsed.transfer).toBe(3385);
+    expect(parsed.cash).toBe(1000);
+    expect(parsed.extraIncome).toEqual(
+      expect.arrayContaining([
+        { name: "คนละครึ่ง", amount: 1265 },
+        { name: "ไลน์แมน", amount: 450 },
+      ])
+    );
+    expect(parsed.extraExpenses).toEqual(
+      expect.arrayContaining([
+        { name: "ต่อล", amount: 670 },
+        { name: "แม็คโคร", amount: 3800 },
+      ])
+    );
+    expect(parsed.extraExpenses!.every((e) => !isIncomeLikeName(e.name))).toBe(true);
+  });
+
+  it("parses LINE screenshot (19:42) — จ่ายต่อ without branch prefix", () => {
+    const text = [
+      "โอน 3385",
+      "สด 1000",
+      "ได้คนละครึ่ง 1265",
+      "สับ 4",
+      "แดง 4",
+      "มันหมู 8",
+      "จ่ายต่อ 670",
+      "ได้ไลน์แมน 450",
+      "จ่ายแม็คโคร 3800",
+    ].join("\n");
+
+    const parsed = parseFinancialMessageWithRegex(text);
+
+    expect(parsed.extraIncome).toEqual(
+      expect.arrayContaining([
+        { name: "คนละครึ่ง", amount: 1265 },
+        { name: "ไลน์แมน", amount: 450 },
+      ])
+    );
+    expect(parsed.extraExpenses).toEqual(
+      expect.arrayContaining([
+        { name: "ต่อ", amount: 670 },
+        { name: "แม็คโคร", amount: 3800 },
+      ])
+    );
+    expect(parsed.extraExpenses!.every((e) => !isIncomeLikeName(e.name))).toBe(true);
+  });
+});
+
+describe("sanitizeExtraLedger", () => {
+  it("promotes misclassified ได้ items from expenses to income", () => {
+    const result = sanitizeExtraLedger([], [
+      { name: "ได้คนละครึ่ง", amount: 1265 },
+      { name: "ได้ไลน์แมน", amount: 450 },
+      { name: "แม็คโคร", amount: 3800 },
+    ]);
+    expect(result.extraIncome).toEqual(
+      expect.arrayContaining([
+        { name: "คนละครึ่ง", amount: 1265 },
+        { name: "ไลน์แมน", amount: 450 },
+      ])
+    );
+    expect(result.extraExpenses).toEqual([{ name: "แม็คโคร", amount: 3800 }]);
   });
 });

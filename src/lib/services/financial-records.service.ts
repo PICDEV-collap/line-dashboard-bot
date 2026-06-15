@@ -2,6 +2,7 @@ import { getSupabaseClient } from "@/lib/services/supabase.service";
 import { createLogger } from "@/lib/middleware/logger";
 import { generateId, getCurrentTimestamp } from "@/lib/utils/helpers";
 import { DEFAULT_EXPENSES } from "@/config/constants";
+import { sanitizeExtraLedger } from "@/lib/services/financial-parser.service";
 import type {
   FinancialRecord,
   FinancialStats,
@@ -243,7 +244,10 @@ export async function upsertParsedRecord(input: {
   const cash = pickNum(p.cash, existing?.cash ?? 0);
   const delivery = pickNum(p.delivery, existing?.delivery ?? 0);
 
-  const extraIncome = mergeList(existing?.extraIncome ?? [], p.extraIncome ?? []);
+  let extraIncome = mergeList(existing?.extraIncome ?? [], p.extraIncome ?? []);
+  let extraExpenses = mergeList(existing?.extraExpenses ?? [], p.extraExpenses ?? []);
+  // Fix misclassified items (ได้/รับ in expenses) — also cleans legacy DB rows
+  ({ extraIncome, extraExpenses } = sanitizeExtraLedger(extraIncome, extraExpenses));
   const extraIncomeTotal = extraIncome.reduce((s, e) => s + e.amount, 0);
   const revenue = transfer + cash + delivery + extraIncomeTotal;
 
@@ -264,7 +268,6 @@ export async function upsertParsedRecord(input: {
   const labor = pickNum(p.labor, existing?.labor ?? DEFAULT_EXPENSES.labor);
   const ice = pickNum(p.ice, existing?.ice ?? DEFAULT_EXPENSES.ice);
 
-  const extraExpenses = mergeList(existing?.extraExpenses ?? [], p.extraExpenses ?? []);
   const extraExpenseTotal = extraExpenses.reduce((s, e) => s + e.amount, 0);
 
   const expense = pork + materials + supplies + gas + labor + ice + extraExpenseTotal;
