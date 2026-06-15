@@ -91,6 +91,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         labor: d.labor,
         ice: d.ice,
         extraExpenses: [],
+        extraIncome: [],
         profit: d.profit,
         note: "",
         status: "complete",
