@@ -1,0 +1,38 @@
+{
+  "version": 2,
+  "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "regions": ["sin1"],
+  "functions": {
+    "src/app/api/webhook/line/route.ts": {
+      "maxDuration": 60,
+      "memory": 1024
+    },
+    "src/app/api/dashboard/route.ts": {
+      "maxDuration": 30,
+      "memory": 512
+    },
+    "src/app/api/dashboard/stats/route.ts": {
+      "maxDuration": 30,
+      "memory": 512
+    }
+  },
+  "headers": [
+    {
+      "source": "/api/dashboard/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET, POST, OPTIONS"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "Content-Type, Authorization"
+        }
+      ]
+    }
+  ]
+}
