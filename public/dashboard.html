@@ -483,6 +483,7 @@ async function refreshData() {
   try {
     const res = await apiFetch('/api/records?limit=366');
     allRecords = res.data?.records || [];
+    lastSignature = recordsSignature(allRecords);
     document.getElementById('lastSync').textContent = '· อัปเดต ' + new Date().toLocaleTimeString('th-TH');
     setSyncState('online', `เชื่อมต่อแล้ว · ${allRecords.length} รายการ`);
     populateMonthDropdowns();
@@ -494,6 +495,45 @@ async function refreshData() {
     setSyncState('offline', 'เชื่อมต่อไม่สำเร็จ: ' + e.message);
     showToast('❌ ' + e.message, 'error');
   }
+}
+
+// ── Auto-refresh: pick up records added by the LINE bot without a manual reload ──
+let lastSignature = '';
+let autoTimer = null;
+const AUTO_REFRESH_MS = 30000;
+
+// Cheap change detector: record count + the latest updatedAt timestamp.
+function recordsSignature(records) {
+  let maxU = '';
+  for (const r of records) { if ((r.updatedAt || '') > maxU) maxU = r.updatedAt || ''; }
+  return records.length + '|' + maxU;
+}
+
+// Silent poll — re-renders (and toasts) only when the data actually changed.
+async function autoRefreshTick() {
+  if (!apiConfig.url || !apiConfig.key) return;                // not connected
+  if (document.hidden) return;                                 // tab not visible
+  if ($('modalOverlay')?.classList.contains('open')) return;   // don't disrupt editing
+  try {
+    const res = await apiFetch('/api/records?limit=366');
+    const recs = res.data?.records || [];
+    const sig = recordsSignature(recs);
+    if (sig === lastSignature) return;                         // nothing new
+    lastSignature = sig;
+    allRecords = recs;
+    document.getElementById('lastSync').textContent = '· อัปเดต ' + new Date().toLocaleTimeString('th-TH');
+    setSyncState('online', `เชื่อมต่อแล้ว · ${allRecords.length} รายการ`);
+    populateMonthDropdowns();
+    renderDashboard();
+    renderTable();
+    updateApiDocs();
+    showToast('🔄 มีข้อมูลใหม่ — อัปเดตแล้ว', 'success');
+  } catch (e) { /* keep last data; next tick retries */ }
+}
+
+function startAutoRefresh() {
+  if (autoTimer) clearInterval(autoTimer);
+  autoTimer = setInterval(autoRefreshTick, AUTO_REFRESH_MS);
 }
 
 function connectApi() {
@@ -957,6 +997,9 @@ if (apiConfig.url) {
   renderKPI([]);
 }
 updateApiDocs();
+startAutoRefresh();
+// Refresh the moment the user returns to the tab
+document.addEventListener('visibilitychange', () => { if (!document.hidden) autoRefreshTick(); });
 </script>
 </body>
 </html>
