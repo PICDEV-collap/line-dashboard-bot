@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { ENV } from "@/config/constants";
 import { getSupabaseClient } from "@/lib/services/supabase.service";
+import { pingGemini } from "@/lib/services/natural-reply.service";
+import { GEMINI_NATURAL_REPLY_TIMEOUT_MS } from "@/config/gemini-timing";
 import { createLogger } from "@/lib/middleware/logger";
 
 export const runtime = "nodejs";
@@ -23,6 +25,7 @@ interface HealthReport {
     gemini: ServiceHealth;
     line: ServiceHealth;
   };
+  geminiNaturalReplyTimeoutMs?: number;
   version: string;
   environment: string;
 }
@@ -63,19 +66,15 @@ async function checkSupabaseStorage(): Promise<ServiceHealth> {
 }
 
 async function checkGemini(): Promise<ServiceHealth> {
-  const start = Date.now();
-  try {
-    const key = ENV.GEMINI_API_KEY();
-    if (!key) throw new Error("GEMINI_API_KEY not set");
-    // Verify key format without consuming quota
-    return { status: "ok", latencyMs: Date.now() - start };
-  } catch (error) {
+  const ping = await pingGemini();
+  if (!ping.ok) {
     return {
       status: "error",
-      latencyMs: Date.now() - start,
-      error: error instanceof Error ? error.message : String(error),
+      latencyMs: ping.latencyMs,
+      error: ping.error ?? "Gemini ping failed",
     };
   }
+  return { status: "ok", latencyMs: ping.latencyMs };
 }
 
 async function checkLine(): Promise<ServiceHealth> {
@@ -135,6 +134,7 @@ export async function GET(): Promise<NextResponse> {
     status: allOk ? "healthy" : anyError ? "unhealthy" : "degraded",
     timestamp: new Date().toISOString(),
     services,
+    geminiNaturalReplyTimeoutMs: GEMINI_NATURAL_REPLY_TIMEOUT_MS,
     version: process.env.npm_package_version ?? "1.0.0",
     environment: ENV.NODE_ENV(),
   };

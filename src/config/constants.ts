@@ -17,6 +17,9 @@ export const ENV = {
   SUPABASE_SERVICE_KEY: () => requireEnv("SUPABASE_SERVICE_KEY"),
   GEMINI_API_KEY: () => requireEnv("GEMINI_API_KEY"),
   GEMINI_MODEL: () => optionalEnv("GEMINI_MODEL", "gemini-2.0-flash"),
+  /** 0 = use gemini-timing default / adaptive stats */
+  GEMINI_NATURAL_REPLY_TIMEOUT_MS: () =>
+    parseInt(optionalEnv("GEMINI_NATURAL_REPLY_TIMEOUT_MS", "0"), 10),
   DASHBOARD_API_KEY: () => requireEnv("DASHBOARD_API_KEY"),
   DEFAULT_SHOP_ID: () => optionalEnv("DEFAULT_SHOP_ID", "shop1"),
   DEFAULT_SHOP_NAME: () => optionalEnv("DEFAULT_SHOP_NAME", "ก๋วยเตี๋ยวไทยครูตอมตลาดญี่ปุ่น"),
