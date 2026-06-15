@@ -247,6 +247,12 @@ tbody td{padding:8px 11px;color:var(--text)}
         <input type="text" class="fi" id="rSearch" placeholder="ค้นหาวันที่/หมายเหตุ..." oninput="renderTable()" style="min-width:160px"></div>
       <div class="fg"><div class="fl">เดือน</div>
         <select class="fs" id="rMonth" onchange="renderTable()"><option value="all">ทั้งหมด</option></select></div>
+      <div class="fg"><div class="fl">สาขา</div>
+        <select class="fs" id="rShop" onchange="renderTable()">
+          <option value="all">ทั้งหมด</option>
+          <option value="shop1">ตลาดญี่ปุ่น</option>
+          <option value="shop2">สายหนองปิง</option>
+        </select></div>
       <div class="fg"><div class="fl">สถานะ</div>
         <select class="fs" id="rStatus" onchange="renderTable()">
           <option value="all">ทั้งหมด</option>
@@ -274,12 +280,12 @@ tbody td{padding:8px 11px;color:var(--text)}
       <div class="tbl-wrap">
         <table>
           <thead><tr>
-            <th>วันที่</th><th class="num">รายรับ (฿)</th><th class="num">ค่าใช้จ่าย (฿)</th>
+            <th>วันที่</th><th>สาขา</th><th class="num">รายรับ (฿)</th><th class="num">ค่าใช้จ่าย (฿)</th>
             <th class="num">กำไร (฿)</th><th class="num">%กำไร</th>
             <th class="num">โอน</th><th class="num">สด</th><th class="num">Delivery</th>
             <th>สถานะ</th><th>จัดการ</th>
           </tr></thead>
-          <tbody id="recordsTbody"><tr><td colspan="10" style="text-align:center;padding:30px;color:var(--muted)">⌛ กำลังโหลด...</td></tr></tbody>
+          <tbody id="recordsTbody"><tr><td colspan="11" style="text-align:center;padding:30px;color:var(--muted)">⌛ กำลังโหลด...</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -641,10 +647,12 @@ function renderTable() {
   let records = [...allRecords];
   const search = document.getElementById('rSearch')?.value?.toLowerCase() || '';
   const month  = document.getElementById('rMonth')?.value || 'all';
+  const rShop  = document.getElementById('rShop')?.value || 'all';
   const status = document.getElementById('rStatus')?.value || 'all';
   const sort   = document.getElementById('rSort')?.value || 'date-desc';
 
   if (month !== 'all') records = records.filter(r => r.date.startsWith(month));
+  if (rShop !== 'all') records = records.filter(r => r.shopId === rShop);
   if (search) records = records.filter(r => fmtDate(r.date).includes(search) || r.date.includes(search) || (r.note||'').toLowerCase().includes(search));
   if (status !== 'all') records = records.filter(r => (r.status||'complete') === status);
 
@@ -664,8 +672,10 @@ function renderTable() {
                 : st==='draft'  ?'<span class="badge" style="background:rgba(148,163,184,.1);color:#94a3b8;border:1px solid rgba(148,163,184,.25)">📝 ร่าง</span>'
                 : r.profit>=0   ?'<span class="badge badge-green">กำไร</span>'
                                 :'<span class="badge badge-red">ขาดทุน</span>';
+    const shopLabel = r.shopId==='shop2'?'สายหนองปิง':r.shopId==='shop1'?'ตลาดญี่ปุ่น':'—';
     return `<tr>
       <td>${fmtDate(r.date)}</td>
+      <td style="font-size:11px;color:var(--muted2)">${shopLabel}</td>
       <td class="num mono">${r.revenue>0?'฿'+fmt(r.revenue):'—'}</td>
       <td class="num mono">${r.expense>0?'฿'+fmt(r.expense):'—'}</td>
       <td class="num mono ${r.profit>=0?'pos':'neg'}">${(r.revenue>0||r.expense>0)?(r.profit>=0?'+':'')+'฿'+fmt(r.profit):'—'}</td>
@@ -676,12 +686,12 @@ function renderTable() {
       <td>${badge}</td>
       <td><button class="act-btn act-edit" onclick="editRecord('${r.id}')">✏️</button><button class="act-btn act-del" onclick="deleteRecord('${r.id}')">🗑️</button></td>
     </tr>`;
-  }).join('') || '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:30px">ไม่มีข้อมูล</td></tr>';
+  }).join('') || '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:30px">ไม่มีข้อมูล</td></tr>';
 }
 
 function resetRecordFilter() {
   ['rSearch'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
-  ['rMonth','rStatus'].forEach(id => { const el=document.getElementById(id); if(el) el.value='all'; });
+  ['rMonth','rStatus','rShop'].forEach(id => { const el=document.getElementById(id); if(el) el.value='all'; });
   ['rSort'].forEach(id => { const el=document.getElementById(id); if(el) el.value='date-desc'; });
   renderTable();
 }
