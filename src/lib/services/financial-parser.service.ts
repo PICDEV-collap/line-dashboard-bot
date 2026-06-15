@@ -78,7 +78,7 @@ export async function parseFinancialMessage(
     const parsed = safeJsonParse<ParsedFinancialInput>(cleaned);
     if (!parsed) {
       logger.warn("Could not parse Gemini response as JSON", { raw: raw.slice(0, 300) });
-      return { isFinancialData: false, confidence: 0 };
+      return parseFinancialMessageWithRegex(text);
     }
 
     logger.info("Financial parse result", {
@@ -88,9 +88,60 @@ export async function parseFinancialMessage(
 
     return parsed;
   } catch (error) {
-    logger.error("Financial parser error", error);
-    return { isFinancialData: false, confidence: 0 };
+    logger.warn("Gemini unavailable, falling back to regex parser", error instanceof Error ? error.message : String(error));
+    return parseFinancialMessageWithRegex(text);
   }
+}
+
+function num(s: string): number {
+  return parseInt(s.replace(/,/g, ""), 10) || 0;
+}
+
+function parseFinancialMessageWithRegex(text: string): ParsedFinancialInput {
+  const transfer = num((text.match(/โอน\s*([\d,]+)/) ?? [])[1] ?? "0");
+  const cash = num((text.match(/(?:เงินสด|สด)\s*([\d,]+)/) ?? [])[1] ?? "0");
+  const delivery = num((text.match(/(?:delivery|เดลิเวอรี่?|ส่ง)\s*([\d,]+)/i) ?? [])[1] ?? "0");
+
+  const porkRedM = text.match(/หมู(?:แดง|เนื้อ)\s*([\d.]+)\s*กก?\s*(?:ราคา)?\s*([\d,]+)/);
+  const porkRed = porkRedM ? { qty: parseFloat(porkRedM[1]), price: num(porkRedM[2]) } : undefined;
+
+  const porkMincedM = text.match(/หมูสับ\s*([\d.]+)\s*กก?\s*(?:ราคา)?\s*([\d,]+)/);
+  const porkMinced = porkMincedM ? { qty: parseFloat(porkMincedM[1]), price: num(porkMincedM[2]) } : undefined;
+
+  const porkFatM = text.match(/(?:มันหมู|หมูมัน)\s*([\d.]+)\s*กก?\s*(?:ราคา)?\s*([\d,]+)/);
+  const porkFat = porkFatM ? { qty: parseFloat(porkFatM[1]), price: num(porkFatM[2]) } : undefined;
+
+  const materials = num((text.match(/วัตถุดิบ\s*([\d,]+)/) ?? [])[1] ?? "0");
+  const supplies = num((text.match(/(?:อุปกรณ์|บรรจุภัณฑ์|ถุง|กล่อง)\s*([\d,]+)/) ?? [])[1] ?? "0");
+  const gasM = text.match(/(?:ค่าแก๊ส|แก๊ส)\s*([\d,]+)/);
+  const gas = gasM ? num(gasM[1]) : undefined;
+  const laborM = text.match(/ค่าแรง\s*([\d,]+)/);
+  const labor = laborM ? num(laborM[1]) : undefined;
+  const iceM = text.match(/(?:ค่าน้ำแข็ง|น้ำแข็ง)\s*([\d,]+)/);
+  const ice = iceM ? num(iceM[1]) : undefined;
+
+  const hasRevenue = transfer > 0 || cash > 0 || delivery > 0;
+  const hasPork = porkRed !== undefined || porkMinced !== undefined || porkFat !== undefined;
+  const isFinancialData = hasRevenue || hasPork || materials > 0;
+
+  logger.info("Regex parse result", { isFinancialData, transfer, cash, delivery });
+
+  return {
+    isFinancialData,
+    confidence: isFinancialData ? 0.85 : 0,
+    transfer,
+    cash,
+    delivery,
+    porkRed,
+    porkMinced,
+    porkFat,
+    materials,
+    supplies,
+    gas,
+    labor,
+    ice,
+    extraExpenses: [],
+  };
 }
 
 // Quick heuristic check before calling Gemini (saves API quota)
