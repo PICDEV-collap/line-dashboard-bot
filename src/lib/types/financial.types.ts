@@ -116,6 +116,8 @@ export interface FinancialStats {
 // Parsed output from Gemini financial parser
 export interface ParsedFinancialInput {
   date?: string;
+  shopId?: string;
+  shopName?: string;
   transfer?: number;
   cash?: number;
   delivery?: number;

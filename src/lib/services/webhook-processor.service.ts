@@ -176,8 +176,8 @@ async function processTextMessage(
       // Save to Financial Records sheet
       await createRecord({
         date: today,
-        shopId: ENV.DEFAULT_SHOP_ID(),
-        shopName: ENV.DEFAULT_SHOP_NAME(),
+        shopId: parsed.shopId ?? ENV.DEFAULT_SHOP_ID(),
+        shopName: parsed.shopName ?? ENV.DEFAULT_SHOP_NAME(),
         revenue,
         transfer,
         cash,

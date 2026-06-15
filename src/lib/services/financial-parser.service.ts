@@ -97,7 +97,34 @@ function num(s: string): number {
   return parseInt(s.replace(/,/g, ""), 10) || 0;
 }
 
+// Detect shop from first line of message
+// Returns { shopId, shopName } or null if not detected
+function detectShop(text: string): { shopId: string; shopName: string } | null {
+  const firstLine = text.split(/\n/)[0].trim();
+  const SHOPS = [
+    {
+      id: "shop2",
+      name: "ก๋วยเตี๋ยวไทยครูตอมสายหนองปิง",
+      keywords: ["หนองปิง", "สายหนองปิง"],
+    },
+    {
+      id: "shop1",
+      name: "ก๋วยเตี๋ยวไทยครูตอมตลาดญี่ปุ่น",
+      keywords: ["ญี่ปุ่น", "ตลาดญี่ปุ่น"],
+    },
+  ];
+
+  for (const shop of SHOPS) {
+    if (shop.keywords.some((kw) => firstLine.includes(kw))) {
+      return { shopId: shop.id, shopName: shop.name };
+    }
+  }
+  return null;
+}
+
 function parseFinancialMessageWithRegex(text: string): ParsedFinancialInput {
+  const shop = detectShop(text);
+
   const transfer = num((text.match(/โอน\s*([\d,]+)/) ?? [])[1] ?? "0");
   const cash = num((text.match(/(?:เงินสด|สด)\s*([\d,]+)/) ?? [])[1] ?? "0");
   const delivery = num((text.match(/(?:delivery|เดลิเวอรี่?|ส่ง)\s*([\d,]+)/i) ?? [])[1] ?? "0");
@@ -124,11 +151,12 @@ function parseFinancialMessageWithRegex(text: string): ParsedFinancialInput {
   const hasPork = porkRed !== undefined || porkMinced !== undefined || porkFat !== undefined;
   const isFinancialData = hasRevenue || hasPork || materials > 0;
 
-  logger.info("Regex parse result", { isFinancialData, transfer, cash, delivery });
+  logger.info("Regex parse result", { isFinancialData, transfer, cash, delivery, shopId: shop?.shopId });
 
   return {
     isFinancialData,
     confidence: isFinancialData ? 0.85 : 0,
+    ...(shop ?? {}),
     transfer,
     cash,
     delivery,

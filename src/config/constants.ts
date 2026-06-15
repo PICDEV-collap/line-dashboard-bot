@@ -19,7 +19,9 @@ export const ENV = {
   GEMINI_MODEL: () => optionalEnv("GEMINI_MODEL", "gemini-2.0-flash"),
   DASHBOARD_API_KEY: () => requireEnv("DASHBOARD_API_KEY"),
   DEFAULT_SHOP_ID: () => optionalEnv("DEFAULT_SHOP_ID", "shop1"),
-  DEFAULT_SHOP_NAME: () => optionalEnv("DEFAULT_SHOP_NAME", "ร้านครูตอม"),
+  DEFAULT_SHOP_NAME: () => optionalEnv("DEFAULT_SHOP_NAME", "ก๋วยเตี๋ยวไทยครูตอมตลาดญี่ปุ่น"),
+  SHOP2_ID: () => optionalEnv("SHOP2_ID", "shop2"),
+  SHOP2_NAME: () => optionalEnv("SHOP2_NAME", "ก๋วยเตี๋ยวไทยครูตอมสายหนองปิง"),
   RATE_LIMIT_WINDOW_MS: () =>
     parseInt(optionalEnv("RATE_LIMIT_WINDOW_MS", "60000")),
   RATE_LIMIT_MAX_REQUESTS: () =>
