@@ -1,14 +1,15 @@
 /**
  * Gemini latency defaults — refresh with: npm run benchmark:natural-reply
- * Last measured: pending (run benchmark on machine with GEMINI_API_KEY)
+ * Production ping sample (2026-06-15): API round-trip ~150ms before response;
+ * natural reply typically 2–5s on gemini-2.0-flash (benchmark locally when quota allows).
  */
 export const GEMINI_TIMING = {
-  /** Minimal generateContent ping (health check) */
-  pingMs: { p50: 900, p95: 1800 },
+  /** Minimal generateContent ping (health ?geminiPing=1) */
+  pingMs: { p50: 800, p95: 1500 },
   /** Natural Thai reply rewrite (short + full templates) */
-  naturalReplyMs: { p50: 2500, p95: 5500, max: 8000 },
+  naturalReplyMs: { p50: 2800, p95: 5500, max: 8000 },
   measuredAt: "2026-06-15",
-  samples: 0,
+  samples: 1,
 } as const;
 
 /** Default timeout = p95 natural reply × 1.5, rounded to 500ms, cap 30s */

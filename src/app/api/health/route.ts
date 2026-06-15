@@ -65,16 +65,31 @@ async function checkSupabaseStorage(): Promise<ServiceHealth> {
   }
 }
 
-async function checkGemini(): Promise<ServiceHealth> {
-  const ping = await pingGemini();
-  if (!ping.ok) {
+async function checkGemini(deepPing: boolean): Promise<ServiceHealth> {
+  const start = Date.now();
+  try {
+    ENV.GEMINI_API_KEY();
+    if (!deepPing) {
+      return { status: "ok", latencyMs: Date.now() - start };
+    }
+    const ping = await pingGemini();
+    if (ping.ok) return { status: "ok", latencyMs: ping.latencyMs };
+    const quotaHit =
+      ping.error?.includes("429") ||
+      ping.error?.toLowerCase().includes("quota") ||
+      ping.error?.toLowerCase().includes("rate");
+    return {
+      status: quotaHit ? "ok" : "error",
+      latencyMs: ping.latencyMs,
+      error: quotaHit ? "quota/rate limited (bot uses template fallback)" : ping.error,
+    };
+  } catch (error) {
     return {
       status: "error",
-      latencyMs: ping.latencyMs,
-      error: ping.error ?? "Gemini ping failed",
+      latencyMs: Date.now() - start,
+      error: error instanceof Error ? error.message : String(error),
     };
   }
-  return { status: "ok", latencyMs: ping.latencyMs };
 }
 
 async function checkLine(): Promise<ServiceHealth> {
@@ -96,14 +111,17 @@ async function checkLine(): Promise<ServiceHealth> {
   }
 }
 
-export async function GET(): Promise<NextResponse> {
+export async function GET(request: Request): Promise<NextResponse> {
   logger.info("Health check initiated");
+
+  const deepGeminiPing =
+    new URL(request.url).searchParams.get("geminiPing") === "1";
 
   const [dbHealth, storageHealth, geminiHealth, lineHealth] =
     await Promise.allSettled([
       checkSupabase(),
       checkSupabaseStorage(),
-      checkGemini(),
+      checkGemini(deepGeminiPing),
       checkLine(),
     ]);
 
@@ -126,7 +144,7 @@ export async function GET(): Promise<NextResponse> {
         : { status: "error" as const, error: String(lineHealth.reason) },
   };
 
-  const critical = [services.supabase, services.line, services.gemini];
+  const critical = [services.supabase, services.line];
   const anyError = critical.some((s) => s.status === "error");
   const allOk = critical.every((s) => s.status === "ok");
 
