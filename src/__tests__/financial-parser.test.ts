@@ -8,6 +8,7 @@ import {
   parsePork,
   sanitizeExtraLedger,
 } from "@/lib/services/financial-parser.service";
+import { resolveRecordDateFromText } from "@/lib/utils/helpers";
 
 const RED = ["หมูแดง", "หมูเนื้อ", "แดง"];
 const MINCED = ["หมูสับ", "สับ"];
@@ -223,6 +224,14 @@ describe("parseFinancialMessageWithRegex", () => {
       ])
     );
     expect(parsed.extraExpenses!.every((e) => !isIncomeLikeName(e.name))).toBe(true);
+  });
+
+  it("sets date to tomorrow when message contains พรุ่งนี้", () => {
+    const parsed = parseFinancialMessageWithRegex("หนองปิง\nพรุ่งนี้\nวัตถุดิบ 1120");
+    expect(parsed.isFinancialData).toBe(true);
+    expect(parsed.materials).toBe(1120);
+    expect(parsed.date).toBe(resolveRecordDateFromText("พรุ่งนี้"));
+    expect(parsed.shopId).toBe("shop2");
   });
 });
 

@@ -16,6 +16,35 @@ export function getTodayDateString(): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: BANGKOK_TZ });
 }
 
+/** Shift a YYYY-MM-DD calendar date by N days (Bangkok shop dates). */
+export function shiftDateString(dateStr: string, days: number): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + days));
+  return dt.toISOString().slice(0, 10);
+}
+
+/** Detect target record date from Thai keywords in message text. */
+export function resolveRecordDateFromText(
+  text: string,
+  today: string = getTodayDateString()
+): string | undefined {
+  if (/พรุ่งนี้/.test(text)) return shiftDateString(today, 1);
+  if (/เมื่อวาน/.test(text)) return shiftDateString(today, -1);
+  if (/วันนี้/.test(text)) return today;
+  return undefined;
+}
+
+/** Human label for a record date relative to today. */
+export function describeRecordDate(
+  date: string,
+  today: string = getTodayDateString()
+): string {
+  if (date === today) return "วันนี้";
+  if (date === shiftDateString(today, 1)) return "พรุ่งนี้";
+  if (date === shiftDateString(today, -1)) return "เมื่อวาน";
+  return date;
+}
+
 export function encodeBase64(str: string): string {
   return Buffer.from(str).toString("base64");
 }

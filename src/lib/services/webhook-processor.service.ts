@@ -1,5 +1,5 @@
 import { createLogger } from "@/lib/middleware/logger";
-import { generateId, getCurrentTimestamp, getTodayDateString, safeJsonStringify } from "@/lib/utils/helpers";
+import { generateId, getCurrentTimestamp, getTodayDateString, resolveRecordDateFromText, safeJsonStringify } from "@/lib/utils/helpers";
 import { normalizeError } from "@/lib/utils/error-handler";
 import {
   getUserProfile,
@@ -144,6 +144,7 @@ async function processTextMessage(
 ): Promise<{ processed: ProcessedMessage; replyMsg: string }> {
   const text = event.message?.text ?? "";
   const today = getTodayDateString();
+  const recordDate = resolveRecordDateFromText(text) ?? today;
   const shop = detectShopFromText(text);
 
   if (looksLikeCorrectionHelp(text)) {
@@ -156,7 +157,7 @@ async function processTextMessage(
   if (looksLikeCorrection(text)) {
     const result = await applyLineCorrection({
       text: normalizeCommandText(text) || text,
-      date: today,
+      date: recordDate,
       shopId: shop?.shopId ?? ENV.DEFAULT_SHOP_ID(),
       shopName: shop?.shopName ?? ENV.DEFAULT_SHOP_NAME(),
     });
@@ -181,7 +182,7 @@ async function processTextMessage(
 
       // Merge into the day's record (accumulates across multiple messages)
       const record = await upsertParsedRecord({
-        date: parsed.date ?? getTodayDateString(),
+        date: parsed.date ?? recordDate,
         shopId: parsed.shopId ?? ENV.DEFAULT_SHOP_ID(),
         shopName: parsed.shopName ?? ENV.DEFAULT_SHOP_NAME(),
         parsed,
@@ -203,7 +204,7 @@ async function processTextMessage(
     if (parseCorrectionMessage(norm || text).length > 0) {
       const result = await applyLineCorrection({
         text: norm || text,
-        date: today,
+        date: recordDate,
         shopId: shop?.shopId ?? ENV.DEFAULT_SHOP_ID(),
         shopName: shop?.shopName ?? ENV.DEFAULT_SHOP_NAME(),
       });
