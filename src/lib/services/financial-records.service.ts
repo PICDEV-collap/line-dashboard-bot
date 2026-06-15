@@ -3,6 +3,10 @@ import { createLogger } from "@/lib/middleware/logger";
 import { generateId, getCurrentTimestamp } from "@/lib/utils/helpers";
 import { DEFAULT_EXPENSES } from "@/config/constants";
 import { sanitizeExtraLedger } from "@/lib/services/financial-parser.service";
+import {
+  applyCorrectionActions,
+  parseCorrectionMessage,
+} from "@/lib/services/financial-correction.service";
 import type {
   FinancialRecord,
   FinancialStats,
@@ -209,11 +213,127 @@ function pickNum(incoming: number | undefined, existing: number): number {
 function mergePork(
   incoming: { qty: number; price: number } | undefined,
   oldQty: number,
-  oldPrice: number
-): { qty: number; price: number; total: number } {
+  oldPrice: number,
+  carriedPrice = 0
+): { qty: number; price: number; total: number; priceCarried: boolean } {
   const qty = incoming && incoming.qty > 0 ? incoming.qty : oldQty;
-  const price = incoming && incoming.price > 0 ? incoming.price : oldPrice;
-  return { qty, price, total: qty * price };
+  let price = oldPrice;
+  if (incoming && incoming.price > 0) price = incoming.price;
+  else if (price === 0 && carriedPrice > 0 && qty > 0) price = carriedPrice;
+  const priceCarried =
+    price === carriedPrice &&
+    carriedPrice > 0 &&
+    qty > 0 &&
+    !(incoming?.price ?? 0) &&
+    oldPrice === 0;
+  return { qty, price, total: qty * price, priceCarried };
+}
+
+export interface CarriedPorkPrices {
+  redPrice: number;
+  mincedPrice: number;
+  fatPrice: number;
+  redFrom?: string;
+  mincedFrom?: string;
+  fatFrom?: string;
+}
+
+/** Latest per-kg pork prices from records before `beforeDate` (same shop). */
+export async function getCarriedPorkPrices(
+  shopId: string,
+  beforeDate: string
+): Promise<CarriedPorkPrices> {
+  const db = getSupabaseClient();
+  const { data, error } = await db
+    .from("financial_records")
+    .select("date, pork_breakdown")
+    .eq("shop_id", shopId)
+    .lt("date", beforeDate)
+    .order("date", { ascending: false })
+    .limit(60);
+  if (error) throw new Error(`DB query error (carried pork prices): ${error.message}`);
+
+  let redPrice = 0;
+  let mincedPrice = 0;
+  let fatPrice = 0;
+  let redFrom: string | undefined;
+  let mincedFrom: string | undefined;
+  let fatFrom: string | undefined;
+
+  for (const row of data ?? []) {
+    const pb = row.pork_breakdown as PorkBreakdown | null;
+    if (!pb) continue;
+    if (!redPrice && pb.redPrice > 0) {
+      redPrice = pb.redPrice;
+      redFrom = String(row.date);
+    }
+    if (!mincedPrice && pb.mincedPrice > 0) {
+      mincedPrice = pb.mincedPrice;
+      mincedFrom = String(row.date);
+    }
+    if (!fatPrice && pb.fatPrice > 0) {
+      fatPrice = pb.fatPrice;
+      fatFrom = String(row.date);
+    }
+    if (redPrice && mincedPrice && fatPrice) break;
+  }
+  return { redPrice, mincedPrice, fatPrice, redFrom, mincedFrom, fatFrom };
+}
+
+function finalizePorkBreakdown(pb: PorkBreakdown): PorkBreakdown {
+  pb.redTotal = pb.redQty * pb.redPrice;
+  pb.mincedTotal = pb.mincedQty * pb.mincedPrice;
+  pb.fatTotal = pb.fatQty * pb.fatPrice;
+  pb.total = pb.redTotal + pb.mincedTotal + pb.fatTotal;
+  return pb;
+}
+
+function recomputeRecordTotals(
+  fields: Pick<
+    FinancialRecord,
+    | "transfer"
+    | "cash"
+    | "delivery"
+    | "extraIncome"
+    | "extraExpenses"
+    | "porkBreakdown"
+    | "materials"
+    | "supplies"
+    | "gas"
+    | "labor"
+    | "ice"
+    | "revenue"
+  >
+): {
+  revenue: number;
+  expense: number;
+  profit: number;
+  pork: number;
+  porkBreakdown: PorkBreakdown;
+  status: RecordStatus;
+} {
+  const pb = finalizePorkBreakdown({ ...(fields.porkBreakdown ?? {
+    redQty: 0, redPrice: 0, redTotal: 0,
+    mincedQty: 0, mincedPrice: 0, mincedTotal: 0,
+    fatQty: 0, fatPrice: 0, fatTotal: 0,
+    total: 0,
+  }) });
+
+  const extraIncomeTotal = (fields.extraIncome ?? []).reduce((s, e) => s + e.amount, 0);
+  const extraExpenseTotal = (fields.extraExpenses ?? []).reduce((s, e) => s + e.amount, 0);
+  const revenue = fields.transfer + fields.cash + fields.delivery + extraIncomeTotal;
+  const pork = pb.total;
+  const expense =
+    pork + fields.materials + fields.supplies + fields.gas + fields.labor + fields.ice + extraExpenseTotal;
+  const profit = revenue - expense;
+
+  const porkNeedsPrice =
+    (pb.redQty > 0 && pb.redPrice === 0) ||
+    (pb.mincedQty > 0 && pb.mincedPrice === 0) ||
+    (pb.fatQty > 0 && pb.fatPrice === 0);
+  const status: RecordStatus = revenue === 0 || porkNeedsPrice ? "pending" : "complete";
+
+  return { revenue, expense, profit, pork, porkBreakdown: pb, status };
 }
 
 // Append new line-items, skipping exact (name+amount) duplicates.
@@ -235,10 +355,11 @@ export async function upsertParsedRecord(input: {
   shopId: string;
   shopName: string;
   parsed: ParsedFinancialInput;
-}): Promise<FinancialRecord> {
+}): Promise<FinancialRecord & { porkPriceCarried?: CarriedPorkPrices }> {
   const existing = await getByShopDate(input.shopId, input.date);
   const p = input.parsed;
   const pb = existing?.porkBreakdown;
+  const carried = await getCarriedPorkPrices(input.shopId, input.date);
 
   const transfer = pickNum(p.transfer, existing?.transfer ?? 0);
   const cash = pickNum(p.cash, existing?.cash ?? 0);
@@ -246,20 +367,17 @@ export async function upsertParsedRecord(input: {
 
   let extraIncome = mergeList(existing?.extraIncome ?? [], p.extraIncome ?? []);
   let extraExpenses = mergeList(existing?.extraExpenses ?? [], p.extraExpenses ?? []);
-  // Fix misclassified items (ได้/รับ in expenses) — also cleans legacy DB rows
   ({ extraIncome, extraExpenses } = sanitizeExtraLedger(extraIncome, extraExpenses));
-  const extraIncomeTotal = extraIncome.reduce((s, e) => s + e.amount, 0);
-  const revenue = transfer + cash + delivery + extraIncomeTotal;
 
-  const red = mergePork(p.porkRed, pb?.redQty ?? 0, pb?.redPrice ?? 0);
-  const minced = mergePork(p.porkMinced, pb?.mincedQty ?? 0, pb?.mincedPrice ?? 0);
-  const fat = mergePork(p.porkFat, pb?.fatQty ?? 0, pb?.fatPrice ?? 0);
-  const pork = red.total + minced.total + fat.total;
+  const red = mergePork(p.porkRed, pb?.redQty ?? 0, pb?.redPrice ?? 0, carried.redPrice);
+  const minced = mergePork(p.porkMinced, pb?.mincedQty ?? 0, pb?.mincedPrice ?? 0, carried.mincedPrice);
+  const fat = mergePork(p.porkFat, pb?.fatQty ?? 0, pb?.fatPrice ?? 0, carried.fatPrice);
+
   const porkBreakdown: PorkBreakdown = {
     redQty: red.qty, redPrice: red.price, redTotal: red.total,
     mincedQty: minced.qty, mincedPrice: minced.price, mincedTotal: minced.total,
     fatQty: fat.qty, fatPrice: fat.price, fatTotal: fat.total,
-    total: pork,
+    total: red.total + minced.total + fat.total,
   };
 
   const materials = pickNum(p.materials, existing?.materials ?? 0);
@@ -268,36 +386,93 @@ export async function upsertParsedRecord(input: {
   const labor = pickNum(p.labor, existing?.labor ?? DEFAULT_EXPENSES.labor);
   const ice = pickNum(p.ice, existing?.ice ?? DEFAULT_EXPENSES.ice);
 
-  const extraExpenseTotal = extraExpenses.reduce((s, e) => s + e.amount, 0);
-
-  const expense = pork + materials + supplies + gas + labor + ice + extraExpenseTotal;
-  const profit = revenue - expense;
-
-  // Incomplete when there's no revenue yet, or pork qty was entered without a price.
-  const porkNeedsPrice =
-    (red.qty > 0 && red.price === 0) ||
-    (minced.qty > 0 && minced.price === 0) ||
-    (fat.qty > 0 && fat.price === 0);
-  const status: RecordStatus = revenue === 0 || porkNeedsPrice ? "pending" : "complete";
-
   const note = p.note?.trim() ? p.note.trim() : existing?.note ?? "";
+
+  const totals = recomputeRecordTotals({
+    transfer, cash, delivery, extraIncome, extraExpenses, porkBreakdown,
+    materials, supplies, gas, labor, ice, revenue: 0,
+  });
 
   const fields = {
     date: input.date,
     shopId: input.shopId,
     shopName: input.shopName,
-    revenue, transfer, cash, delivery,
-    expense, pork, porkBreakdown,
+    revenue: totals.revenue,
+    transfer, cash, delivery,
+    expense: totals.expense,
+    pork: totals.pork,
+    porkBreakdown: totals.porkBreakdown,
     materials, supplies, gas, labor, ice,
     extraExpenses, extraIncome,
-    profit, note, status,
+    profit: totals.profit,
+    note,
+    status: totals.status,
   };
+
+  const porkPriceCarried =
+    red.priceCarried || minced.priceCarried || fat.priceCarried ? carried : undefined;
 
   if (existing) {
     const updated = await updateRecord(existing.id, fields);
-    return updated as FinancialRecord;
+    return { ...(updated as FinancialRecord), porkPriceCarried };
   }
-  return createRecord(fields);
+  const created = await createRecord(fields);
+  return { ...created, porkPriceCarried };
+}
+
+/** Apply LINE correction commands (แก้/ลบ/เปลี่ยน) to today's record. */
+export async function applyLineCorrection(input: {
+  text: string;
+  date: string;
+  shopId: string;
+  shopName: string;
+}): Promise<{ record: FinancialRecord | null; message: string; applied: number }> {
+  const actions = parseCorrectionMessage(input.text);
+  if (actions.length === 0) {
+    return { record: null, message: "❌ ไม่เข้าใจคำสั่งแก้ไข — พิมพ์ \"ช่วย\" ดูวิธีใช้", applied: 0 };
+  }
+
+  let existing = await getByShopDate(input.shopId, input.date);
+  if (!existing) {
+    existing = await createRecord({
+      date: input.date,
+      shopId: input.shopId,
+      shopName: input.shopName,
+      revenue: 0, transfer: 0, cash: 0, delivery: 0,
+      expense: 0, pork: 0,
+      porkBreakdown: {
+        redQty: 0, redPrice: 0, redTotal: 0,
+        mincedQty: 0, mincedPrice: 0, mincedTotal: 0,
+        fatQty: 0, fatPrice: 0, fatTotal: 0,
+        total: 0,
+      },
+      materials: 0, supplies: 0,
+      gas: DEFAULT_EXPENSES.gas,
+      labor: DEFAULT_EXPENSES.labor,
+      ice: DEFAULT_EXPENSES.ice,
+      extraExpenses: [], extraIncome: [],
+      profit: 0, note: "", status: "pending",
+    });
+  }
+
+  const corrected = applyCorrectionActions(existing, actions);
+  const totals = recomputeRecordTotals(corrected);
+
+  const updated = await updateRecord(existing.id, {
+    ...corrected,
+    revenue: totals.revenue,
+    expense: totals.expense,
+    profit: totals.profit,
+    pork: totals.pork,
+    porkBreakdown: totals.porkBreakdown,
+    status: totals.status,
+  });
+
+  return {
+    record: updated,
+    message: `✏️ แก้ไข ${actions.length} รายการแล้ว`,
+    applied: actions.length,
+  };
 }
 
 export async function deleteRecord(id: string): Promise<boolean> {

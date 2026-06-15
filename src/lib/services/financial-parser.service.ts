@@ -64,7 +64,7 @@ export async function parseFinancialMessage(
   logger.info("Parsing financial message", { textLength: text.length });
 
   // Deterministic detections we don't trust the LLM to do reliably.
-  const shop = detectShop(text);
+  const shop = detectShopFromText(text);
 
   try {
     const client = getClient();
@@ -148,6 +148,44 @@ export function parsePork(
     }
   }
   return undefined;
+}
+
+/** Price-only update: "ราคา แดง 130", "แก้ สับ 135" (qty filled from existing record on upsert). */
+function extractPorkPriceUpdates(text: string): {
+  porkRed?: { qty: number; price: number };
+  porkMinced?: { qty: number; price: number };
+  porkFat?: { qty: number; price: number };
+} {
+  const out: {
+    porkRed?: { qty: number; price: number };
+    porkMinced?: { qty: number; price: number };
+    porkFat?: { qty: number; price: number };
+  } = {};
+  const lineRe =
+    /^ราคา\s*(หมูแดง|หมูเนื้อ|แดง|หมูสับ|สับ|มันหมู|หมูมัน|มัน)\s*([\d,]+)\s*(?:บาท|\/กก)?\s*$/i;
+  for (const raw of text.split(/\n/)) {
+    const m = raw.trim().match(lineRe);
+    if (!m) continue;
+    const price = num(m[2]);
+    if (price <= 0) continue;
+    const kw = m[1];
+    const item = { qty: 0, price };
+    if (/แดง|หมูแดง|หมูเนื้อ/.test(kw)) out.porkRed = item;
+    else if (/สับ|หมูสับ/.test(kw)) out.porkMinced = item;
+    else if (/มัน|มันหมู|หมูมัน/.test(kw)) out.porkFat = item;
+  }
+  return out;
+}
+
+function mergePorkParsed(
+  base: { qty: number; price: number } | undefined,
+  priceOnly: { qty: number; price: number } | undefined
+): { qty: number; price: number } | undefined {
+  if (!base && !priceOnly) return undefined;
+  return {
+    qty: base?.qty ?? priceOnly?.qty ?? 0,
+    price: priceOnly?.price ?? base?.price ?? 0,
+  };
 }
 
 // คนละครึ่ง (โครงการรัฐ) — รายรับเสมอ ไม่ใช่รายจ่าย
@@ -263,7 +301,7 @@ export function extractExtraExpenses(text: string): ExtraExpense[] {
 
 // Detect shop from first line of message
 // Returns { shopId, shopName } or null if not detected
-function detectShop(text: string): { shopId: string; shopName: string } | null {
+export function detectShopFromText(text: string): { shopId: string; shopName: string } | null {
   const firstLine = text.split(/\n/)[0].trim();
   const SHOPS = [
     {
@@ -287,15 +325,24 @@ function detectShop(text: string): { shopId: string; shopName: string } | null {
 }
 
 export function parseFinancialMessageWithRegex(text: string): ParsedFinancialInput {
-  const shop = detectShop(text);
+  const shop = detectShopFromText(text);
 
   const transfer = num((text.match(/โอน\s*([\d,]+)/) ?? [])[1] ?? "0");
   const cash = num((text.match(/(?:เงินสด|สด)\s*([\d,]+)/) ?? [])[1] ?? "0");
   const delivery = num((text.match(/(?:delivery|เดลิเวอรี่?|ส่ง)\s*([\d,]+)/i) ?? [])[1] ?? "0");
 
-  const porkRed = parsePork(text, ["หมูแดง", "หมูเนื้อ", "แดง"]);
-  const porkMinced = parsePork(text, ["หมูสับ", "สับ"]);
-  const porkFat = parsePork(text, ["มันหมู", "หมูมัน", "มัน"]);
+  const porkRed = mergePorkParsed(
+    parsePork(text, ["หมูแดง", "หมูเนื้อ", "แดง"]),
+    extractPorkPriceUpdates(text).porkRed
+  );
+  const porkMinced = mergePorkParsed(
+    parsePork(text, ["หมูสับ", "สับ"]),
+    extractPorkPriceUpdates(text).porkMinced
+  );
+  const porkFat = mergePorkParsed(
+    parsePork(text, ["มันหมู", "หมูมัน", "มัน"]),
+    extractPorkPriceUpdates(text).porkFat
+  );
 
   const materials = num((text.match(/วัตถุดิบ\s*([\d,]+)/) ?? [])[1] ?? "0");
   const supplies = num((text.match(/(?:อุปกรณ์|บรรจุภัณฑ์|ถุง|กล่อง)\s*([\d,]+)/) ?? [])[1] ?? "0");
@@ -383,11 +430,27 @@ export function looksLikeFinancialData(text: string): boolean {
 
 // Build a human-readable confirmation for the LINE reply from the SAVED record,
 // so it shows the running daily total after merging this message.
-export function buildRecordConfirmation(rec: FinancialRecord): string {
+export interface RecordConfirmationOptions {
+  /** Shown when pork /kg prices were auto-filled from a previous day. */
+  porkPriceCarried?: {
+    redFrom?: string;
+    mincedFrom?: string;
+    fatFrom?: string;
+  };
+  /** Prefix line e.g. after a correction command. */
+  prefix?: string;
+}
+
+export function buildRecordConfirmation(
+  rec: FinancialRecord,
+  options: RecordConfirmationOptions = {}
+): string {
   const baht = (n: number) => `฿${n.toLocaleString("th-TH")}`;
   const shopLabel =
     rec.shopId === "shop2" ? "🏪 สาขา: สายหนองปิง" : "🏪 สาขา: ตลาดญี่ปุ่น";
-  const lines: string[] = [`✅ บันทึกข้อมูลรายวันแล้ว\n${shopLabel}\n`];
+  const lines: string[] = [];
+  if (options.prefix) lines.push(options.prefix);
+  lines.push(`✅ บันทึกข้อมูลรายวันแล้ว\n${shopLabel}\n`);
 
   lines.push("💰 รายรับ:");
   if (rec.transfer) lines.push(`  📱 โอน: ${baht(rec.transfer)}`);
@@ -423,6 +486,14 @@ export function buildRecordConfirmation(rec: FinancialRecord): string {
   if (rec.status !== "complete") {
     lines.push(`\n⏳ ข้อมูลยังไม่สมบูรณ์ — เปิด Dashboard เพื่อกรอกราคาหมู/รายละเอียดเพิ่ม`);
   }
+
+  const carried = options.porkPriceCarried;
+  if (carried && (carried.redFrom || carried.mincedFrom || carried.fatFrom)) {
+    const dates = [...new Set([carried.redFrom, carried.mincedFrom, carried.fatFrom].filter(Boolean))];
+    lines.push(`\n📌 ราคาหมู/กก. อ้างอิงจากวันที่ ${dates.join(", ")} (พิมพ์ "แก้ แดง 130" เพื่อเปลี่ยน)`);
+  }
+
+  lines.push(`\n💬 พิมพ์ "ช่วย" เพื่อดูวิธีแก้ไขข้อมูล`);
 
   return lines.join("\n");
 }

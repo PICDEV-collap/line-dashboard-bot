@@ -15,7 +15,13 @@ import {
   looksLikeFinancialData,
   buildRecordConfirmation,
 } from "@/lib/services/financial-parser.service";
-import { upsertParsedRecord } from "@/lib/services/financial-records.service";
+import { upsertParsedRecord, applyLineCorrection } from "@/lib/services/financial-records.service";
+import {
+  looksLikeCorrection,
+  looksLikeCorrectionHelp,
+  buildCorrectionHelpMessage,
+} from "@/lib/services/financial-correction.service";
+import { detectShopFromText } from "@/lib/services/financial-parser.service";
 import { ENV } from "@/config/constants";
 import type { LineEvent, ProcessedMessage } from "@/lib/types/line.types";
 import type { MessageRow, OcrResultRow, StatsRow } from "@/lib/types/db.types";
@@ -134,6 +140,34 @@ async function processTextMessage(
   event: LineEvent
 ): Promise<{ processed: ProcessedMessage; replyMsg: string }> {
   const text = event.message?.text ?? "";
+  const today = getTodayDateString();
+  const shop = detectShopFromText(text);
+
+  if (looksLikeCorrectionHelp(text)) {
+    return {
+      processed: { ...msg, content: "[HELP] correction", status: "completed" },
+      replyMsg: buildCorrectionHelpMessage(),
+    };
+  }
+
+  if (looksLikeCorrection(text)) {
+    const result = await applyLineCorrection({
+      text,
+      date: today,
+      shopId: shop?.shopId ?? ENV.DEFAULT_SHOP_ID(),
+      shopName: shop?.shopName ?? ENV.DEFAULT_SHOP_NAME(),
+    });
+    if (!result.record) {
+      return {
+        processed: { ...msg, content: `[CORRECTION] ${text.slice(0, 200)}`, status: "completed" },
+        replyMsg: result.message,
+      };
+    }
+    return {
+      processed: { ...msg, content: `[CORRECTION] ${text.slice(0, 200)}`, status: "completed" },
+      replyMsg: buildRecordConfirmation(result.record, { prefix: result.message }),
+    };
+  }
 
   // Check if this looks like financial data before calling Gemini
   if (looksLikeFinancialData(text)) {
@@ -150,13 +184,22 @@ async function processTextMessage(
         parsed,
       });
 
+      const { porkPriceCarried, ...saved } = record;
       return {
         processed: {
           ...msg,
           content: `[FINANCIAL] ${text.slice(0, 200)}`,
           status: "completed",
         },
-        replyMsg: buildRecordConfirmation(record),
+        replyMsg: buildRecordConfirmation(saved, {
+          porkPriceCarried: porkPriceCarried
+            ? {
+                redFrom: porkPriceCarried.redFrom,
+                mincedFrom: porkPriceCarried.mincedFrom,
+                fatFrom: porkPriceCarried.fatFrom,
+              }
+            : undefined,
+        }),
       };
     }
   }
