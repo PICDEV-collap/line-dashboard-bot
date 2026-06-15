@@ -4,7 +4,7 @@ import { rateLimitMiddleware, getRateLimitHeaders } from "@/lib/middleware/rate-
 import { createLogger } from "@/lib/middleware/logger";
 import { processWebhookEvents } from "@/lib/services/webhook-processor.service";
 import { initializeSheets } from "@/lib/services/google-sheets.service";
-import { errorToApiResponse, getStatusCode, AppError } from "@/lib/utils/error-handler";
+import { errorToApiResponse, AppError } from "@/lib/utils/error-handler";
 import type { LineWebhookBody } from "@/lib/types/line.types";
 
 export const runtime = "nodejs";

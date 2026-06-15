@@ -18,10 +18,12 @@ export const maxDuration = 20;
 
 const logger = createLogger("RecordByIdRoute");
 
+type RouteContext = { params: Promise<{ id: string }> };
+
 // GET /api/records/[id]
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: RouteContext
 ): Promise<NextResponse> {
   try {
     validateDashboardApiKey(request.headers.get("authorization"));
@@ -31,7 +33,8 @@ export async function GET(
     });
   }
 
-  const record = await getRecordById(params.id);
+  const { id } = await params;
+  const record = await getRecordById(id);
   if (!record) {
     return NextResponse.json(
       errorToApiResponse(new AppError("Record not found", 404)),
@@ -45,7 +48,7 @@ export async function GET(
 // PUT /api/records/[id]
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: RouteContext
 ): Promise<NextResponse> {
   try {
     validateDashboardApiKey(request.headers.get("authorization"));
@@ -65,15 +68,16 @@ export async function PUT(
     );
   }
 
+  const { id } = await params;
   try {
-    const updated = await updateRecord(params.id, body as never);
+    const updated = await updateRecord(id, body as never);
     if (!updated) {
       return NextResponse.json(
         errorToApiResponse(new AppError("Record not found", 404)),
         { status: 404 }
       );
     }
-    logger.info("Record updated via API", { id: params.id });
+    logger.info("Record updated via API", { id });
     return NextResponse.json(toApiResponse(updated));
   } catch (error) {
     logger.error("PUT /api/records/[id] failed", error);
@@ -86,7 +90,7 @@ export async function PUT(
 // DELETE /api/records/[id]
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: RouteContext
 ): Promise<NextResponse> {
   try {
     validateDashboardApiKey(request.headers.get("authorization"));
@@ -96,16 +100,17 @@ export async function DELETE(
     });
   }
 
+  const { id } = await params;
   try {
-    const deleted = await deleteRecord(params.id);
+    const deleted = await deleteRecord(id);
     if (!deleted) {
       return NextResponse.json(
         errorToApiResponse(new AppError("Record not found", 404)),
         { status: 404 }
       );
     }
-    logger.info("Record deleted via API", { id: params.id });
-    return NextResponse.json(toApiResponse({ deleted: true, id: params.id }));
+    logger.info("Record deleted via API", { id });
+    return NextResponse.json(toApiResponse({ deleted: true, id }));
   } catch (error) {
     logger.error("DELETE /api/records/[id] failed", error);
     return NextResponse.json(errorToApiResponse(error), {

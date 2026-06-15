@@ -174,7 +174,7 @@ async function processTextMessage(
       const profit = revenue - expense;
 
       // Save to Financial Records sheet
-      const record = await createRecord({
+      await createRecord({
         date: today,
         shopId: ENV.DEFAULT_SHOP_ID(),
         shopName: ENV.DEFAULT_SHOP_NAME(),

@@ -1,17 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  experimental: {
-    serverComponentsExternalPackages: ["@line/bot-sdk", "googleapis"],
-  },
-  // Allow large payloads for image processing
-  api: {
-    bodyParser: {
-      sizeLimit: "10mb",
-    },
-    responseLimit: "10mb",
-  },
-  // Security headers
+  serverExternalPackages: ["@line/bot-sdk", "@supabase/supabase-js"],
   async headers() {
     return [
       {

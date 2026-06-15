@@ -1,4 +1,4 @@
-import { ENV, SHEETS } from "@/config/constants";
+import { ENV } from "@/config/constants";
 import { generateId, getCurrentTimestamp, safeJsonStringify, truncate } from "@/lib/utils/helpers";
 import type { LogEntry, LogLevel } from "@/lib/types/common.types";
 

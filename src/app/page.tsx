@@ -155,7 +155,7 @@ export default function HomePage() {
           <li>เชื่อม Google Sheets / Drive ด้วย Service Account</li>
           <li>เชื่อม Looker Studio กับ Dashboard API</li>
           <li>เปิด <code>/dashboard.html</code> → ตั้งค่า URL + API Key → กด เชื่อมต่อ</li>
-          <li>กด "Seed ข้อมูลเริ่มต้น" เพื่อ import 31 records (มี.ค. 2569)</li>
+          <li>กด &quot;Seed ข้อมูลเริ่มต้น&quot; เพื่อ import 31 records (มี.ค. 2569)</li>
         </ol>
       </section>
 
