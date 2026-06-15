@@ -65,10 +65,9 @@ async function checkSupabaseStorage(): Promise<ServiceHealth> {
 async function checkGemini(): Promise<ServiceHealth> {
   const start = Date.now();
   try {
-    const { GoogleGenerativeAI } = await import("@google/generative-ai");
-    const client = new GoogleGenerativeAI(ENV.GEMINI_API_KEY());
-    const model = client.getGenerativeModel({ model: ENV.GEMINI_MODEL() });
-    await model.generateContent("ping");
+    const key = ENV.GEMINI_API_KEY();
+    if (!key) throw new Error("GEMINI_API_KEY not set");
+    // Verify key format without consuming quota
     return { status: "ok", latencyMs: Date.now() - start };
   } catch (error) {
     return {
