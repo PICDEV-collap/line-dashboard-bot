@@ -215,6 +215,14 @@ async function getByShopDate(
   return data ? rowToRecord(data as Record<string, unknown>) : null;
 }
 
+/** Fetch a single shop+date record (for summary replies). */
+export async function getRecordByShopDate(
+  shopId: string,
+  date: string
+): Promise<FinancialRecord | null> {
+  return getByShopDate(shopId, date);
+}
+
 // A newly-mentioned (non-zero) value wins; otherwise keep what's stored.
 function pickNum(incoming: number | undefined, existing: number): number {
   return incoming && incoming > 0 ? incoming : existing;

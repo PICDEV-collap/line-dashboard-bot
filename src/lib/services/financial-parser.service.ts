@@ -574,40 +574,163 @@ export function looksLikeFinancialData(text: string): boolean {
 export interface RecordConfirmationOptions {
   carryMeta?: CarriedDefaultsNotice;
   prefix?: string;
+  /** Items extracted from the current message (short mode). */
+  addedItems?: string[];
+  /** short = compact reply; full = itemized breakdown (default). */
+  mode?: "short" | "full";
+}
+
+const SHOP_LINE_RE =
+  /^(?:หนองปิง|ญี่ปุ่น|ตลาดญี่ปุ่น|สายหนองปิง|พรุ่งนี้|เมื่อวาน|วันนี้)$/u;
+
+/** User asks for full daily breakdown. */
+export function looksLikeSummaryRequest(text: string): boolean {
+  const stripped = text
+    .trim()
+    .replace(/^(?:หนองปิง|ญี่ปุ่น|ตลาดญี่ปุ่น|สายหนองปิง)\s+/u, "")
+    .trim();
+  return /^(?:สรุป|ดูยอด|ยอดวัน)(?:วันนี้|พรุ่งนี้|เมื่อวาน)?$/u.test(stripped);
+}
+
+/** Human-readable list of fields present in this parsed message. */
+export function formatParsedDeltaItems(parsed: ParsedFinancialInput): string[] {
+  const baht = (n: number) => `฿${n.toLocaleString("th-TH")}`;
+  const items: string[] = [];
+
+  if (parsed.transfer && parsed.transfer > 0) items.push(`โอน ${baht(parsed.transfer)}`);
+  if (parsed.cash && parsed.cash > 0) items.push(`สด ${baht(parsed.cash)}`);
+  if (parsed.delivery && parsed.delivery > 0) items.push(`Delivery ${baht(parsed.delivery)}`);
+  for (const e of parsed.extraIncome ?? []) {
+    if (e.amount > 0) items.push(`${e.name} ${baht(e.amount)}`);
+  }
+
+  const porkDelta = (
+    label: string,
+    p?: { qty: number; price: number }
+  ) => {
+    if (!p || (p.qty <= 0 && p.price <= 0)) return;
+    if (p.qty > 0 && p.price > 0) items.push(`${label} ${p.qty}กก. × ${baht(p.price)}`);
+    else if (p.qty > 0) items.push(`${label} ${p.qty}กก.`);
+    else items.push(`${label} ${baht(p.price)}/กก.`);
+  };
+  porkDelta("หมูแดง", parsed.porkRed);
+  porkDelta("หมูสับ", parsed.porkMinced);
+  porkDelta("มันหมู", parsed.porkFat);
+
+  if (parsed.materials && parsed.materials > 0) items.push(`วัตถุดิบ ${baht(parsed.materials)}`);
+  if (parsed.supplies && parsed.supplies > 0) items.push(`อุปกรณ์ ${baht(parsed.supplies)}`);
+  if (parsed.gas && parsed.gas > 0) items.push(`แก๊ส ${baht(parsed.gas)}`);
+  if (parsed.labor && parsed.labor > 0) items.push(`ค่าแรง ${baht(parsed.labor)}`);
+  if (parsed.ice && parsed.ice > 0) items.push(`น้ำแข็ง ${baht(parsed.ice)}`);
+  for (const e of parsed.extraExpenses ?? []) {
+    if (e.amount > 0) items.push(`${e.name} ${baht(e.amount)}`);
+  }
+  return items;
+}
+
+/** Use compact reply for small single-purpose messages. */
+export function shouldUseShortConfirmation(
+  parsed: ParsedFinancialInput,
+  text: string
+): boolean {
+  const items = formatParsedDeltaItems(parsed);
+  if (items.length === 0) return false;
+  if (items.length >= 4) return false;
+  const contentLines = text
+    .split(/\n/)
+    .map((l) => l.trim())
+    .filter((l) => l && !SHOP_LINE_RE.test(l));
+  return contentLines.length < 4;
+}
+
+function shopLabelFor(rec: FinancialRecord): string {
+  return rec.shopId === "shop2" ? "🏪 สายหนองปิง" : "🏪 ตลาดญี่ปุ่น";
+}
+
+function formatBriefTotals(rec: FinancialRecord): string {
+  const baht = (n: number) => `฿${n.toLocaleString("th-TH")}`;
+  const sign = rec.profit >= 0 ? "+" : "";
+  return `📊 ยอดวันนั้น: รายรับ ${baht(rec.revenue)} · ค่าใช้จ่าย ${baht(rec.expense)} · กำไร ${sign}${baht(rec.profit)}`;
+}
+
+export function buildShortRecordConfirmation(
+  rec: FinancialRecord,
+  options: RecordConfirmationOptions = {}
+): string {
+  const lines: string[] = [];
+  if (options.prefix) lines.push(options.prefix);
+
+  const today = getTodayDateString();
+  lines.push(`✅ บันทึกแล้ว · ${shopLabelFor(rec)}`);
+  if (rec.date !== today) {
+    lines.push(`📅 ${describeRecordDate(rec.date, today)} (${rec.date})`);
+  }
+  lines.push("");
+
+  if (options.addedItems?.length) {
+    lines.push(`➕ เพิ่ม: ${options.addedItems.join(" · ")}`);
+    lines.push("");
+  }
+
+  lines.push(formatBriefTotals(rec));
+
+  if (options.carryMeta) {
+    lines.push("   (รวมค่าที่ดึงจากวันก่อนด้วย)");
+  }
+
+  lines.push('');
+  lines.push('💬 "สรุป" ดูรายละเอียด · "ช่วย" คำสั่งทั้งหมด');
+  return lines.join("\n");
+}
+
+export function buildSummaryNotFoundMessage(date: string, today: string): string {
+  const tag = describeRecordDate(date, today);
+  return `❌ ยังไม่มีข้อมูล${tag === date ? ` วันที่ ${date}` : ` (${tag})`}\n\nส่งยอดหรือรายการเพื่อเริ่มบันทึก`;
 }
 
 export function buildRecordConfirmation(
   rec: FinancialRecord,
   options: RecordConfirmationOptions = {}
 ): string {
+  if (options.mode === "short") {
+    return buildShortRecordConfirmation(rec, options);
+  }
+
   const baht = (n: number) => `฿${n.toLocaleString("th-TH")}`;
-  const shopLabel =
-    rec.shopId === "shop2" ? "🏪 สาขา: สายหนองปิง" : "🏪 สาขา: ตลาดญี่ปุ่น";
   const lines: string[] = [];
   if (options.prefix) lines.push(options.prefix);
   const today = getTodayDateString();
-  lines.push(`✅ บันทึกข้อมูลรายวันแล้ว\n${shopLabel}`);
+  lines.push(`✅ บันทึกข้อมูลรายวันแล้ว\n🏪 สาขา: ${shopLabelFor(rec)}`);
   if (rec.date !== today) {
     lines.push(`📅 ${describeRecordDate(rec.date, today)} (${rec.date})`);
   }
   lines.push("");
 
-  lines.push("💰 รายรับ:");
-  if (rec.transfer) lines.push(`  📱 โอน: ${baht(rec.transfer)}`);
-  if (rec.cash) lines.push(`  💵 สด: ${baht(rec.cash)}`);
-  if (rec.delivery) lines.push(`  🛵 Delivery: ${baht(rec.delivery)}`);
-  for (const e of rec.extraIncome ?? []) lines.push(`  💚 ${e.name}: ${baht(e.amount)}`);
-  lines.push(`  รวม: ${baht(rec.revenue)}\n`);
+  const incomeLines: string[] = [];
+  if (rec.transfer) incomeLines.push(`  📱 โอน: ${baht(rec.transfer)}`);
+  if (rec.cash) incomeLines.push(`  💵 สด: ${baht(rec.cash)}`);
+  if (rec.delivery) incomeLines.push(`  🛵 Delivery: ${baht(rec.delivery)}`);
+  for (const e of rec.extraIncome ?? []) {
+    if (e.amount > 0) incomeLines.push(`  💚 ${e.name}: ${baht(e.amount)}`);
+  }
+  if (incomeLines.length === 0) {
+    lines.push("💰 รายรับ: (ยังไม่มี)\n");
+  } else {
+    lines.push("💰 รายรับ:");
+    lines.push(...incomeLines);
+    lines.push(`  รวม: ${baht(rec.revenue)}\n`);
+  }
 
   lines.push("🧾 ค่าใช้จ่าย:");
+  const expenseLines: string[] = [];
   const porkLine = (emoji: string, label: string, qty: number, price: number, total: number) => {
     if (qty <= 0 && price <= 0) return;
     if (qty <= 0 && price > 0) {
-      lines.push(`  ${emoji} ${label}: ฿${price}/กก. (⏳ รอยอดจำนวน)`);
+      expenseLines.push(`  ${emoji} ${label}: ฿${price}/กก. (⏳ รอยอดจำนวน)`);
       return;
     }
-    if (price <= 0) lines.push(`  ${emoji} ${label}: ${qty}กก (⏳ ยังไม่ใส่ราคา)`);
-    else lines.push(`  ${emoji} ${label}: ${qty}กก × ฿${price} = ${baht(total)}`);
+    if (price <= 0) expenseLines.push(`  ${emoji} ${label}: ${qty}กก (⏳ ยังไม่ใส่ราคา)`);
+    else expenseLines.push(`  ${emoji} ${label}: ${qty}กก × ฿${price} = ${baht(total)}`);
   };
   const pb = rec.porkBreakdown;
   if (pb) {
@@ -615,19 +738,32 @@ export function buildRecordConfirmation(
     porkLine("🟠", "หมูสับ", pb.mincedQty, pb.mincedPrice, pb.mincedTotal);
     porkLine("🟡", "มันหมู", pb.fatQty, pb.fatPrice, pb.fatTotal);
   }
-  if (rec.materials) lines.push(`  🫙 วัตถุดิบ: ${baht(rec.materials)}`);
-  if (rec.supplies) lines.push(`  📦 อุปกรณ์: ${baht(rec.supplies)}`);
-  if (rec.gas) lines.push(`  🔥 แก๊ส: ${baht(rec.gas)}`);
-  if (rec.labor) lines.push(`  👷 ค่าแรง: ${baht(rec.labor)}`);
-  if (rec.ice) lines.push(`  🧊 น้ำแข็ง: ${baht(rec.ice)}`);
-  for (const e of rec.extraExpenses ?? []) lines.push(`  💸 ${e.name}: ${baht(e.amount)}`);
-  lines.push(`  รวม: ${baht(rec.expense)}\n`);
+  if (rec.materials) expenseLines.push(`  🫙 วัตถุดิบ: ${baht(rec.materials)}`);
+  if (rec.supplies) expenseLines.push(`  📦 อุปกรณ์: ${baht(rec.supplies)}`);
+  if (rec.gas) expenseLines.push(`  🔥 แก๊ส: ${baht(rec.gas)}`);
+  if (rec.labor) expenseLines.push(`  👷 ค่าแรง: ${baht(rec.labor)}`);
+  if (rec.ice) expenseLines.push(`  🧊 น้ำแข็ง: ${baht(rec.ice)}`);
+  for (const e of rec.extraExpenses ?? []) {
+    if (e.amount > 0) expenseLines.push(`  💸 ${e.name}: ${baht(e.amount)}`);
+  }
+  if (expenseLines.length === 0) {
+    lines.push("  (ยังไม่มี)");
+  } else {
+    lines.push(...expenseLines);
+  }
+  if (rec.expense > 0) {
+    lines.push(`  รวม: ${baht(rec.expense)}\n`);
+  } else {
+    lines.push("");
+  }
 
-  const emoji = rec.profit >= 0 ? "📈" : "📉";
-  const sign = rec.profit >= 0 ? "+" : "";
-  lines.push(`${emoji} กำไร: ${sign}${baht(rec.profit)}`);
-  if (rec.revenue > 0) {
-    lines.push(`📊 อัตรากำไร: ${((rec.profit / rec.revenue) * 100).toFixed(1)}%`);
+  if (rec.revenue > 0 || rec.expense > 0) {
+    const emoji = rec.profit >= 0 ? "📈" : "📉";
+    const sign = rec.profit >= 0 ? "+" : "";
+    lines.push(`${emoji} กำไร: ${sign}${baht(rec.profit)}`);
+    if (rec.revenue > 0) {
+      lines.push(`📊 อัตรากำไร: ${((rec.profit / rec.revenue) * 100).toFixed(1)}%`);
+    }
   }
 
   if (rec.status !== "complete") {
@@ -637,7 +773,7 @@ export function buildRecordConfirmation(
   const carryNote = options.carryMeta ? buildCarriedDefaultsNotice(options.carryMeta) : undefined;
   if (carryNote) lines.push(carryNote);
 
-  lines.push(`\n💬 พิมพ์ "ช่วย" เพื่อดูวิธีแก้ไขข้อมูล`);
+  lines.push(`\n💬 พิมพ์ "สรุป" ดูรายละเอียด · "ช่วย" แก้ไขข้อมูล`);
 
   return lines.join("\n");
 }

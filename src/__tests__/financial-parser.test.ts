@@ -4,11 +4,17 @@ import {
   extractDeterministicPork,
   isIncomeLikeName,
   looksLikeFinancialData,
+  looksLikeSummaryRequest,
   parseFinancialMessageWithRegex,
   parsePork,
   sanitizeExtraLedger,
+  formatParsedDeltaItems,
+  shouldUseShortConfirmation,
+  buildRecordConfirmation,
+  buildShortRecordConfirmation,
 } from "@/lib/services/financial-parser.service";
 import { resolveRecordDateFromText } from "@/lib/utils/helpers";
+import type { FinancialRecord } from "@/lib/types/financial.types";
 
 const RED = ["หมูแดง", "หมูเนื้อ", "แดง"];
 const MINCED = ["หมูสับ", "สับ"];
@@ -258,5 +264,76 @@ describe("sanitizeExtraLedger", () => {
       ])
     );
     expect(result.extraExpenses).toEqual([{ name: "แม็คโคร", amount: 3800 }]);
+  });
+});
+
+const baseRecord: FinancialRecord = {
+  id: "1",
+  date: "2026-06-16",
+  shopId: "shop2",
+  shopName: "หนองปิง",
+  revenue: 0,
+  transfer: 0,
+  cash: 0,
+  delivery: 0,
+  expense: 1970,
+  pork: 0,
+  materials: 1120,
+  supplies: 0,
+  gas: 150,
+  labor: 850,
+  ice: 35,
+  extraExpenses: [],
+  extraIncome: [],
+  profit: -1970,
+  marginPct: 0,
+  note: "",
+  status: "complete",
+  incomplete: false,
+  createdAt: "",
+  updatedAt: "",
+};
+
+describe("reply messages", () => {
+  it("looksLikeSummaryRequest detects summary commands", () => {
+    expect(looksLikeSummaryRequest("สรุป")).toBe(true);
+    expect(looksLikeSummaryRequest("หนองปิง สรุปพรุ่งนี้")).toBe(true);
+    expect(looksLikeSummaryRequest("ดูยอด")).toBe(true);
+    expect(looksLikeSummaryRequest("โอน 5000")).toBe(false);
+  });
+
+  it("formatParsedDeltaItems lists items from parsed message", () => {
+    const items = formatParsedDeltaItems(
+      parseFinancialMessageWithRegex("หนองปิง\nพรุ่งนี้\nวัตถุดิบ 1120")
+    );
+    expect(items).toEqual(["วัตถุดิบ ฿1,120"]);
+  });
+
+  it("shouldUseShortConfirmation for small messages", () => {
+    const text = "หนองปิง\nพรุ่งนี้\nวัตถุดิบ 1120";
+    const parsed = parseFinancialMessageWithRegex(text);
+    expect(shouldUseShortConfirmation(parsed, text)).toBe(true);
+
+    const longText = "หนองปิง\nโอน 5000\nสด 3000\nจ่ายแม็คโคร 3800\nแดง4";
+    const longParsed = parseFinancialMessageWithRegex(longText);
+    expect(shouldUseShortConfirmation(longParsed, longText)).toBe(false);
+  });
+
+  it("buildShortRecordConfirmation is compact", () => {
+    const msg = buildShortRecordConfirmation(baseRecord, {
+      mode: "short",
+      addedItems: ["วัตถุดิบ ฿1,120"],
+    });
+    expect(msg).toContain("➕ เพิ่ม: วัตถุดิบ ฿1,120");
+    expect(msg).toContain("📊 ยอดวันนั้น:");
+    expect(msg).toContain('"สรุป"');
+    expect(msg).not.toContain("หมูแดง");
+  });
+
+  it("buildRecordConfirmation hides empty income section", () => {
+    const msg = buildRecordConfirmation(baseRecord, { mode: "full" });
+    expect(msg).toContain("💰 รายรับ: (ยังไม่มี)");
+    expect(msg).toContain("🫙 วัตถุดิบ: ฿1,120");
+    expect(msg).not.toMatch(/รวม: ฿0/);
   });
 });

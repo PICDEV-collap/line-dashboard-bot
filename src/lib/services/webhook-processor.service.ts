@@ -13,9 +13,13 @@ import { extractTextFromImage } from "@/lib/services/gemini.service";
 import {
   parseFinancialMessage,
   looksLikeFinancialData,
+  looksLikeSummaryRequest,
   buildRecordConfirmation,
+  buildSummaryNotFoundMessage,
+  formatParsedDeltaItems,
+  shouldUseShortConfirmation,
 } from "@/lib/services/financial-parser.service";
-import { upsertParsedRecord, applyLineCorrection } from "@/lib/services/financial-records.service";
+import { upsertParsedRecord, applyLineCorrection, getRecordByShopDate } from "@/lib/services/financial-records.service";
 import {
   looksLikeCorrection,
   looksLikeCorrectionHelp,
@@ -154,6 +158,24 @@ async function processTextMessage(
     };
   }
 
+  if (looksLikeSummaryRequest(text)) {
+    const summaryDate = resolveRecordDateFromText(text) ?? today;
+    const record = await getRecordByShopDate(
+      shop?.shopId ?? ENV.DEFAULT_SHOP_ID(),
+      summaryDate
+    );
+    if (!record) {
+      return {
+        processed: { ...msg, content: "[SUMMARY] empty", status: "completed" },
+        replyMsg: buildSummaryNotFoundMessage(summaryDate, today),
+      };
+    }
+    return {
+      processed: { ...msg, content: "[SUMMARY] full", status: "completed" },
+      replyMsg: buildRecordConfirmation(record, { mode: "full" }),
+    };
+  }
+
   if (looksLikeCorrection(text)) {
     const result = await applyLineCorrection({
       text: normalizeCommandText(text) || text,
@@ -169,7 +191,10 @@ async function processTextMessage(
     }
     return {
       processed: { ...msg, content: `[CORRECTION] ${text.slice(0, 200)}`, status: "completed" },
-      replyMsg: buildRecordConfirmation(result.record, { prefix: result.message }),
+      replyMsg: buildRecordConfirmation(result.record, {
+        prefix: result.message,
+        mode: "short",
+      }),
     };
   }
 
@@ -189,13 +214,19 @@ async function processTextMessage(
       });
 
       const { carryMeta, ...saved } = record;
+      const addedItems = formatParsedDeltaItems(parsed);
+      const useShort = shouldUseShortConfirmation(parsed, text);
       return {
         processed: {
           ...msg,
           content: `[FINANCIAL] ${text.slice(0, 200)}`,
           status: "completed",
         },
-        replyMsg: buildRecordConfirmation(saved, { carryMeta }),
+        replyMsg: buildRecordConfirmation(saved, {
+          carryMeta,
+          addedItems,
+          mode: useShort ? "short" : "full",
+        }),
       };
     }
 
@@ -211,7 +242,10 @@ async function processTextMessage(
       if (result.record) {
         return {
           processed: { ...msg, content: `[CORRECTION] ${text.slice(0, 200)}`, status: "completed" },
-          replyMsg: buildRecordConfirmation(result.record, { prefix: result.message }),
+          replyMsg: buildRecordConfirmation(result.record, {
+            prefix: result.message,
+            mode: "short",
+          }),
         };
       }
     }
