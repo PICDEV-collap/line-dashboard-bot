@@ -82,7 +82,7 @@ export default function HomePage() {
         <Card
           title="Financial Dashboard"
           icon="🍖"
-          description="Dashboard ร้านครูตอม — เชื่อมต่อ Google Sheets"
+          description="Dashboard ร้านครูตอม — เชื่อมต่อ Supabase"
           value={<a href="/dashboard.html" target="_blank" rel="noopener noreferrer">/dashboard.html</a>}
         />
         <Card
@@ -108,9 +108,9 @@ export default function HomePage() {
         </h2>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "0.75rem" }}>
           {[
-            { icon: "💬", type: "Text", desc: "บันทึกลง Google Sheets" },
-            { icon: "🖼️", type: "Image", desc: "อัปโหลด Drive + OCR Gemini" },
-            { icon: "📄", type: "PDF/File", desc: "อัปโหลด Google Drive" },
+            { icon: "💬", type: "Text", desc: "บันทึกลง Supabase DB" },
+            { icon: "🖼️", type: "Image", desc: "อัปโหลด Storage + OCR Gemini" },
+            { icon: "📄", type: "PDF/File", desc: "อัปโหลด Supabase Storage" },
             { icon: "📍", type: "Location", desc: "บันทึก Lat/Lng + Address" },
           ].map((item) => (
             <div
@@ -152,7 +152,7 @@ export default function HomePage() {
             <code>{webhookUrl}</code>
           </li>
           <li>เปิด LINE Messaging API &gt; Use webhooks: ON</li>
-          <li>เชื่อม Google Sheets / Drive ด้วย Service Account</li>
+          <li>รัน SQL Schema ใน Supabase SQL Editor สร้าง Tables</li>
           <li>เชื่อม Looker Studio กับ Dashboard API</li>
           <li>เปิด <code>/dashboard.html</code> → ตั้งค่า URL + API Key → กด เชื่อมต่อ</li>
           <li>กด &quot;Seed ข้อมูลเริ่มต้น&quot; เพื่อ import 31 records (มี.ค. 2569)</li>
@@ -167,7 +167,7 @@ export default function HomePage() {
           fontSize: "0.8rem",
         }}
       >
-        Built with Next.js 15 · Deployed on Vercel · Powered by Gemini AI
+        Built with Next.js 16 · Deployed on Vercel · Powered by Gemini AI
       </footer>
     </main>
   );
