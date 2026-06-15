@@ -16,8 +16,14 @@ describe("looksLikeFinancialData", () => {
     expect(looksLikeFinancialData("โอน 5000 สด 3000")).toBe(true);
   });
 
+  it("detects a branch name or purchase together with an amount", () => {
+    expect(looksLikeFinancialData("หนองปิง ซื้อของ แม็คโคร 1220")).toBe(true);
+    expect(looksLikeFinancialData("ตลาดญี่ปุ่น แดง4 สับ3 แม็คโคร 1300")).toBe(true);
+  });
+
   it("ignores plain chat", () => {
     expect(looksLikeFinancialData("สวัสดีครับ ขอบคุณมากนะ")).toBe(false);
+    expect(looksLikeFinancialData("ขอบคุณ 2 ครั้งเลยนะ")).toBe(false);
   });
 });
 
