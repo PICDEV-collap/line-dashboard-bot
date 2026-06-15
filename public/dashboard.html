@@ -362,7 +362,7 @@ tbody td{padding:8px 11px;color:var(--text)}
       <input type="hidden" id="editId">
       <div class="form-field">
         <div class="form-lbl">วันที่ *</div>
-        <input type="date" class="form-input" id="fDate">
+        <input type="date" class="form-input" id="fDate" onchange="autoLoadExisting()">
       </div>
       <div class="form-field">
         <div class="form-lbl">สถานะ</div>
@@ -374,7 +374,7 @@ tbody td{padding:8px 11px;color:var(--text)}
       </div>
       <div class="form-field full">
         <div class="form-lbl">🏪 ร้าน / สาขา</div>
-        <select class="form-input" id="fShopId">
+        <select class="form-input" id="fShopId" onchange="autoLoadExisting()">
           <option value="shop1">ก๋วยเตี๋ยวไทยครูตอมตลาดญี่ปุ่น</option>
           <option value="shop2">ก๋วยเตี๋ยวไทยครูตอมสายหนองปิง</option>
         </select>
@@ -789,6 +789,19 @@ function openAddModal(r=null) {
     calcModal();
   }
   $('modalOverlay').classList.add('open');
+}
+
+function autoLoadExisting() {
+  if ($('editId').value) return; // already editing, don't override
+  const date = $('fDate').value;
+  const shopId = $('fShopId').value;
+  if (!date || !shopId) return;
+  const existing = allRecords.find(r => r.date === date && r.shopId === shopId);
+  if (existing) {
+    if (confirm(`พบข้อมูลวันที่ ${fmtDate(date)} สาขา ${shopId==='shop2'?'สายหนองปิง':'ตลาดญี่ปุ่น'} อยู่แล้ว\nต้องการโหลดข้อมูลเดิมมาแก้ไขหรือไม่?`)) {
+      openAddModal(existing);
+    }
+  }
 }
 
 function editRecord(id) { openAddModal(allRecords.find(r=>r.id===id)); }
