@@ -47,6 +47,11 @@ describe("looksLikeCorrection", () => {
     expect(looksLikeCorrection("โอน 5000")).toBe(false);
   });
 
+  it("detects ปรับ with branch prefix and shorthand ค่า", () => {
+    expect(looksLikeCorrection("ญี่ปุ่น ปรับค่าแรง 850")).toBe(true);
+    expect(looksLikeCorrection("ญี่ปุ่น ค่า 850")).toBe(true);
+  });
+
   it("detects help", () => {
     expect(looksLikeCorrectionHelp("ช่วย")).toBe(true);
     expect(looksLikeCorrectionHelp("วิธีแก้")).toBe(true);
@@ -57,6 +62,24 @@ describe("parseCorrectionMessage", () => {
   it("parses field updates", () => {
     expect(parseCorrectionMessage("แก้ โอน 3000")).toEqual([
       { op: "set", field: "transfer", value: 3000 },
+    ]);
+  });
+
+  it("parses ปรับค่าแรง with branch prefix", () => {
+    expect(parseCorrectionMessage("ญี่ปุ่น ปรับค่าแรง 850")).toEqual([
+      { op: "set", field: "labor", value: 850 },
+    ]);
+  });
+
+  it("parses recurring extra corrections", () => {
+    expect(parseCorrectionMessage("แก้ ค่าเช่า 5000")).toEqual([
+      { op: "setExtraExpense", name: "ค่าเช่า", amount: 5000 },
+    ]);
+  });
+
+  it("parses shorthand ค่า as labor", () => {
+    expect(parseCorrectionMessage("ญี่ปุ่น ค่า 850")).toEqual([
+      { op: "set", field: "labor", value: 850 },
     ]);
   });
 

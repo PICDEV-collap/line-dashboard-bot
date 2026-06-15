@@ -20,6 +20,9 @@ import {
   looksLikeCorrection,
   looksLikeCorrectionHelp,
   buildCorrectionHelpMessage,
+  buildUnrecognizedFinancialHint,
+  normalizeCommandText,
+  parseCorrectionMessage,
 } from "@/lib/services/financial-correction.service";
 import { detectShopFromText } from "@/lib/services/financial-parser.service";
 import { ENV } from "@/config/constants";
@@ -152,7 +155,7 @@ async function processTextMessage(
 
   if (looksLikeCorrection(text)) {
     const result = await applyLineCorrection({
-      text,
+      text: normalizeCommandText(text) || text,
       date: today,
       shopId: shop?.shopId ?? ENV.DEFAULT_SHOP_ID(),
       shopName: shop?.shopName ?? ENV.DEFAULT_SHOP_NAME(),
@@ -184,24 +187,38 @@ async function processTextMessage(
         parsed,
       });
 
-      const { porkPriceCarried, ...saved } = record;
+      const { carryMeta, ...saved } = record;
       return {
         processed: {
           ...msg,
           content: `[FINANCIAL] ${text.slice(0, 200)}`,
           status: "completed",
         },
-        replyMsg: buildRecordConfirmation(saved, {
-          porkPriceCarried: porkPriceCarried
-            ? {
-                redFrom: porkPriceCarried.redFrom,
-                mincedFrom: porkPriceCarried.mincedFrom,
-                fatFrom: porkPriceCarried.fatFrom,
-              }
-            : undefined,
-        }),
+        replyMsg: buildRecordConfirmation(saved, { carryMeta }),
       };
     }
+
+    // Heuristic matched but parser couldn't extract — try correction / shorthand
+    const norm = normalizeCommandText(text);
+    if (parseCorrectionMessage(norm || text).length > 0) {
+      const result = await applyLineCorrection({
+        text: norm || text,
+        date: today,
+        shopId: shop?.shopId ?? ENV.DEFAULT_SHOP_ID(),
+        shopName: shop?.shopName ?? ENV.DEFAULT_SHOP_NAME(),
+      });
+      if (result.record) {
+        return {
+          processed: { ...msg, content: `[CORRECTION] ${text.slice(0, 200)}`, status: "completed" },
+          replyMsg: buildRecordConfirmation(result.record, { prefix: result.message }),
+        };
+      }
+    }
+
+    return {
+      processed: { ...msg, content: `[UNRECOGNIZED] ${text.slice(0, 200)}`, status: "completed" },
+      replyMsg: buildUnrecognizedFinancialHint(),
+    };
   }
 
   // Regular text message

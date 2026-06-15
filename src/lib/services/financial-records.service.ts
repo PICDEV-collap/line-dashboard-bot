@@ -7,6 +7,12 @@ import {
   applyCorrectionActions,
   parseCorrectionMessage,
 } from "@/lib/services/financial-correction.service";
+import {
+  applyCarriedRecurringExtras,
+  pickCarriedExpense,
+  scanCarriedStandardExpenses,
+  type CarriedDefaultsNotice,
+} from "@/lib/services/recurring-expenses.service";
 import type {
   FinancialRecord,
   FinancialStats,
@@ -243,16 +249,13 @@ export async function getCarriedPorkPrices(
   shopId: string,
   beforeDate: string
 ): Promise<CarriedPorkPrices> {
-  const db = getSupabaseClient();
-  const { data, error } = await db
-    .from("financial_records")
-    .select("date, pork_breakdown")
-    .eq("shop_id", shopId)
-    .lt("date", beforeDate)
-    .order("date", { ascending: false })
-    .limit(60);
-  if (error) throw new Error(`DB query error (carried pork prices): ${error.message}`);
+  const rows = await fetchPriorRecords(shopId, beforeDate);
+  return scanCarriedPorkPrices(rows);
+}
 
+function scanCarriedPorkPrices(
+  rows: { date: string; pork_breakdown?: PorkBreakdown | null }[]
+): CarriedPorkPrices {
   let redPrice = 0;
   let mincedPrice = 0;
   let fatPrice = 0;
@@ -260,25 +263,55 @@ export async function getCarriedPorkPrices(
   let mincedFrom: string | undefined;
   let fatFrom: string | undefined;
 
-  for (const row of data ?? []) {
-    const pb = row.pork_breakdown as PorkBreakdown | null;
+  for (const row of rows) {
+    const pb = row.pork_breakdown;
     if (!pb) continue;
     if (!redPrice && pb.redPrice > 0) {
       redPrice = pb.redPrice;
-      redFrom = String(row.date);
+      redFrom = row.date;
     }
     if (!mincedPrice && pb.mincedPrice > 0) {
       mincedPrice = pb.mincedPrice;
-      mincedFrom = String(row.date);
+      mincedFrom = row.date;
     }
     if (!fatPrice && pb.fatPrice > 0) {
       fatPrice = pb.fatPrice;
-      fatFrom = String(row.date);
+      fatFrom = row.date;
     }
     if (redPrice && mincedPrice && fatPrice) break;
   }
   return { redPrice, mincedPrice, fatPrice, redFrom, mincedFrom, fatFrom };
 }
+
+async function fetchPriorRecords(shopId: string, beforeDate: string) {
+  const db = getSupabaseClient();
+  const { data, error } = await db
+    .from("financial_records")
+    .select("date, pork_breakdown, labor, ice, gas, extra_expenses")
+    .eq("shop_id", shopId)
+    .lt("date", beforeDate)
+    .order("date", { ascending: false })
+    .limit(60);
+  if (error) throw new Error(`DB query error (carried defaults): ${error.message}`);
+  return (data ?? []).map((row) => ({
+    date: String(row.date),
+    pork_breakdown: row.pork_breakdown as PorkBreakdown | null,
+    labor: Number(row.labor ?? 0),
+    ice: Number(row.ice ?? 0),
+    gas: Number(row.gas ?? 0),
+    extra_expenses: (row.extra_expenses as ExtraExpense[]) ?? [],
+  }));
+}
+
+async function getCarriedDefaults(shopId: string, beforeDate: string) {
+  const rows = await fetchPriorRecords(shopId, beforeDate);
+  return {
+    pork: scanCarriedPorkPrices(rows),
+    standard: scanCarriedStandardExpenses(rows),
+  };
+}
+
+export type { CarriedDefaultsNotice };
 
 function finalizePorkBreakdown(pb: PorkBreakdown): PorkBreakdown {
   pb.redTotal = pb.redQty * pb.redPrice;
@@ -355,11 +388,11 @@ export async function upsertParsedRecord(input: {
   shopId: string;
   shopName: string;
   parsed: ParsedFinancialInput;
-}): Promise<FinancialRecord & { porkPriceCarried?: CarriedPorkPrices }> {
+}): Promise<FinancialRecord & { carryMeta?: CarriedDefaultsNotice }> {
   const existing = await getByShopDate(input.shopId, input.date);
   const p = input.parsed;
   const pb = existing?.porkBreakdown;
-  const carried = await getCarriedPorkPrices(input.shopId, input.date);
+  const carried = await getCarriedDefaults(input.shopId, input.date);
 
   const transfer = pickNum(p.transfer, existing?.transfer ?? 0);
   const cash = pickNum(p.cash, existing?.cash ?? 0);
@@ -369,9 +402,15 @@ export async function upsertParsedRecord(input: {
   let extraExpenses = mergeList(existing?.extraExpenses ?? [], p.extraExpenses ?? []);
   ({ extraIncome, extraExpenses } = sanitizeExtraLedger(extraIncome, extraExpenses));
 
-  const red = mergePork(p.porkRed, pb?.redQty ?? 0, pb?.redPrice ?? 0, carried.redPrice);
-  const minced = mergePork(p.porkMinced, pb?.mincedQty ?? 0, pb?.mincedPrice ?? 0, carried.mincedPrice);
-  const fat = mergePork(p.porkFat, pb?.fatQty ?? 0, pb?.fatPrice ?? 0, carried.fatPrice);
+  const recurringMerge = applyCarriedRecurringExtras(
+    extraExpenses,
+    carried.standard.recurringExtras
+  );
+  extraExpenses = recurringMerge.extras;
+
+  const red = mergePork(p.porkRed, pb?.redQty ?? 0, pb?.redPrice ?? 0, carried.pork.redPrice);
+  const minced = mergePork(p.porkMinced, pb?.mincedQty ?? 0, pb?.mincedPrice ?? 0, carried.pork.mincedPrice);
+  const fat = mergePork(p.porkFat, pb?.fatQty ?? 0, pb?.fatPrice ?? 0, carried.pork.fatPrice);
 
   const porkBreakdown: PorkBreakdown = {
     redQty: red.qty, redPrice: red.price, redTotal: red.total,
@@ -382,16 +421,54 @@ export async function upsertParsedRecord(input: {
 
   const materials = pickNum(p.materials, existing?.materials ?? 0);
   const supplies = pickNum(p.supplies, existing?.supplies ?? 0);
-  const gas = pickNum(p.gas, existing?.gas ?? DEFAULT_EXPENSES.gas);
-  const labor = pickNum(p.labor, existing?.labor ?? DEFAULT_EXPENSES.labor);
-  const ice = pickNum(p.ice, existing?.ice ?? DEFAULT_EXPENSES.ice);
+
+  const gasPick = pickCarriedExpense(
+    p.gas,
+    existing?.gas ?? 0,
+    carried.standard.gas,
+    DEFAULT_EXPENSES.gas
+  );
+  const laborPick = pickCarriedExpense(
+    p.labor,
+    existing?.labor ?? 0,
+    carried.standard.labor,
+    DEFAULT_EXPENSES.labor
+  );
+  const icePick = pickCarriedExpense(
+    p.ice,
+    existing?.ice ?? 0,
+    carried.standard.ice,
+    DEFAULT_EXPENSES.ice
+  );
 
   const note = p.note?.trim() ? p.note.trim() : existing?.note ?? "";
 
   const totals = recomputeRecordTotals({
     transfer, cash, delivery, extraIncome, extraExpenses, porkBreakdown,
-    materials, supplies, gas, labor, ice, revenue: 0,
+    materials, supplies,
+    gas: gasPick.value,
+    labor: laborPick.value,
+    ice: icePick.value,
+    revenue: 0,
   });
+
+  const carryMeta: CarriedDefaultsNotice = {};
+  const porkFrom = [
+    red.priceCarried ? carried.pork.redFrom : undefined,
+    minced.priceCarried ? carried.pork.mincedFrom : undefined,
+    fat.priceCarried ? carried.pork.fatFrom : undefined,
+  ].filter(Boolean) as string[];
+  if (porkFrom.length) carryMeta.porkFrom = porkFrom;
+
+  const standardFrom = [
+    laborPick.fromCarry ? carried.standard.laborFrom : undefined,
+    icePick.fromCarry ? carried.standard.iceFrom : undefined,
+    gasPick.fromCarry ? carried.standard.gasFrom : undefined,
+  ].filter(Boolean) as string[];
+  if (standardFrom.length) carryMeta.standardFrom = standardFrom;
+  if (recurringMerge.carriedNames.length) {
+    carryMeta.recurringCarried = recurringMerge.carriedNames;
+  }
 
   const fields = {
     date: input.date,
@@ -402,22 +479,41 @@ export async function upsertParsedRecord(input: {
     expense: totals.expense,
     pork: totals.pork,
     porkBreakdown: totals.porkBreakdown,
-    materials, supplies, gas, labor, ice,
+    materials, supplies,
+    gas: gasPick.value,
+    labor: laborPick.value,
+    ice: icePick.value,
     extraExpenses, extraIncome,
     profit: totals.profit,
     note,
     status: totals.status,
   };
 
-  const porkPriceCarried =
-    red.priceCarried || minced.priceCarried || fat.priceCarried ? carried : undefined;
+  const hasCarryMeta =
+    (carryMeta.porkFrom?.length ?? 0) > 0 ||
+    (carryMeta.standardFrom?.length ?? 0) > 0 ||
+    (carryMeta.recurringCarried?.length ?? 0) > 0;
 
   if (existing) {
     const updated = await updateRecord(existing.id, fields);
-    return { ...(updated as FinancialRecord), porkPriceCarried };
+    return { ...(updated as FinancialRecord), carryMeta: hasCarryMeta ? carryMeta : undefined };
   }
   const created = await createRecord(fields);
-  return { ...created, porkPriceCarried };
+  return { ...created, carryMeta: hasCarryMeta ? carryMeta : undefined };
+}
+
+async function buildCarriedBaselineFields(shopId: string, date: string) {
+  const carried = await getCarriedDefaults(shopId, date);
+  const gasPick = pickCarriedExpense(undefined, 0, carried.standard.gas, DEFAULT_EXPENSES.gas);
+  const laborPick = pickCarriedExpense(undefined, 0, carried.standard.labor, DEFAULT_EXPENSES.labor);
+  const icePick = pickCarriedExpense(undefined, 0, carried.standard.ice, DEFAULT_EXPENSES.ice);
+  const recurring = applyCarriedRecurringExtras([], carried.standard.recurringExtras);
+  return {
+    gas: gasPick.value,
+    labor: laborPick.value,
+    ice: icePick.value,
+    extraExpenses: recurring.extras,
+  };
 }
 
 /** Apply LINE correction commands (แก้/ลบ/เปลี่ยน) to today's record. */
@@ -434,6 +530,7 @@ export async function applyLineCorrection(input: {
 
   let existing = await getByShopDate(input.shopId, input.date);
   if (!existing) {
+    const baseline = await buildCarriedBaselineFields(input.shopId, input.date);
     existing = await createRecord({
       date: input.date,
       shopId: input.shopId,
@@ -447,10 +544,11 @@ export async function applyLineCorrection(input: {
         total: 0,
       },
       materials: 0, supplies: 0,
-      gas: DEFAULT_EXPENSES.gas,
-      labor: DEFAULT_EXPENSES.labor,
-      ice: DEFAULT_EXPENSES.ice,
-      extraExpenses: [], extraIncome: [],
+      gas: baseline.gas,
+      labor: baseline.labor,
+      ice: baseline.ice,
+      extraExpenses: baseline.extraExpenses,
+      extraIncome: [],
       profit: 0, note: "", status: "pending",
     });
   }

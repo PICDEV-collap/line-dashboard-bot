@@ -1,4 +1,5 @@
 import type { FinancialRecord, PorkBreakdown } from "@/lib/types/financial.types";
+import { normalizeRecurringExtraName, recurringCategoryOf } from "@/lib/services/recurring-expenses.service";
 
 export type NumericRecordField =
   | "transfer"
@@ -14,15 +15,35 @@ export type CorrectionAction =
   | { op: "set"; field: NumericRecordField; value: number }
   | { op: "set"; field: "porkPrice"; pork: "red" | "minced" | "fat"; value: number }
   | { op: "set"; field: "porkQtyPrice"; pork: "red" | "minced" | "fat"; qty: number; price: number }
+  | { op: "setExtraExpense"; name: string; amount: number }
   | { op: "removeExtraExpense"; name: string }
   | { op: "removeExtraIncome"; name: string }
   | { op: "clear"; field: "transfer" | "cash" | "delivery" };
 
-const SET_FIELD = /^(?:แก้|เปลี่ยน|ตั้ง)\s+(โอน|สด|delivery|เดลิเวอรี่|วัตถุดิบ|อุปกรณ์|แก๊ส|ค่าแรง|น้ำแข็ง)\s+([\d,]+)\s*$/i;
+const CORRECTION_PREFIX = "(?:แก้|เปลี่ยน|ตั้ง|ปรับ)";
+const SHOP_KW = /(?:ตลาดญี่ปุ่น|สายหนองปิง|ญี่ปุ่น|หนองปิง)/g;
+
+const SET_FIELD = new RegExp(
+  `^${CORRECTION_PREFIX}\\s*(โอน|สด|delivery|เดลิเวอรี่|วัตถุดิบ|อุปกรณ์|(?:ค่า)?แก๊ส|ค่าแรง|(?:ค่า)?น้ำแข็ง|ค่าเช่า|เช่า|ค่าน้ำ|น้ำประปา|ค่าไฟฟ้า|ค่าไฟ|ไฟฟ้า)\\s*([\\d,]+)\\s*$`,
+  "i"
+);
 const CLEAR_FIELD = /^ลบ\s+(โอน|สด|delivery|เดลิเวอรี่)\s*$/i;
 const REMOVE_EXTRA = /^ลบ\s+(.+?)\s*$/i;
-const PORK_QTY_PRICE = /^(?:แก้|เปลี่ยน|ตั้ง)\s+(หมูแดง|หมูเนื้อ|แดง|หมูสับ|สับ|มันหมู|หมูมัน|มัน)\s+([\d,]+)\s+([\d,]+)\s*$/i;
-const PORK_PRICE = /^(?:แก้|เปลี่ยน|ตั้ง|ราคา)\s*(หมูแดง|หมูเนื้อ|แดง|หมูสับ|สับ|มันหมู|หมูมัน|มัน)\s*(?:ราคา\s*)?([\d,]+)\s*(?:บาท|\/กก)?\s*$/i;
+const PORK_QTY_PRICE = new RegExp(
+  `^${CORRECTION_PREFIX}\\s*(หมูแดง|หมูเนื้อ|แดง|หมูสับ|สับ|มันหมู|หมูมัน|มัน)\\s+([\\d,]+)\\s+([\\d,]+)\\s*$`,
+  "i"
+);
+const PORK_PRICE = new RegExp(
+  `^(?:${CORRECTION_PREFIX}|ราคา)\\s*(หมูแดง|หมูเนื้อ|แดง|หมูสับ|สับ|มันหมู|หมูมัน|มัน)\\s*(?:ราคา\\s*)?([\\d,]+)\\s*(?:บาท|/กก)?\\s*$`,
+  "i"
+);
+/** Shorthand: "ค่า 850" = ค่าแรง (พูดสั้นในร้าน) */
+const LABOR_SHORTHAND = /^ค่า\s+([\d,]+)\s*$/i;
+/** Entry: "ค่าแรง 850", "ปรับค่าแรง 850" */
+const LABOR_LINE = new RegExp(
+  `^(?:${CORRECTION_PREFIX})?\\s*ค่าแรง\\s*([\\d,]+)\\s*$`,
+  "i"
+);
 
 const FIELD_MAP: Record<string, NumericRecordField> = {
   โอน: "transfer",
@@ -32,12 +53,38 @@ const FIELD_MAP: Record<string, NumericRecordField> = {
   วัตถุดิบ: "materials",
   อุปกรณ์: "supplies",
   แก๊ส: "gas",
+  ค่าแก๊ส: "gas",
   ค่าแรง: "labor",
   น้ำแข็ง: "ice",
+  ค่าน้ำแข็ง: "ice",
+};
+
+const RECURRING_SET_MAP: Record<string, string> = {
+  ค่าเช่า: "ค่าเช่า",
+  เช่า: "ค่าเช่า",
+  ค่าน้ำ: "ค่าน้ำ",
+  น้ำประปา: "ค่าน้ำ",
+  ค่าไฟฟ้า: "ค่าไฟฟ้า",
+  ค่าไฟ: "ค่าไฟฟ้า",
+  ไฟฟ้า: "ค่าไฟฟ้า",
+  ไฟ: "ค่าไฟฟ้า",
 };
 
 function num(s: string): number {
   return parseInt(s.replace(/,/g, ""), 10) || 0;
+}
+
+function stripShopPrefix(line: string): string {
+  return line.replace(SHOP_KW, "").trim();
+}
+
+/** Strip branch names from each line so "ญี่ปุ่น ปรับค่าแรง 850" is recognized. */
+export function normalizeCommandText(text: string): string {
+  return text
+    .split(/\n/)
+    .map((l) => stripShopPrefix(l.trim()))
+    .filter(Boolean)
+    .join("\n");
 }
 
 function porkKind(kw: string): "red" | "minced" | "fat" | null {
@@ -52,22 +99,32 @@ export function looksLikeCorrectionHelp(text: string): boolean {
   return /^(?:ช่วย|วิธีแก้|help|คำสั่ง)(?:\s|$)/i.test(t);
 }
 
+function lineLooksLikeCorrection(line: string): boolean {
+  const l = stripShopPrefix(line.trim());
+  if (!l) return false;
+  return (
+    /^(?:แก้|เปลี่ยน|ตั้ง|ปรับ|ลบ)\s*\S/.test(l) ||
+    /^(?:แก้|เปลี่ยน|ตั้ง|ปรับ)(?:ค่าแรง|ค่าแก๊ส|โอน|สด)/i.test(l) ||
+    /^ราคา\s*(?:หมู|แดง|สับ|มัน)/i.test(l) ||
+    LABOR_SHORTHAND.test(l) ||
+    LABOR_LINE.test(l)
+  );
+}
+
 export function looksLikeCorrection(text: string): boolean {
-  return text.split(/\n/).some((raw) => {
-    const line = raw.trim();
-    if (!line) return false;
-    return (
-      /^(?:แก้|เปลี่ยน|ตั้ง|ลบ)\s+\S/.test(line) ||
-      /^ราคา\s*(?:หมู|แดง|สับ|มัน)/i.test(line)
-    );
-  });
+  const bodies = [text, normalizeCommandText(text)];
+  return bodies.some((body) => body.split(/\n/).some((raw) => lineLooksLikeCorrection(raw)));
 }
 
 export function parseCorrectionMessage(text: string): CorrectionAction[] {
   const actions: CorrectionAction[] = [];
-  for (const raw of text.split(/\n/)) {
-    const line = raw.trim();
-    if (!line) continue;
+  const normalized = normalizeCommandText(text);
+  const lines = (normalized || text)
+    .split(/\n/)
+    .map((l) => stripShopPrefix(l.trim()))
+    .filter(Boolean);
+
+  for (const line of lines) {
 
     let m = line.match(PORK_QTY_PRICE);
     if (m) {
@@ -84,9 +141,21 @@ export function parseCorrectionMessage(text: string): CorrectionAction[] {
       continue;
     }
 
+    m = line.match(LABOR_SHORTHAND) ?? line.match(LABOR_LINE);
+    if (m) {
+      actions.push({ op: "set", field: "labor", value: num(m[1]) });
+      continue;
+    }
+
     m = line.match(SET_FIELD);
     if (m) {
-      const field = FIELD_MAP[m[1].toLowerCase()] ?? FIELD_MAP[m[1]];
+      const key = m[1];
+      const recurringName = RECURRING_SET_MAP[key] ?? RECURRING_SET_MAP[key.toLowerCase()];
+      if (recurringName) {
+        actions.push({ op: "setExtraExpense", name: recurringName, amount: num(m[2]) });
+        continue;
+      }
+      const field = FIELD_MAP[key.toLowerCase()] ?? FIELD_MAP[key];
       if (field) actions.push({ op: "set", field, value: num(m[2]) });
       continue;
     }
@@ -179,6 +248,14 @@ export function applyCorrectionActions(
           out[action.field] = action.value;
         }
         break;
+      case "setExtraExpense": {
+        const cat = recurringCategoryOf(action.name);
+        out.extraExpenses = out.extraExpenses.filter(
+          (e) => !cat || recurringCategoryOf(e.name) !== cat
+        );
+        out.extraExpenses.push({ name: action.name, amount: action.amount });
+        break;
+      }
       case "clear":
         out[action.field] = 0;
         break;
@@ -197,18 +274,31 @@ export function buildCorrectionHelpMessage(): string {
   return [
     "📖 วิธีแก้ไขข้อมูลผ่าน LINE",
     "",
-    "🔧 แก้ค่า:",
+    "🔧 แก้/ปรับค่า (ใส่ชื่อสาขานำหน้าได้ เช่น ญี่ปุ่น ...):",
     "  แก้ โอน 3000",
-    "  แก้ สด 1500",
+    "  ปรับค่าแรง 850",
+    "  ค่า 850            (ย่อ = ค่าแรง)",
+    "  แก้ ค่าเช่า 5000",
+    "  แก้ ค่าไฟฟ้า 1200",
     "  แก้ แดง 130        (ราคา/กก.)",
-    "  แก้ แดง 4 130      (จำนวน + ราคา)",
     "",
     "🗑️ ลบรายการ:",
     "  ลบ แม็คโคร",
-    "  ลบ คนละครึ่ง",
     "  ลบ โอน",
     "",
-    "💡 ถ้าไม่ใส่ราคาหมู bot จะใช้ราคา/กก. จากวันก่อนหน้าในระบบอัตโนมัติ",
-    "   จนกว่าจะระบุราคาใหม่ (แก้ แดง 130)",
+    "💡 ค่าประจำ (แรง/น้ำแข็ง/เช่า/น้ำ/ไฟ/ราคาหมู) ดึงจากวันก่อนอัตโนมัติ",
+  ].join("\n");
+}
+
+export function buildUnrecognizedFinancialHint(): string {
+  return [
+    "❓ ไม่เข้าใจข้อความนี้",
+    "",
+    "ลองพิมพ์แบบนี้:",
+    "  ปรับค่าแรง 850",
+    "  ค่า 850",
+    "  โอน 3385 สด 1000",
+    "",
+    "💬 พิมพ์ \"ช่วย\" ดูคำสั่งทั้งหมด",
   ].join("\n");
 }

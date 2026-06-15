@@ -3,6 +3,7 @@ import { ENV } from "@/config/constants";
 import { createLogger } from "@/lib/middleware/logger";
 import { safeJsonParse } from "@/lib/utils/helpers";
 import type { ParsedFinancialInput, ExtraExpense, ExtraIncome, FinancialRecord } from "@/lib/types/financial.types";
+import { extractRecurringExpenses, buildCarriedDefaultsNotice, type CarriedDefaultsNotice } from "@/lib/services/recurring-expenses.service";
 
 const logger = createLogger("FinancialParser");
 
@@ -296,6 +297,11 @@ export function extractExtraExpenses(text: string): ExtraExpense[] {
     const parsed = parsePrefixedAmount(line, EXTRA_EXPENSE_LINE);
     if (parsed) out.push(parsed);
   }
+  for (const item of extractRecurringExpenses(text)) {
+    if (!out.some((e) => e.name === item.name && e.amount === item.amount)) {
+      out.push(item);
+    }
+  }
   return out;
 }
 
@@ -348,7 +354,9 @@ export function parseFinancialMessageWithRegex(text: string): ParsedFinancialInp
   const supplies = num((text.match(/(?:อุปกรณ์|บรรจุภัณฑ์|ถุง|กล่อง)\s*([\d,]+)/) ?? [])[1] ?? "0");
   const gasM = text.match(/(?:ค่าแก๊ส|แก๊ส)\s*([\d,]+)/);
   const gas = gasM ? num(gasM[1]) : undefined;
-  const laborM = text.match(/ค่าแรง\s*([\d,]+)/);
+  const laborM =
+    text.match(/(?:ปรับ|แก้|เปลี่ยน|ตั้ง)?\s*ค่าแรง\s*([\d,]+)/i) ??
+    text.match(/(?:^|\n)ค่า\s+([\d,]+)\s*(?:\n|$)/m);
   const labor = laborM ? num(laborM[1]) : undefined;
   const iceM = text.match(/(?:ค่าน้ำแข็ง|น้ำแข็ง)\s*([\d,]+)/);
   const ice = iceM ? num(iceM[1]) : undefined;
@@ -379,7 +387,8 @@ export function parseFinancialMessageWithRegex(text: string): ParsedFinancialInp
   parsed.isFinancialData =
     transfer > 0 || cash > 0 || delivery > 0 || parsed.extraIncome!.length > 0 ||
     porkRed !== undefined || porkMinced !== undefined || porkFat !== undefined ||
-    materials > 0 || (parsed.extraExpenses?.length ?? 0) > 0;
+    materials > 0 || (parsed.extraExpenses?.length ?? 0) > 0 ||
+    (labor ?? 0) > 0 || (gas ?? 0) > 0 || (ice ?? 0) > 0;
   parsed.confidence = parsed.isFinancialData ? 0.85 : 0;
 
   logger.info("Regex parse result", {
@@ -413,12 +422,17 @@ export function looksLikeFinancialData(text: string): boolean {
     /(?:^|\n)ได้\s*คนละครึ่ง[\d,]+/im,
     /(?:^|\n)รับ[^\n\d]*[\d,]+/m,
     /(?:^|\n)จ่าย[^\n\d]*[\d,]+/m,
+    /(?:^|\n)ปรับ[^\n\d]*[\d,]+/m,
+    /^ค่า\s+\d/m,
+    /(?:^|\n)ค่าแรง\s*[\d,]+/m,
     /(?:^|\n)ซื้อ[^\n\d]*[\d,]+/m,
     /รายรับ\s*\d+/,
     /ขายได้\s*\d+/,
     /วัตถุดิบ\s*\d+/,
     /ค่าแรง\s*\d+/,
-    /ค่าแก๊ส/,
+    /(?:^|\n)ค่าเช่า\s*[\d,]+/m,
+    /(?:^|\n)ค่าไฟ(?:ฟ้า)?\s*[\d,]+/m,
+    /(?:^|\n)ค่าน้ำ\s*[\d,]+/m,
     /ค่าน้ำแข็ง/,
     // A branch name together with a number → a daily entry/expense for that shop
     /(?:ตลาดญี่ปุ่น|ญี่ปุ่น|หนองปิง|สายหนองปิง)[\s\S]*\d/,
@@ -431,13 +445,7 @@ export function looksLikeFinancialData(text: string): boolean {
 // Build a human-readable confirmation for the LINE reply from the SAVED record,
 // so it shows the running daily total after merging this message.
 export interface RecordConfirmationOptions {
-  /** Shown when pork /kg prices were auto-filled from a previous day. */
-  porkPriceCarried?: {
-    redFrom?: string;
-    mincedFrom?: string;
-    fatFrom?: string;
-  };
-  /** Prefix line e.g. after a correction command. */
+  carryMeta?: CarriedDefaultsNotice;
   prefix?: string;
 }
 
@@ -473,6 +481,9 @@ export function buildRecordConfirmation(
   }
   if (rec.materials) lines.push(`  🫙 วัตถุดิบ: ${baht(rec.materials)}`);
   if (rec.supplies) lines.push(`  📦 อุปกรณ์: ${baht(rec.supplies)}`);
+  if (rec.gas) lines.push(`  🔥 แก๊ส: ${baht(rec.gas)}`);
+  if (rec.labor) lines.push(`  👷 ค่าแรง: ${baht(rec.labor)}`);
+  if (rec.ice) lines.push(`  🧊 น้ำแข็ง: ${baht(rec.ice)}`);
   for (const e of rec.extraExpenses ?? []) lines.push(`  💸 ${e.name}: ${baht(e.amount)}`);
   lines.push(`  รวม: ${baht(rec.expense)}\n`);
 
@@ -487,11 +498,8 @@ export function buildRecordConfirmation(
     lines.push(`\n⏳ ข้อมูลยังไม่สมบูรณ์ — เปิด Dashboard เพื่อกรอกราคาหมู/รายละเอียดเพิ่ม`);
   }
 
-  const carried = options.porkPriceCarried;
-  if (carried && (carried.redFrom || carried.mincedFrom || carried.fatFrom)) {
-    const dates = [...new Set([carried.redFrom, carried.mincedFrom, carried.fatFrom].filter(Boolean))];
-    lines.push(`\n📌 ราคาหมู/กก. อ้างอิงจากวันที่ ${dates.join(", ")} (พิมพ์ "แก้ แดง 130" เพื่อเปลี่ยน)`);
-  }
+  const carryNote = options.carryMeta ? buildCarriedDefaultsNotice(options.carryMeta) : undefined;
+  if (carryNote) lines.push(carryNote);
 
   lines.push(`\n💬 พิมพ์ "ช่วย" เพื่อดูวิธีแก้ไขข้อมูล`);
 
