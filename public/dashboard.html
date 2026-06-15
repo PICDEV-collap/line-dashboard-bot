@@ -360,23 +360,45 @@ tbody td{padding:8px 11px;color:var(--text)}
           <option value="draft">📝 ร่าง</option>
         </select>
       </div>
+      <div class="form-field full">
+        <div class="form-lbl">🏪 ร้าน / สาขา</div>
+        <select class="form-input" id="fShopId">
+          <option value="shop1">ก๋วยเตี๋ยวไทยครูตอมตลาดญี่ปุ่น</option>
+          <option value="shop2">ก๋วยเตี๋ยวไทยครูตอมสายหนองปิง</option>
+        </select>
+      </div>
       <div class="form-section">💰 รายรับ</div>
       <div class="form-field"><div class="form-lbl">โอนเงิน (฿)</div><input type="number" class="form-input" id="fTransfer" placeholder="0" oninput="calcModal()"></div>
       <div class="form-field"><div class="form-lbl">เงินสด (฿)</div><input type="number" class="form-input" id="fCash" placeholder="0" oninput="calcModal()"></div>
       <div class="form-field full"><div class="form-lbl">Delivery (฿)</div><input type="number" class="form-input" id="fDelivery" placeholder="0" oninput="calcModal()"></div>
       <div class="form-field full">
-        <div class="form-lbl">รายรับรวม (คำนวณ)</div>
+        <div class="form-lbl">รายรับรวม (คำนวณอัตโนมัติ)</div>
         <input type="text" class="form-input" id="fRevDisp" readonly style="background:rgba(59,130,246,.07);color:#60a5fa;font-family:'Chakra Petch',sans-serif;font-size:16px;font-weight:700">
       </div>
-      <div class="form-section">🧾 ค่าใช้จ่าย</div>
-      <div class="form-field"><div class="form-lbl">ค่าหมู (฿)</div><input type="number" class="form-input" id="fPork" placeholder="0" oninput="calcModal()"></div>
+      <div class="form-section">🥩 ค่าหมู (แยกชนิด)</div>
+      <div class="form-field"><div class="form-lbl">🔴 หมูแดง จำนวน (กก.)</div><input type="number" class="form-input" id="fRedQty" placeholder="0.0" step="0.1" oninput="calcModal()"></div>
+      <div class="form-field"><div class="form-lbl">ราคา/กก. (฿)</div><input type="number" class="form-input" id="fRedPrice" placeholder="0" oninput="calcModal()"></div>
+      <div class="form-field"><div class="form-lbl">🟠 หมูสับ จำนวน (กก.)</div><input type="number" class="form-input" id="fMincedQty" placeholder="0.0" step="0.1" oninput="calcModal()"></div>
+      <div class="form-field"><div class="form-lbl">ราคา/กก. (฿)</div><input type="number" class="form-input" id="fMincedPrice" placeholder="0" oninput="calcModal()"></div>
+      <div class="form-field"><div class="form-lbl">🟡 มันหมู จำนวน (กก.)</div><input type="number" class="form-input" id="fFatQty" placeholder="0.0" step="0.1" oninput="calcModal()"></div>
+      <div class="form-field"><div class="form-lbl">ราคา/กก. (฿)</div><input type="number" class="form-input" id="fFatPrice" placeholder="0" oninput="calcModal()"></div>
+      <div class="form-field full">
+        <div class="form-lbl">รวมค่าหมู (คำนวณ)</div>
+        <input type="text" class="form-input" id="fPorkDisp" readonly style="background:rgba(239,68,68,.07);color:#f87171;font-family:'Chakra Petch',sans-serif;font-weight:700">
+      </div>
+      <div class="form-section">🧾 ค่าใช้จ่ายอื่น</div>
       <div class="form-field"><div class="form-lbl">วัตถุดิบ (฿)</div><input type="number" class="form-input" id="fMaterials" placeholder="0" oninput="calcModal()"></div>
-      <div class="form-field"><div class="form-lbl">อุปกรณ์/บรรจุภัณฑ์ (฿)</div><input type="number" class="form-input" id="fSupplies" placeholder="0" oninput="calcModal()"></div>
+      <div class="form-field"><div class="form-lbl">อุปกรณ์สิ้นเปลือง (฿)</div><input type="number" class="form-input" id="fSupplies" placeholder="0" oninput="calcModal()"></div>
       <div class="form-field"><div class="form-lbl">แก๊ส (฿)</div><input type="number" class="form-input" id="fGas" placeholder="150" oninput="calcModal()"></div>
       <div class="form-field"><div class="form-lbl">ค่าแรง (฿)</div><input type="number" class="form-input" id="fLabor" placeholder="1500" oninput="calcModal()"></div>
-      <div class="form-field"><div class="form-lbl">น้ำแข็ง (฿)</div><input type="number" class="form-input" id="fIce" placeholder="35" oninput="calcModal()"></div>
+      <div class="form-field full"><div class="form-lbl">น้ำแข็ง (฿)</div><input type="number" class="form-input" id="fIce" placeholder="35" oninput="calcModal()"></div>
+      <div class="form-section full" style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
+        <span>➕ รายจ่ายอื่นๆ</span>
+        <button class="btn btn-ghost" style="font-size:11px;padding:3px 10px" onclick="addExtraExpense()">+ เพิ่มรายการ</button>
+      </div>
+      <div class="form-field full" id="extraExpensesList"></div>
       <div class="form-field full">
-        <div class="form-lbl">ค่าใช้จ่ายรวม / กำไร (คำนวณ)</div>
+        <div class="form-lbl">สรุปอัตโนมัติ</div>
         <input type="text" class="form-input" id="fSummary" readonly style="background:rgba(249,115,22,.05);color:var(--accent2)">
       </div>
       <div class="form-field full"><div class="form-lbl">หมายเหตุ</div><input type="text" class="form-input" id="fNote" placeholder="บันทึกเพิ่มเติม..."></div>
@@ -695,10 +717,32 @@ function calcModal() {
   const t=+($('fTransfer').value||0), c=+($('fCash').value||0), d=+($('fDelivery').value||0);
   const rev=t+c+d;
   $('fRevDisp').value=rev>0?'฿'+fmt(rev):'';
-  const exp=(+($('fPork').value||0))+(+($('fMaterials').value||0))+(+($('fSupplies').value||0))+(+($('fGas').value||150))+(+($('fLabor').value||1500))+(+($('fIce').value||35));
+  const redTotal=(+($('fRedQty').value||0))*(+($('fRedPrice').value||0));
+  const mincedTotal=(+($('fMincedQty').value||0))*(+($('fMincedPrice').value||0));
+  const fatTotal=(+($('fFatQty').value||0))*(+($('fFatPrice').value||0));
+  const pork=redTotal+mincedTotal+fatTotal;
+  if(pork>0){const parts=[];if(redTotal>0)parts.push(`แดง ฿${fmt(redTotal)}`);if(mincedTotal>0)parts.push(`สับ ฿${fmt(mincedTotal)}`);if(fatTotal>0)parts.push(`มัน ฿${fmt(fatTotal)}`);$('fPorkDisp').value=`฿${fmt(pork)}  (${parts.join(' + ')})`;}else{$('fPorkDisp').value='';}
+  const extraTotal=getExtraExpenses().reduce((s,e)=>s+e.amount,0);
+  const exp=pork+(+($('fMaterials').value||0))+(+($('fSupplies').value||0))+(+($('fGas').value||150))+(+($('fLabor').value||1500))+(+($('fIce').value||35))+extraTotal;
   const pft=rev-exp;
   $('fSummary').value=(rev>0||exp>0)?`ค่าใช้จ่าย ฿${fmt(exp)} · กำไร ${pft>=0?'+':''}฿${fmt(pft)}`:'';
   $('fSummary').style.color=pft>=0?'#4ade80':'#f87171';
+}
+
+function getExtraExpenses(){
+  return [...document.querySelectorAll('.extra-row')].map(row=>({
+    name:row.querySelector('.extra-name').value.trim(),
+    amount:+(row.querySelector('.extra-amount').value||0)
+  })).filter(e=>e.name||e.amount>0);
+}
+
+function addExtraExpense(name='',amount=''){
+  const list=$('extraExpensesList');
+  const row=document.createElement('div');
+  row.className='extra-row';
+  row.style.cssText='display:grid;grid-template-columns:1fr 100px 32px;gap:6px;margin-bottom:6px;align-items:center';
+  row.innerHTML=`<input type="text" class="form-input extra-name" placeholder="ชื่อรายจ่าย" value="${name}" oninput="calcModal()" style="font-size:12px"><input type="number" class="form-input extra-amount" placeholder="฿" value="${amount}" oninput="calcModal()" style="font-size:12px"><button onclick="this.parentElement.remove();calcModal()" style="background:rgba(239,68,68,.2);border:1px solid rgba(239,68,68,.3);color:#f87171;border-radius:6px;cursor:pointer;font-size:14px;width:32px;height:32px">✕</button>`;
+  list.appendChild(row);
 }
 
 function $(id){return document.getElementById(id);}
@@ -706,16 +750,24 @@ function $(id){return document.getElementById(id);}
 function openAddModal(r=null) {
   $('editId').value='';
   $('modalTitle').textContent='＋ เพิ่มข้อมูลรายวัน';
-  ['fTransfer','fCash','fDelivery','fPork','fMaterials','fSupplies','fNote'].forEach(id=>{$(id).value='';});
+  ['fTransfer','fCash','fDelivery','fMaterials','fSupplies','fNote','fRedQty','fRedPrice','fMincedQty','fMincedPrice','fFatQty','fFatPrice'].forEach(id=>{$(id).value='';});
   $('fGas').value=150; $('fLabor').value=1500; $('fIce').value=35;
   $('fDate').value=new Date().toISOString().split('T')[0];
-  $('fStatus').value='complete'; $('fRevDisp').value=''; $('fSummary').value='';
+  $('fStatus').value='complete'; $('fShopId').value='shop1';
+  $('fRevDisp').value=''; $('fPorkDisp').value=''; $('fSummary').value='';
+  $('extraExpensesList').innerHTML='';
   if (r) {
     $('editId').value=r.id; $('modalTitle').textContent='✏️ แก้ไขข้อมูล';
-    $('fDate').value=r.date; $('fTransfer').value=r.transfer||''; $('fCash').value=r.cash||''; $('fDelivery').value=r.delivery||'';
-    $('fPork').value=r.pork||''; $('fMaterials').value=r.materials||''; $('fSupplies').value=r.supplies||'';
+    $('fDate').value=r.date; $('fShopId').value=r.shopId||'shop1';
+    $('fTransfer').value=r.transfer||''; $('fCash').value=r.cash||''; $('fDelivery').value=r.delivery||'';
+    const pb=r.porkBreakdown||{};
+    $('fRedQty').value=pb.redQty||''; $('fRedPrice').value=pb.redPrice||'';
+    $('fMincedQty').value=pb.mincedQty||''; $('fMincedPrice').value=pb.mincedPrice||'';
+    $('fFatQty').value=pb.fatQty||''; $('fFatPrice').value=pb.fatPrice||'';
+    $('fMaterials').value=r.materials||''; $('fSupplies').value=r.supplies||'';
     $('fGas').value=r.gas||150; $('fLabor').value=r.labor||1500; $('fIce').value=r.ice||35;
     $('fNote').value=r.note||''; $('fStatus').value=r.status||'complete';
+    (r.extraExpenses||[]).forEach(e=>addExtraExpense(e.name,e.amount));
     calcModal();
   }
   $('modalOverlay').classList.add('open');
@@ -727,12 +779,23 @@ function closeModal() { $('modalOverlay').classList.remove('open'); }
 async function saveRecord() {
   const date=$('fDate').value;
   if (!date) { showToast('กรุณาระบุวันที่','error'); return; }
+  const shopId=$('fShopId').value;
+  const shopNames={shop1:'ก๋วยเตี๋ยวไทยครูตอมตลาดญี่ปุ่น',shop2:'ก๋วยเตี๋ยวไทยครูตอมสายหนองปิง'};
+  const shopName=shopNames[shopId]||shopId;
   const transfer=+($('fTransfer').value||0), cash=+($('fCash').value||0), delivery=+($('fDelivery').value||0);
   const revenue=transfer+cash+delivery;
-  const pork=+($('fPork').value||0), materials=+($('fMaterials').value||0), supplies=+($('fSupplies').value||0);
+  const redQty=+($('fRedQty').value||0), redPrice=+($('fRedPrice').value||0);
+  const mincedQty=+($('fMincedQty').value||0), mincedPrice=+($('fMincedPrice').value||0);
+  const fatQty=+($('fFatQty').value||0), fatPrice=+($('fFatPrice').value||0);
+  const redTotal=redQty*redPrice, mincedTotal=mincedQty*mincedPrice, fatTotal=fatQty*fatPrice;
+  const pork=redTotal+mincedTotal+fatTotal;
+  const porkBreakdown={redQty,redPrice,redTotal,mincedQty,mincedPrice,mincedTotal,fatQty,fatPrice,fatTotal,total:pork};
+  const materials=+($('fMaterials').value||0), supplies=+($('fSupplies').value||0);
   const gas=+($('fGas').value||150), labor=+($('fLabor').value||1500), ice=+($('fIce').value||35);
-  const expense=pork+materials+supplies+gas+labor+ice;
-  const body={date,revenue,transfer,cash,delivery,expense,pork,materials,supplies,gas,labor,ice,profit:revenue-expense,note:$('fNote').value,status:$('fStatus').value,extraExpenses:[]};
+  const extraExpenses=getExtraExpenses();
+  const extraTotal=extraExpenses.reduce((s,e)=>s+e.amount,0);
+  const expense=pork+materials+supplies+gas+labor+ice+extraTotal;
+  const body={date,shopId,shopName,revenue,transfer,cash,delivery,expense,pork,porkBreakdown,materials,supplies,gas,labor,ice,extraExpenses,profit:revenue-expense,note:$('fNote').value,status:$('fStatus').value};
   const editId=$('editId').value;
   try {
     if (editId) {
