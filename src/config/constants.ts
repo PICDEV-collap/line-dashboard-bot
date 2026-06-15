@@ -13,9 +13,8 @@ function optionalEnv(key: string, fallback: string): string {
 export const ENV = {
   LINE_CHANNEL_ACCESS_TOKEN: () => requireEnv("LINE_CHANNEL_ACCESS_TOKEN"),
   LINE_CHANNEL_SECRET: () => requireEnv("LINE_CHANNEL_SECRET"),
-  GOOGLE_SERVICE_ACCOUNT_KEY: () => requireEnv("GOOGLE_SERVICE_ACCOUNT_KEY"),
-  GOOGLE_SHEETS_ID: () => requireEnv("GOOGLE_SHEETS_ID"),
-  GOOGLE_DRIVE_FOLDER_ID: () => requireEnv("GOOGLE_DRIVE_FOLDER_ID"),
+  SUPABASE_URL: () => requireEnv("SUPABASE_URL"),
+  SUPABASE_SERVICE_KEY: () => requireEnv("SUPABASE_SERVICE_KEY"),
   GEMINI_API_KEY: () => requireEnv("GEMINI_API_KEY"),
   GEMINI_MODEL: () => optionalEnv("GEMINI_MODEL", "gemini-1.5-flash"),
   DASHBOARD_API_KEY: () => requireEnv("DASHBOARD_API_KEY"),
@@ -27,64 +26,6 @@ export const ENV = {
     parseInt(optionalEnv("RATE_LIMIT_MAX_REQUESTS", "100")),
   LOG_LEVEL: () => optionalEnv("LOG_LEVEL", "info"),
   NODE_ENV: () => optionalEnv("NODE_ENV", "development"),
-} as const;
-
-// Google Sheets tab names
-export const SHEETS = {
-  MESSAGES: "Messages",
-  LOGS: "Logs",
-  STATS: "Stats",
-  OCR_RESULTS: "OCR_Results",
-  FINANCIAL_RECORDS: "Financial_Records",
-  SHOPS: "Shops",
-} as const;
-
-// Google Sheets column headers per sheet
-export const SHEET_HEADERS = {
-  FINANCIAL_RECORDS: [
-    "ID","Date","ShopID","ShopName",
-    "Revenue","Transfer","Cash","Delivery",
-    "Expense","Pork","PorkBreakdown","Materials","Supplies","Gas","Labor","Ice","ExtraExpenses",
-    "Profit","MarginPct","Note","Status","CreatedAt","UpdatedAt",
-  ],
-  SHOPS: ["ID","Name","Emoji","Color","CreatedAt"],
-  MESSAGES: [
-    "ID",
-    "Timestamp",
-    "UserID",
-    "DisplayName",
-    "Type",
-    "Content",
-    "ImageURL",
-    "FileURL",
-    "LocationLat",
-    "LocationLng",
-    "LocationAddress",
-    "ReplyToken",
-    "Status",
-    "ErrorMessage",
-  ],
-  LOGS: ["ID", "Timestamp", "Level", "Service", "Message", "Data"],
-  STATS: [
-    "Date",
-    "TotalMessages",
-    "TextCount",
-    "ImageCount",
-    "PDFCount",
-    "LocationCount",
-    "OCRCount",
-    "ErrorCount",
-  ],
-  OCR_RESULTS: [
-    "ID",
-    "MessageID",
-    "Timestamp",
-    "ImageURL",
-    "RawText",
-    "StructuredJSON",
-    "Confidence",
-    "ProcessingTimeMs",
-  ],
 } as const;
 
 // Retry configuration
