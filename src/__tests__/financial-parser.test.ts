@@ -1,6 +1,7 @@
 import {
   extractExtraExpenses,
   extractExtraIncome,
+  extractDeterministicPork,
   isIncomeLikeName,
   looksLikeFinancialData,
   parseFinancialMessageWithRegex,
@@ -222,6 +223,15 @@ describe("parseFinancialMessageWithRegex", () => {
       ])
     );
     expect(parsed.extraExpenses!.every((e) => !isIncomeLikeName(e.name))).toBe(true);
+  });
+});
+
+describe("extractDeterministicPork", () => {
+  it("parses หมูแดง and หมูสับ from natural text", () => {
+    const result = extractDeterministicPork("หนองปิง\nแดง4\nสับ3\nมันหมู 8");
+    expect(result.porkRed).toEqual({ qty: 4, price: 0 });
+    expect(result.porkMinced).toEqual({ qty: 3, price: 0 });
+    expect(result.porkFat).toEqual({ qty: 8, price: 0 });
   });
 });
 

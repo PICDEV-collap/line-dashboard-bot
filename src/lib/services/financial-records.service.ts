@@ -7,6 +7,12 @@ import {
   applyCorrectionActions,
   parseCorrectionMessage,
 } from "@/lib/services/financial-correction.service";
+import { parseCorrectionWithGemini } from "@/lib/services/financial-parser.service";
+import {
+  buildCorrectionSummary,
+  buildPorkPriceSavedHint,
+  hasPorkPriceOnlyUpdate,
+} from "@/lib/services/smart-command.service";
 import {
   applyCarriedRecurringExtras,
   pickCarriedExpense,
@@ -523,7 +529,10 @@ export async function applyLineCorrection(input: {
   shopId: string;
   shopName: string;
 }): Promise<{ record: FinancialRecord | null; message: string; applied: number }> {
-  const actions = parseCorrectionMessage(input.text);
+  let actions = parseCorrectionMessage(input.text);
+  if (actions.length === 0 && /หมู|แดง|สับ|มัน|ปรับ|แก้/.test(input.text)) {
+    actions = await parseCorrectionWithGemini(input.text);
+  }
   if (actions.length === 0) {
     return { record: null, message: "❌ ไม่เข้าใจคำสั่งแก้ไข — พิมพ์ \"ช่วย\" ดูวิธีใช้", applied: 0 };
   }
@@ -566,9 +575,14 @@ export async function applyLineCorrection(input: {
     status: totals.status,
   });
 
+  let message = buildCorrectionSummary(actions);
+  if (hasPorkPriceOnlyUpdate(actions)) {
+    message += `\n${buildPorkPriceSavedHint()}`;
+  }
+
   return {
     record: updated,
-    message: `✏️ แก้ไข ${actions.length} รายการแล้ว`,
+    message,
     applied: actions.length,
   };
 }

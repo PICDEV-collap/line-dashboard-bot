@@ -1,5 +1,6 @@
 import type { FinancialRecord, PorkBreakdown } from "@/lib/types/financial.types";
 import { normalizeRecurringExtraName, recurringCategoryOf } from "@/lib/services/recurring-expenses.service";
+import { normalizeNaturalCommandLine } from "@/lib/services/smart-command.service";
 
 export type NumericRecordField =
   | "transfer"
@@ -35,6 +36,11 @@ const PORK_QTY_PRICE = new RegExp(
 );
 const PORK_PRICE = new RegExp(
   `^(?:${CORRECTION_PREFIX}|ราคา)\\s*(หมูแดง|หมูเนื้อ|แดง|หมูสับ|สับ|มันหมู|หมูมัน|มัน)\\s*(?:ราคา\\s*)?([\\d,]+)\\s*(?:บาท|/กก)?\\s*$`,
+  "i"
+);
+/** Glued: "ปรับหมูสับราคา120", "ปรับมันหมูราคา65" */
+const PORK_PRICE_GLUED = new RegExp(
+  `^${CORRECTION_PREFIX}\\s*(หมูแดง|หมูเนื้อ|แดง|หมูสับ|สับ|มันหมู|หมูมัน|มัน)\\s*ราคา\\s*([\\d,]+)\\s*$`,
   "i"
 );
 /** Shorthand: "ค่า 850" = ค่าแรง (พูดสั้นในร้าน) */
@@ -104,7 +110,8 @@ function lineLooksLikeCorrection(line: string): boolean {
   if (!l) return false;
   return (
     /^(?:แก้|เปลี่ยน|ตั้ง|ปรับ|ลบ)\s*\S/.test(l) ||
-    /^(?:แก้|เปลี่ยน|ตั้ง|ปรับ)(?:ค่าแรง|ค่าแก๊ส|โอน|สด)/i.test(l) ||
+    /^(?:แก้|เปลี่ยน|ตั้ง|ปรับ)(?:หมู|ค่า)/i.test(l) ||
+    /^ปรับ(?:หมู|แดง|สับ|มัน)/i.test(l) ||
     /^ราคา\s*(?:หมู|แดง|สับ|มัน)/i.test(l) ||
     LABOR_SHORTHAND.test(l) ||
     LABOR_LINE.test(l)
@@ -124,7 +131,8 @@ export function parseCorrectionMessage(text: string): CorrectionAction[] {
     .map((l) => stripShopPrefix(l.trim()))
     .filter(Boolean);
 
-  for (const line of lines) {
+  for (const rawLine of lines) {
+    const line = normalizeNaturalCommandLine(stripShopPrefix(rawLine));
 
     let m = line.match(PORK_QTY_PRICE);
     if (m) {
@@ -133,7 +141,7 @@ export function parseCorrectionMessage(text: string): CorrectionAction[] {
       continue;
     }
 
-    m = line.match(PORK_PRICE);
+    m = line.match(PORK_PRICE) ?? line.match(PORK_PRICE_GLUED);
     if (m) {
       const pork = porkKind(m[1]);
       const price = num(m[2]);
@@ -280,7 +288,8 @@ export function buildCorrectionHelpMessage(): string {
     "  ค่า 850            (ย่อ = ค่าแรง)",
     "  แก้ ค่าเช่า 5000",
     "  แก้ ค่าไฟฟ้า 1200",
-    "  แก้ แดง 130        (ราคา/กก.)",
+    "  ปรับหมูสับราคา 120",
+    "  ปรับหมูแดง ราคา 130",
     "",
     "🗑️ ลบรายการ:",
     "  ลบ แม็คโคร",
