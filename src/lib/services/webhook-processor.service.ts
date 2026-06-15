@@ -21,6 +21,11 @@ import {
 } from "@/lib/services/financial-parser.service";
 import { upsertParsedRecord, applyLineCorrection, getRecordByShopDate } from "@/lib/services/financial-records.service";
 import {
+  naturalizeReply,
+  shopFromSummaryFollowUp,
+  type NaturalReplyKind,
+} from "@/lib/services/natural-reply.service";
+import {
   looksLikeCorrection,
   looksLikeCorrectionHelp,
   buildCorrectionHelpMessage,
@@ -34,6 +39,26 @@ import type { LineEvent, ProcessedMessage } from "@/lib/types/line.types";
 import type { MessageRow, OcrResultRow, StatsRow } from "@/lib/types/db.types";
 
 const logger = createLogger("WebhookProcessor");
+
+async function geminiReply(
+  userMessage: string,
+  template: string,
+  kind: NaturalReplyKind,
+  extra: {
+    record?: import("@/lib/types/financial.types").FinancialRecord | null;
+    addedItems?: string[];
+    prefix?: string;
+  } = {}
+): Promise<string> {
+  return naturalizeReply({
+    kind,
+    userMessage,
+    template,
+    record: extra.record ?? undefined,
+    addedItems: extra.addedItems,
+    prefix: extra.prefix,
+  });
+}
 
 export async function processWebhookEvents(events: LineEvent[]): Promise<void> {
   const chunks = chunkArray(events, 3);
@@ -165,14 +190,33 @@ async function processTextMessage(
       summaryDate
     );
     if (!record) {
+      const template = buildSummaryNotFoundMessage(summaryDate, today);
       return {
         processed: { ...msg, content: "[SUMMARY] empty", status: "completed" },
-        replyMsg: buildSummaryNotFoundMessage(summaryDate, today),
+        replyMsg: await geminiReply(text, template, "summary_not_found"),
       };
     }
+    const template = buildRecordConfirmation(record, { mode: "full" });
     return {
       processed: { ...msg, content: "[SUMMARY] full", status: "completed" },
-      replyMsg: buildRecordConfirmation(record, { mode: "full" }),
+      replyMsg: await geminiReply(text, template, "summary", { record }),
+    };
+  }
+
+  const followShop = shopFromSummaryFollowUp(text);
+  if (followShop) {
+    const record = await getRecordByShopDate(followShop.shopId, today);
+    const template = record
+      ? buildRecordConfirmation(record, { mode: "full" })
+      : buildSummaryNotFoundMessage(today, today);
+    return {
+      processed: { ...msg, content: `[SHOP_SUMMARY] ${text}`, status: "completed" },
+      replyMsg: await geminiReply(
+        text,
+        template,
+        record ? "shop_summary" : "summary_not_found",
+        { record: record ?? undefined }
+      ),
     };
   }
 
@@ -186,14 +230,18 @@ async function processTextMessage(
     if (!result.record) {
       return {
         processed: { ...msg, content: `[CORRECTION] ${text.slice(0, 200)}`, status: "completed" },
-        replyMsg: result.message,
+        replyMsg: await geminiReply(text, result.message, "unrecognized"),
       };
     }
+    const template = buildRecordConfirmation(result.record, {
+      prefix: result.message,
+      mode: "short",
+    });
     return {
       processed: { ...msg, content: `[CORRECTION] ${text.slice(0, 200)}`, status: "completed" },
-      replyMsg: buildRecordConfirmation(result.record, {
+      replyMsg: await geminiReply(text, template, "correction", {
+        record: result.record,
         prefix: result.message,
-        mode: "short",
       }),
     };
   }
@@ -216,17 +264,23 @@ async function processTextMessage(
       const { carryMeta, ...saved } = record;
       const addedItems = formatParsedDeltaItems(parsed);
       const useShort = shouldUseShortConfirmation(parsed, text);
+      const template = buildRecordConfirmation(saved, {
+        carryMeta,
+        addedItems,
+        mode: useShort ? "short" : "full",
+      });
       return {
         processed: {
           ...msg,
           content: `[FINANCIAL] ${text.slice(0, 200)}`,
           status: "completed",
         },
-        replyMsg: buildRecordConfirmation(saved, {
-          carryMeta,
-          addedItems,
-          mode: useShort ? "short" : "full",
-        }),
+        replyMsg: await geminiReply(
+          text,
+          template,
+          useShort ? "record_saved_short" : "record_saved_full",
+          { record: saved, addedItems }
+        ),
       };
     }
 
@@ -240,19 +294,24 @@ async function processTextMessage(
         shopName: shop?.shopName ?? ENV.DEFAULT_SHOP_NAME(),
       });
       if (result.record) {
+        const template = buildRecordConfirmation(result.record, {
+          prefix: result.message,
+          mode: "short",
+        });
         return {
           processed: { ...msg, content: `[CORRECTION] ${text.slice(0, 200)}`, status: "completed" },
-          replyMsg: buildRecordConfirmation(result.record, {
+          replyMsg: await geminiReply(text, template, "correction", {
+            record: result.record,
             prefix: result.message,
-            mode: "short",
           }),
         };
       }
     }
 
+    const hint = buildUnrecognizedFinancialHint();
     return {
       processed: { ...msg, content: `[UNRECOGNIZED] ${text.slice(0, 200)}`, status: "completed" },
-      replyMsg: buildUnrecognizedFinancialHint(),
+      replyMsg: await geminiReply(text, hint, "unrecognized"),
     };
   }
 
