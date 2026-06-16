@@ -260,8 +260,11 @@ async function processTextMessage(
     parsed.shopId = followUp.shop.shopId;
     parsed.shopName = followUp.shop.shopName;
 
+    parsed.date = parsed.date ?? recordDate;
+
     if (followUp.includePork) {
-      const carried = await getCarriedPorkQuantities(followUp.shop.shopId, recordDate);
+      const targetDate = parsed.date ?? recordDate;
+      const carried = await getCarriedPorkQuantities(followUp.shop.shopId, targetDate);
       if (carried.porkRed && !parsed.porkRed) parsed.porkRed = carried.porkRed;
       if (carried.porkMinced && !parsed.porkMinced) parsed.porkMinced = carried.porkMinced;
       if (carried.porkFat && !parsed.porkFat) parsed.porkFat = carried.porkFat;

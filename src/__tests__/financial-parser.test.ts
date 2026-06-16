@@ -391,4 +391,20 @@ describe("shop follow-up commands", () => {
     expect(parsed.shopId).toBe("shop2");
     expect(parsed.note).toBe("รวมค่าหมู");
   });
+
+  it("detects ค่าหมูทั้งหมด พรุ่งนี้ for shop2", () => {
+    const text = "หนองปลิง ค่าหมูทั้งหมด พรุ่งนี้";
+    expect(detectShopFromText(text)?.shopId).toBe("shop2");
+    expect(parseShopFollowUp(text)).toEqual({
+      shop: {
+        shopId: "shop2",
+        shopName: "ก๋วยเตี๋ยวไทยครูตอมสายหนองปิง",
+      },
+      includePork: true,
+    });
+    expect(looksLikeFinancialData(text)).toBe(true);
+    const parsed = parseFinancialMessageWithRegex(text);
+    expect(parsed.isFinancialData).toBe(true);
+    expect(parsed.date).toBe(resolveRecordDateFromText("พรุ่งนี้"));
+  });
 });
