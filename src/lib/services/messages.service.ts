@@ -69,6 +69,40 @@ function rowToMessage(row: Record<string, unknown>): MessageRow {
 // OCR Results
 // ──────────────────────────────────────────────────────────────
 
+export async function getLatestOcrForUser(
+  userId: string,
+  withinMinutes = 60
+): Promise<{ rawText: string; timestamp: string } | null> {
+  const db = getSupabaseClient();
+  const since = new Date(Date.now() - withinMinutes * 60_000).toISOString();
+
+  const { data: messages, error: msgErr } = await db
+    .from("messages")
+    .select("id, timestamp")
+    .eq("user_id", userId)
+    .eq("type", "image")
+    .gte("timestamp", since)
+    .order("timestamp", { ascending: false })
+    .limit(3);
+  if (msgErr || !messages?.length) return null;
+
+  for (const msg of messages) {
+    const { data: ocr, error: ocrErr } = await db
+      .from("ocr_results")
+      .select("raw_text, timestamp")
+      .eq("message_id", msg.id)
+      .order("timestamp", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (ocrErr || !ocr?.raw_text) continue;
+    const rawText = String(ocr.raw_text).trim();
+    if (rawText.length > 0) {
+      return { rawText, timestamp: String(ocr.timestamp ?? msg.timestamp) };
+    }
+  }
+  return null;
+}
+
 export async function appendOcrResult(row: OcrResultRow): Promise<void> {
   logger.info("Inserting OCR result", { ocrId: row.id });
   const db = getSupabaseClient();

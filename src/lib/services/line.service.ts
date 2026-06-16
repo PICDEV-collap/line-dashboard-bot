@@ -63,7 +63,18 @@ export async function getUserProfile(userId: string): Promise<LineUserProfile> {
   });
 }
 
-export async function getMessageContent(messageId: string): Promise<Buffer> {
+export interface MessageContent {
+  buffer: Buffer;
+  mimeType: string;
+}
+
+function normalizeLineMimeType(contentType: string | null): string {
+  const raw = (contentType ?? "image/jpeg").split(";")[0].trim().toLowerCase();
+  if (raw === "image/jpg") return "image/jpeg";
+  return raw || "image/jpeg";
+}
+
+export async function getMessageContentWithType(messageId: string): Promise<MessageContent> {
   logger.info("Downloading message content", { messageId });
 
   return withRetry(async () => {
@@ -81,9 +92,15 @@ export async function getMessageContent(messageId: string): Promise<Buffer> {
       );
     }
 
+    const mimeType = normalizeLineMimeType(response.headers.get("content-type"));
     const arrayBuffer = await response.arrayBuffer();
-    return Buffer.from(arrayBuffer);
+    return { buffer: Buffer.from(arrayBuffer), mimeType };
   });
+}
+
+export async function getMessageContent(messageId: string): Promise<Buffer> {
+  const { buffer } = await getMessageContentWithType(messageId);
+  return buffer;
 }
 
 export async function replyMessage(

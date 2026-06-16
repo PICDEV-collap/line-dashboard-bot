@@ -4,10 +4,11 @@ import { normalizeError } from "@/lib/utils/error-handler";
 import {
   getUserProfile,
   getMessageContent,
+  getMessageContentWithType,
   replyText,
   buildSuccessReply,
 } from "@/lib/services/line.service";
-import { appendMessage, appendOcrResult, updateDailyStats } from "@/lib/services/messages.service";
+import { appendMessage, appendOcrResult, getLatestOcrForUser, updateDailyStats } from "@/lib/services/messages.service";
 import { uploadImage, uploadPdf } from "@/lib/services/storage.service";
 import { extractTextFromImage } from "@/lib/services/gemini.service";
 import {
@@ -17,13 +18,14 @@ import {
   buildSummaryNotFoundMessage,
   formatParsedDeltaItems,
   shouldUseShortConfirmation,
+  parseShopFollowUp,
 } from "@/lib/services/financial-parser.service";
 import {
   parseSummaryIntent,
   buildAllBranchesSummary,
   getAllBranchShops,
 } from "@/lib/services/summary-command.service";
-import { upsertParsedRecord, applyLineCorrection, getRecordByShopDate } from "@/lib/services/financial-records.service";
+import { upsertParsedRecord, applyLineCorrection, getRecordByShopDate, getCarriedPorkQuantities } from "@/lib/services/financial-records.service";
 import {
   naturalizeReply,
   type NaturalReplyKind,
@@ -37,7 +39,7 @@ import {
   parseCorrectionMessage,
 } from "@/lib/services/financial-correction.service";
 import { detectShopFromText } from "@/lib/services/financial-parser.service";
-import { ENV } from "@/config/constants";
+import { ENV, SUPPORTED_OCR_TYPES } from "@/config/constants";
 import type { LineEvent, ProcessedMessage } from "@/lib/types/line.types";
 import type { MessageRow, OcrResultRow, StatsRow } from "@/lib/types/db.types";
 
@@ -249,6 +251,57 @@ async function processTextMessage(
     };
   }
 
+  // Shop follow-up after image OCR, e.g. "หนองปลั่ง รวมค่าหมู"
+  const followUp = parseShopFollowUp(text);
+  if (followUp) {
+    const ocr = await getLatestOcrForUser(msg.userId, 60);
+    const combinedText = ocr ? `${ocr.rawText}\n${text}` : text;
+    let parsed = await parseFinancialMessage(combinedText);
+    parsed.shopId = followUp.shop.shopId;
+    parsed.shopName = followUp.shop.shopName;
+
+    if (followUp.includePork) {
+      const carried = await getCarriedPorkQuantities(followUp.shop.shopId, recordDate);
+      if (carried.porkRed && !parsed.porkRed) parsed.porkRed = carried.porkRed;
+      if (carried.porkMinced && !parsed.porkMinced) parsed.porkMinced = carried.porkMinced;
+      if (carried.porkFat && !parsed.porkFat) parsed.porkFat = carried.porkFat;
+      parsed.isFinancialData = true;
+      parsed.confidence = Math.max(parsed.confidence ?? 0, 0.75);
+    }
+
+    if (parsed.isFinancialData && parsed.confidence >= 0.6) {
+      const record = await upsertParsedRecord({
+        date: parsed.date ?? recordDate,
+        shopId: parsed.shopId ?? followUp.shop.shopId,
+        shopName: parsed.shopName ?? followUp.shop.shopName,
+        parsed,
+      });
+      const { carryMeta, ...saved } = record;
+      const addedItems = formatParsedDeltaItems(parsed);
+      const useShort = shouldUseShortConfirmation(parsed, combinedText);
+      const prefix = ocr ? "📷 รวมจากรูปที่ส่งก่อนหน้า" : undefined;
+      const template = buildRecordConfirmation(saved, {
+        carryMeta,
+        addedItems,
+        prefix,
+        mode: useShort ? "short" : "full",
+      });
+      return {
+        processed: {
+          ...msg,
+          content: `[FOLLOWUP] ${text.slice(0, 200)}`,
+          status: "completed",
+        },
+        replyMsg: await geminiReply(
+          text,
+          template,
+          useShort ? "record_saved_short" : "record_saved_full",
+          { record: saved, addedItems, prefix }
+        ),
+      };
+    }
+  }
+
   // Check if this looks like financial data before calling Gemini
   if (looksLikeFinancialData(text)) {
     const parsed = await parseFinancialMessage(text);
@@ -335,79 +388,133 @@ async function processImageMessage(
 ): Promise<{ processed: ProcessedMessage; replyMsg: string }> {
   const messageId = event.message!.id;
   const startTime = Date.now();
+  let uploadLink = "";
+  let mimeType = "image/jpeg";
 
-  const buffer = await getMessageContent(messageId);
-  const upload = await uploadImage(buffer, msg.userId, messageId);
-  const ocr = await extractTextFromImage(buffer, "image/jpeg");
-  const processingTimeMs = Date.now() - startTime;
+  try {
+    const { buffer, mimeType: lineMime } = await getMessageContentWithType(messageId);
+    mimeType = SUPPORTED_OCR_TYPES.includes(lineMime as (typeof SUPPORTED_OCR_TYPES)[number])
+      ? lineMime
+      : "image/jpeg";
 
-  const ocrRow: OcrResultRow = {
-    id: generateId(),
-    messageId: msg.id,
-    timestamp: getCurrentTimestamp(),
-    imageUrl: upload.webViewLink,
-    rawText: ocr.rawText,
-    structuredJson: safeJsonStringify(ocr.structuredData),
-    confidence: ocr.confidence.toFixed(2),
-    processingTimeMs: String(processingTimeMs),
-  };
-  await appendOcrResult(ocrRow).catch((err) =>
-    logger.error("Failed to save OCR result", err)
-  );
-
-  if (ocr.rawText && looksLikeFinancialData(ocr.rawText)) {
+    let upload;
     try {
-      const parsed = await parseFinancialMessage(ocr.rawText);
-      if (parsed.isFinancialData && parsed.confidence >= 0.6) {
-        const today = getTodayDateString();
-        const recordDate = resolveRecordDateFromText(ocr.rawText) ?? today;
-        const shop = detectShopFromText(ocr.rawText);
-
-        const record = await upsertParsedRecord({
-          date: parsed.date ?? recordDate,
-          shopId: parsed.shopId ?? shop?.shopId ?? ENV.DEFAULT_SHOP_ID(),
-          shopName: parsed.shopName ?? shop?.shopName ?? ENV.DEFAULT_SHOP_NAME(),
-          parsed,
-        });
-
-        const { carryMeta, ...saved } = record;
-        const addedItems = formatParsedDeltaItems(parsed);
-        const useShort = shouldUseShortConfirmation(parsed, ocr.rawText);
-        const template = buildRecordConfirmation(saved, {
-          carryMeta,
-          addedItems,
-          mode: useShort ? "short" : "full",
-        });
-
-        return {
-          processed: {
-            ...msg,
-            content: `[IMAGE→FINANCIAL] ${ocr.rawText.slice(0, 200)}`,
-            imageUrl: upload.webViewLink,
-            status: "completed",
-          },
-          replyMsg: await geminiReply(
-            ocr.rawText,
-            template,
-            useShort ? "record_saved_short" : "record_saved_full",
-            { record: saved, addedItems }
-          ),
-        };
-      }
-    } catch (err) {
-      logger.warn("Image financial parse failed, using generic reply", err instanceof Error ? err.message : String(err));
+      upload = await uploadImage(buffer, msg.userId, messageId);
+      uploadLink = upload.webViewLink;
+    } catch (uploadErr) {
+      logger.warn("Image upload failed, continuing with OCR", uploadErr instanceof Error ? uploadErr.message : String(uploadErr));
     }
-  }
 
-  return {
-    processed: {
-      ...msg,
-      content: ocr.rawText.slice(0, 500),
-      imageUrl: upload.webViewLink,
-      status: "completed",
-    },
-    replyMsg: `📷 รับรูปภาพแล้ว\n\n📝 ข้อความที่อ่านได้:\n${ocr.rawText.slice(0, 300)}${ocr.rawText.length > 300 ? "…" : ""}\n\n💡 ถ้าต้องการบันทึก ลองพิมพ์ข้อมูลเป็นข้อความ`,
-  };
+    let ocr;
+    try {
+      ocr = await extractTextFromImage(buffer, mimeType);
+    } catch (ocrErr) {
+      const reason = ocrErr instanceof Error ? ocrErr.message : String(ocrErr);
+      logger.warn("OCR failed", { reason, mimeType });
+      return {
+        processed: {
+          ...msg,
+          content: `[IMAGE OCR FAILED] ${reason.slice(0, 200)}`,
+          imageUrl: uploadLink || undefined,
+          status: "completed",
+        },
+        replyMsg:
+          "📷 รับรูปแล้ว แต่อ่านข้อความไม่ได้ชั่วคราว\n\n" +
+          "💡 ลองพิมพ์สรุปเป็นข้อความ เช่น\n" +
+          "หนองปิง รวมค่าหมู\n" +
+          "หรือส่งรายการซื้อของทีละบรรทัด",
+      };
+    }
+
+    const processingTimeMs = Date.now() - startTime;
+    const ocrRow: OcrResultRow = {
+      id: generateId(),
+      messageId: msg.id,
+      timestamp: getCurrentTimestamp(),
+      imageUrl: uploadLink,
+      rawText: ocr.rawText,
+      structuredJson: safeJsonStringify(ocr.structuredData),
+      confidence: ocr.confidence.toFixed(2),
+      processingTimeMs: String(processingTimeMs),
+    };
+    await appendOcrResult(ocrRow).catch((err) =>
+      logger.error("Failed to save OCR result", err)
+    );
+
+    if (ocr.rawText && looksLikeFinancialData(ocr.rawText)) {
+      try {
+        const parsed = await parseFinancialMessage(ocr.rawText);
+        if (parsed.isFinancialData && parsed.confidence >= 0.6) {
+          const today = getTodayDateString();
+          const recordDate = resolveRecordDateFromText(ocr.rawText) ?? today;
+          const shop = detectShopFromText(ocr.rawText);
+
+          const record = await upsertParsedRecord({
+            date: parsed.date ?? recordDate,
+            shopId: parsed.shopId ?? shop?.shopId ?? ENV.DEFAULT_SHOP_ID(),
+            shopName: parsed.shopName ?? shop?.shopName ?? ENV.DEFAULT_SHOP_NAME(),
+            parsed,
+          });
+
+          const { carryMeta, ...saved } = record;
+          const addedItems = formatParsedDeltaItems(parsed);
+          const useShort = shouldUseShortConfirmation(parsed, ocr.rawText);
+          const template = buildRecordConfirmation(saved, {
+            carryMeta,
+            addedItems,
+            mode: useShort ? "short" : "full",
+          });
+
+          return {
+            processed: {
+              ...msg,
+              content: `[IMAGE→FINANCIAL] ${ocr.rawText.slice(0, 200)}`,
+              imageUrl: uploadLink || undefined,
+              status: "completed",
+            },
+            replyMsg: await geminiReply(
+              ocr.rawText,
+              template,
+              useShort ? "record_saved_short" : "record_saved_full",
+              { record: saved, addedItems }
+            ),
+          };
+        }
+      } catch (err) {
+        logger.warn("Image financial parse failed, using OCR preview", err instanceof Error ? err.message : String(err));
+      }
+    }
+
+    return {
+      processed: {
+        ...msg,
+        content: ocr.rawText.slice(0, 500),
+        imageUrl: uploadLink || undefined,
+        status: "completed",
+      },
+      replyMsg:
+        `📷 รับรูปภาพแล้ว\n\n📝 ข้อความที่อ่านได้:\n${ocr.rawText.slice(0, 300)}${ocr.rawText.length > 300 ? "…" : ""}\n\n` +
+        "💡 ถ้าต้องการบันทึก ลองพิมพ์ชื่อสาขา + รวมค่าหมู หรือส่งรายการเป็นข้อความ",
+    };
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    logger.error("Image processing failed", error instanceof Error ? error : new Error(reason), {
+      messageId,
+      mimeType,
+    });
+    return {
+      processed: {
+        ...msg,
+        content: `[IMAGE FAILED] ${reason.slice(0, 200)}`,
+        status: "failed",
+        errorMessage: reason,
+      },
+      replyMsg:
+        "📷 รับรูปแล้ว แต่ประมวลผลไม่สำเร็จ\n\n" +
+        "💡 ลองส่งใหม่ หรือพิมพ์รายการซื้อของ เช่น\n" +
+        "หนองปิง รวมค่าหมู",
+    };
+  }
 }
 
 async function processFileMessage(

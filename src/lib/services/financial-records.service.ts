@@ -267,6 +267,34 @@ export async function getCarriedPorkPrices(
   return scanCarriedPorkPrices(rows);
 }
 
+export interface CarriedPorkQuantities {
+  porkRed?: { qty: number; price: number };
+  porkMinced?: { qty: number; price: number };
+  porkFat?: { qty: number; price: number };
+  fromDate?: string;
+}
+
+/** Latest pork qty breakdown from a prior record (same shop). */
+export async function getCarriedPorkQuantities(
+  shopId: string,
+  beforeDate: string
+): Promise<CarriedPorkQuantities> {
+  const rows = await fetchPriorRecords(shopId, beforeDate);
+  for (const row of rows) {
+    const pb = row.pork_breakdown;
+    if (!pb) continue;
+    if (pb.redQty > 0 || pb.mincedQty > 0 || pb.fatQty > 0) {
+      return {
+        porkRed: pb.redQty > 0 ? { qty: pb.redQty, price: 0 } : undefined,
+        porkMinced: pb.mincedQty > 0 ? { qty: pb.mincedQty, price: 0 } : undefined,
+        porkFat: pb.fatQty > 0 ? { qty: pb.fatQty, price: 0 } : undefined,
+        fromDate: row.date,
+      };
+    }
+  }
+  return {};
+}
+
 function scanCarriedPorkPrices(
   rows: { date: string; pork_breakdown?: PorkBreakdown | null }[]
 ): CarriedPorkPrices {

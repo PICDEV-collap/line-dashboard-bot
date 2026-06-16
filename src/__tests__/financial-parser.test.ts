@@ -2,16 +2,19 @@ import {
   extractExtraExpenses,
   extractExtraIncome,
   extractDeterministicPork,
+  extractShoppingListFromText,
   isIncomeLikeName,
   looksLikeFinancialData,
   looksLikeSummaryRequest,
   parseFinancialMessageWithRegex,
   parsePork,
+  parseShopFollowUp,
   sanitizeExtraLedger,
   formatParsedDeltaItems,
   shouldUseShortConfirmation,
   buildRecordConfirmation,
   buildShortRecordConfirmation,
+  detectShopFromText,
 } from "@/lib/services/financial-parser.service";
 import { resolveRecordDateFromText } from "@/lib/utils/helpers";
 import type { FinancialRecord } from "@/lib/types/financial.types";
@@ -337,5 +340,55 @@ describe("reply messages", () => {
     expect(msg).toContain("💰 รายรับ: (ยังไม่มี)");
     expect(msg).toContain("🫙 วัตถุดิบ: ฿1,120");
     expect(msg).not.toMatch(/รวม: ฿0/);
+  });
+});
+
+describe("extractShoppingListFromText", () => {
+  const sampleList = `เผือก 80 (4)
+มันม่วง 20
+ขนมจีน 35 (2)
+กะทิ 180
+ขิง 30
+ไข่ไก่ 70 (3)
+นม 168 (6)
+ทิชชู 30 (2)
+ยาสระผม 45 (3)
+แปรง 56
+ค่าน้ำ 49
+923`;
+
+  it("parses handwritten shopping list with explicit total", () => {
+    const result = extractShoppingListFromText(sampleList);
+    expect(result).not.toBeNull();
+    expect(result!.items.length).toBeGreaterThanOrEqual(10);
+    expect(result!.materialsTotal).toBe(923);
+  });
+
+  it("detects shopping list as financial data", () => {
+    expect(looksLikeFinancialData(sampleList)).toBe(true);
+  });
+});
+
+describe("shop follow-up commands", () => {
+  it("detects หนองปลั่ง typo with รวมค่าหมู", () => {
+    expect(detectShopFromText("หนองปลั่ง รวมค่าหมู")).toEqual({
+      shopId: "shop2",
+      shopName: "ก๋วยเตี๋ยวไทยครูตอมสายหนองปิง",
+    });
+    expect(parseShopFollowUp("หนองปลั่ง รวมค่าหมู")).toEqual({
+      shop: {
+        shopId: "shop2",
+        shopName: "ก๋วยเตี๋ยวไทยครูตอมสายหนองปิง",
+      },
+      includePork: true,
+    });
+    expect(looksLikeFinancialData("หนองปลั่ง รวมค่าหมู")).toBe(true);
+  });
+
+  it("parseFinancialMessageWithRegex marks include-pork-only as financial", () => {
+    const parsed = parseFinancialMessageWithRegex("หนองปิง รวมค่าหมู");
+    expect(parsed.isFinancialData).toBe(true);
+    expect(parsed.shopId).toBe("shop2");
+    expect(parsed.note).toBe("รวมค่าหมู");
   });
 });
