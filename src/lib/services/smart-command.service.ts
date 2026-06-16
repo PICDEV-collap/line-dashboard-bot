@@ -58,6 +58,11 @@ export function buildCorrectionSummary(actions: CorrectionAction[]): string {
       case "removeExtraIncome":
         parts.push(`ลบรายรับ ${a.name}`);
         break;
+      case "adjustPorkQty": {
+        const verb = a.delta < 0 ? "ลด" : "เพิ่ม";
+        parts.push(`${verb}${PORK_LABELS[a.pork]} ${Math.abs(a.delta)} กก.`);
+        break;
+      }
     }
   }
 

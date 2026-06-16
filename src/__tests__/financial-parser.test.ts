@@ -249,6 +249,13 @@ describe("extractDeterministicPork", () => {
     expect(result.porkMinced).toEqual({ qty: 3, price: 0 });
     expect(result.porkFat).toEqual({ qty: 8, price: 0 });
   });
+
+  it("does not treat เอา...ออก as additive pork", () => {
+    const result = extractDeterministicPork("ญี่ปุ่น เอาหมูแดง ออก 1 กก พรุ่งนี้");
+    expect(result.porkRed).toBeUndefined();
+    expect(result.porkMinced).toBeUndefined();
+    expect(result.porkFat).toBeUndefined();
+  });
 });
 
 describe("sanitizeExtraLedger", () => {

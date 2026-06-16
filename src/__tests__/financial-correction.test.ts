@@ -52,6 +52,10 @@ describe("looksLikeCorrection", () => {
     expect(looksLikeCorrection("ญี่ปุ่น ค่า 850")).toBe(true);
   });
 
+  it("detects pork removal (เอา...ออก)", () => {
+    expect(looksLikeCorrection("ญี่ปุ่น เอาหมูแดง ออก 1 กก พรุ่งนี้อ่ะ")).toBe(true);
+  });
+
   it("detects help", () => {
     expect(looksLikeCorrectionHelp("ช่วย")).toBe(true);
     expect(looksLikeCorrectionHelp("วิธีแก้")).toBe(true);
@@ -92,6 +96,15 @@ describe("parseCorrectionMessage", () => {
     ]);
   });
 
+  it("parses pork removal เอา...ออก", () => {
+    expect(parseCorrectionMessage("ญี่ปุ่น เอาหมูแดง ออก 1 กก")).toEqual([
+      { op: "adjustPorkQty", pork: "red", delta: -1 },
+    ]);
+    expect(parseCorrectionMessage("หมูสับ ออก 2")).toEqual([
+      { op: "adjustPorkQty", pork: "minced", delta: -2 },
+    ]);
+  });
+
   it("parses remove extra and clear revenue fields", () => {
     expect(parseCorrectionMessage("ลบ แม็คโคร")).toEqual([
       { op: "removeExtraExpense", name: "แม็คโคร" },
@@ -127,5 +140,12 @@ describe("applyCorrectionActions", () => {
     ]);
     expect(rec.porkBreakdown?.redQty).toBe(4);
     expect(rec.porkBreakdown?.redPrice).toBe(130);
+  });
+
+  it("reduces pork qty with adjustPorkQty", () => {
+    const rec = applyCorrectionActions(emptyRecord(), [
+      { op: "adjustPorkQty", pork: "red", delta: -1 },
+    ]);
+    expect(rec.porkBreakdown?.redQty).toBe(3);
   });
 });

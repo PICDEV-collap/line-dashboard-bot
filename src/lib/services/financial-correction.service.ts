@@ -16,6 +16,7 @@ export type CorrectionAction =
   | { op: "set"; field: NumericRecordField; value: number }
   | { op: "set"; field: "porkPrice"; pork: "red" | "minced" | "fat"; value: number }
   | { op: "set"; field: "porkQtyPrice"; pork: "red" | "minced" | "fat"; qty: number; price: number }
+  | { op: "adjustPorkQty"; pork: "red" | "minced" | "fat"; delta: number }
   | { op: "setExtraExpense"; name: string; amount: number }
   | { op: "removeExtraExpense"; name: string }
   | { op: "removeExtraIncome"; name: string }
@@ -41,6 +42,11 @@ const PORK_PRICE = new RegExp(
 /** Glued: "ปรับหมูสับราคา120", "ปรับมันหมูราคา65" */
 const PORK_PRICE_GLUED = new RegExp(
   `^${CORRECTION_PREFIX}\\s*(หมูแดง|หมูเนื้อ|แดง|หมูสับ|สับ|มันหมู|หมูมัน|มัน)\\s*ราคา\\s*([\\d,]+)\\s*$`,
+  "i"
+);
+/** "เอาหมูแดง ออก 1 กก", "หมูสับ ออก 2" */
+const PORK_REMOVE = new RegExp(
+  `(?:เอา\\s*)?(หมูแดง|หมูเนื้อ|แดง|หมูสับ|สับ|มันหมู|หมูมัน|มัน)\\s*ออก\\s*([\\d.,]+)\\s*(?:กก\\.?|กิโล)?`,
   "i"
 );
 /** Shorthand: "ค่า 850" = ค่าแรง (พูดสั้นในร้าน) */
@@ -100,6 +106,13 @@ function porkKind(kw: string): "red" | "minced" | "fat" | null {
   return null;
 }
 
+export function looksLikePorkRemoval(text: string): boolean {
+  const bodies = [text, normalizeCommandText(text)];
+  return bodies.some((body) =>
+    body.split(/\n/).some((raw) => PORK_REMOVE.test(stripShopPrefix(raw.trim())))
+  );
+}
+
 export function looksLikeCorrectionHelp(text: string): boolean {
   const t = text.trim();
   return /^(?:ช่วย|วิธีแก้|help|คำสั่ง)(?:\s|$)/i.test(t);
@@ -113,6 +126,8 @@ function lineLooksLikeCorrection(line: string): boolean {
     /^(?:แก้|เปลี่ยน|ตั้ง|ปรับ)(?:หมู|ค่า)/i.test(l) ||
     /^ปรับ(?:หมู|แดง|สับ|มัน)/i.test(l) ||
     /^ราคา\s*(?:หมู|แดง|สับ|มัน)/i.test(l) ||
+    PORK_REMOVE.test(l) ||
+    /(?:เอา|เอา).*ออก/i.test(l) ||
     LABOR_SHORTHAND.test(l) ||
     LABOR_LINE.test(l)
   );
@@ -134,7 +149,17 @@ export function parseCorrectionMessage(text: string): CorrectionAction[] {
   for (const rawLine of lines) {
     const line = normalizeNaturalCommandLine(stripShopPrefix(rawLine));
 
-    let m = line.match(PORK_QTY_PRICE);
+    let m = line.match(PORK_REMOVE);
+    if (m) {
+      const pork = porkKind(m[1]);
+      const qty = num(m[2]);
+      if (pork && qty > 0) {
+        actions.push({ op: "adjustPorkQty", pork, delta: -qty });
+      }
+      continue;
+    }
+
+    m = line.match(PORK_QTY_PRICE);
     if (m) {
       const pork = porkKind(m[1]);
       if (pork) actions.push({ op: "set", field: "porkQtyPrice", pork, qty: num(m[2]), price: num(m[3]) });
@@ -273,6 +298,16 @@ export function applyCorrectionActions(
       case "removeExtraIncome":
         out.extraIncome = out.extraIncome.filter((e) => !fuzzyMatchName(e.name, action.name));
         break;
+      case "adjustPorkQty": {
+        const pb = out.porkBreakdown!;
+        const applyDelta = (getQty: () => number, setQty: (n: number) => void) => {
+          setQty(Math.max(0, getQty() + action.delta));
+        };
+        if (action.pork === "red") applyDelta(() => pb.redQty, (n) => { pb.redQty = n; });
+        if (action.pork === "minced") applyDelta(() => pb.mincedQty, (n) => { pb.mincedQty = n; });
+        if (action.pork === "fat") applyDelta(() => pb.fatQty, (n) => { pb.fatQty = n; });
+        break;
+      }
     }
   }
   return out;
@@ -290,6 +325,7 @@ export function buildCorrectionHelpMessage(): string {
     "  แก้ ค่าไฟฟ้า 1200",
     "  ปรับหมูสับราคา 120",
     "  ปรับหมูแดง ราคา 130",
+    "  เอาหมูแดง ออก 1 กก   (ลดจำนวนหมู)",
     "",
     "🗑️ ลบรายการ:",
     "  ลบ แม็คโคร",

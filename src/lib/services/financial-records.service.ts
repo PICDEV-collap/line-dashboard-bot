@@ -6,6 +6,7 @@ import { sanitizeExtraLedger } from "@/lib/services/financial-parser.service";
 import {
   applyCorrectionActions,
   parseCorrectionMessage,
+  type CorrectionAction,
 } from "@/lib/services/financial-correction.service";
 import { parseCorrectionWithGemini } from "@/lib/services/financial-parser.service";
 import {
@@ -363,6 +364,40 @@ function finalizePorkBreakdown(pb: PorkBreakdown): PorkBreakdown {
   return pb;
 }
 
+function seedPorkFromCarryForRemoval(
+  record: FinancialRecord,
+  actions: CorrectionAction[],
+  carriedQty: CarriedPorkQuantities,
+  carriedPrices: CarriedPorkPrices
+): FinancialRecord {
+  const hasRemoval = actions.some((a) => a.op === "adjustPorkQty" && a.delta < 0);
+  if (!hasRemoval) return record;
+
+  const pb = finalizePorkBreakdown({
+    ...(record.porkBreakdown ?? {
+      redQty: 0, redPrice: 0, redTotal: 0,
+      mincedQty: 0, mincedPrice: 0, mincedTotal: 0,
+      fatQty: 0, fatPrice: 0, fatTotal: 0,
+      total: 0,
+    }),
+  });
+
+  if (pb.redQty === 0 && carriedQty.porkRed?.qty) {
+    pb.redQty = carriedQty.porkRed.qty;
+    if (!pb.redPrice) pb.redPrice = carriedPrices.redPrice;
+  }
+  if (pb.mincedQty === 0 && carriedQty.porkMinced?.qty) {
+    pb.mincedQty = carriedQty.porkMinced.qty;
+    if (!pb.mincedPrice) pb.mincedPrice = carriedPrices.mincedPrice;
+  }
+  if (pb.fatQty === 0 && carriedQty.porkFat?.qty) {
+    pb.fatQty = carriedQty.porkFat.qty;
+    if (!pb.fatPrice) pb.fatPrice = carriedPrices.fatPrice;
+  }
+
+  return { ...record, porkBreakdown: finalizePorkBreakdown(pb) };
+}
+
 function recomputeRecordTotals(
   fields: Pick<
     FinancialRecord,
@@ -596,6 +631,15 @@ export async function applyLineCorrection(input: {
       extraIncome: [],
       profit: 0, note: "", status: "pending",
     });
+  }
+
+  const needsCarrySeed = actions.some((a) => a.op === "adjustPorkQty" && a.delta < 0);
+  if (needsCarrySeed) {
+    const [carriedQty, carriedPrices] = await Promise.all([
+      getCarriedPorkQuantities(input.shopId, input.date),
+      getCarriedPorkPrices(input.shopId, input.date),
+    ]);
+    existing = seedPorkFromCarryForRemoval(existing, actions, carriedQty, carriedPrices);
   }
 
   const corrected = applyCorrectionActions(existing, actions);
