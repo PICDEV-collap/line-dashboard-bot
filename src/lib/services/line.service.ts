@@ -7,6 +7,7 @@ import type { LineUserProfile } from "@/lib/types/line.types";
 const logger = createLogger("LineService");
 
 const LINE_API_BASE = "https://api.line.me/v2/bot";
+const LINE_DATA_API_BASE = "https://api-data.line.me/v2/bot";
 
 async function lineRequest<T>(
   path: string,
@@ -67,7 +68,7 @@ export async function getMessageContent(messageId: string): Promise<Buffer> {
 
   return withRetry(async () => {
     const token = ENV.LINE_CHANNEL_ACCESS_TOKEN();
-    const url = `${LINE_API_BASE}/message/${messageId}/content`;
+    const url = `${LINE_DATA_API_BASE}/message/${messageId}/content`;
 
     const response = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` },
