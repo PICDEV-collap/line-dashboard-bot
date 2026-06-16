@@ -1,12 +1,23 @@
 import { ENV } from "@/config/constants";
 import { describeRecordDate, getTodayDateString, resolveRecordDateFromText } from "@/lib/utils/helpers";
-import { detectShopFromText } from "@/lib/services/financial-parser.service";
-import type { FinancialRecord } from "@/lib/types/financial.types";
+import { detectShopFromText, looksLikePorkQuery } from "@/lib/services/financial-parser.service";
+import type { FinancialRecord, PorkBreakdown } from "@/lib/types/financial.types";
+import {
+  getCarriedPorkPrices,
+  getCarriedPorkQuantities,
+  type CarriedPorkQuantities,
+} from "@/lib/services/financial-records.service";
 
 export type SummaryIntent =
   | { type: "all_branches"; date: string }
   | { type: "single_shop"; date: string; shopId: string; shopName: string }
   | { type: "default_shop"; date: string; shopId: string; shopName: string };
+
+export interface PorkSummaryIntent {
+  date: string;
+  shopId: string;
+  shopName: string;
+}
 
 const SHOP_SUFFIX_RE = "(?:สายหนองปิง|หนองปลิง|หนองปิง|ตลาดญี่ปุ่น|ปลิง|ปิง|ญี่ปุ่น|ยี่ปุ่น)";
 const SUMMARY_VERB_RE = "(?:สรุป|ดูยอด|ยอดวัน|ยอด|เช็คยอด|ดูบัญชี|บัญชี)";
@@ -73,7 +84,7 @@ export function parseSummaryIntent(
 
   const norm = normalizeSummaryCommandText(raw);
   const compact = norm.replace(/\s+/g, "");
-  const date = resolveRecordDateFromText(raw) ?? resolveRecordDateFromText(norm) ?? today;
+  const date = resolveRecordDateFromText(raw, today) ?? resolveRecordDateFromText(norm, today) ?? today;
 
   if (isAllBranchesSummary(norm, compact)) {
     return { type: "all_branches", date };
@@ -111,7 +122,132 @@ export function parseSummaryIntent(
 
 /** @deprecated use parseSummaryIntent */
 export function looksLikeSummaryRequest(text: string): boolean {
-  return parseSummaryIntent(text) !== null;
+  return parseSummaryIntent(text) !== null || parsePorkSummaryIntent(text) !== null;
+}
+
+/** Ask pork total for a shop/date — read-only, never saves. */
+export function parsePorkSummaryIntent(
+  text: string,
+  today: string = getTodayDateString()
+): PorkSummaryIntent | null {
+  const raw = text.trim();
+  if (!raw || !looksLikePorkQuery(raw)) return null;
+
+  const shop = detectShopFromText(raw) ?? {
+    shopId: ENV.DEFAULT_SHOP_ID(),
+    shopName: ENV.DEFAULT_SHOP_NAME(),
+  };
+  const date = resolveRecordDateFromText(raw, today) ?? today;
+
+  return { date, shopId: shop.shopId, shopName: shop.shopName };
+}
+
+function finalizePorkBreakdown(pb: PorkBreakdown): PorkBreakdown {
+  pb.redTotal = pb.redQty * pb.redPrice;
+  pb.mincedTotal = pb.mincedQty * pb.mincedPrice;
+  pb.fatTotal = pb.fatQty * pb.fatPrice;
+  pb.total = pb.redTotal + pb.mincedTotal + pb.fatTotal;
+  return pb;
+}
+
+function buildProjectedPorkBreakdown(
+  qty: CarriedPorkQuantities,
+  prices: { redPrice: number; mincedPrice: number; fatPrice: number }
+): PorkBreakdown {
+  const pb: PorkBreakdown = {
+    redQty: qty.porkRed?.qty ?? 0,
+    redPrice: qty.porkRed?.price || prices.redPrice,
+    redTotal: 0,
+    mincedQty: qty.porkMinced?.qty ?? 0,
+    mincedPrice: qty.porkMinced?.price || prices.mincedPrice,
+    mincedTotal: 0,
+    fatQty: qty.porkFat?.qty ?? 0,
+    fatPrice: qty.porkFat?.price || prices.fatPrice,
+    fatTotal: 0,
+    total: 0,
+  };
+  return finalizePorkBreakdown(pb);
+}
+
+function porkHasData(pb?: PorkBreakdown | null): boolean {
+  if (!pb) return false;
+  return pb.redQty > 0 || pb.mincedQty > 0 || pb.fatQty > 0 || pb.total > 0;
+}
+
+function porkLine(
+  emoji: string,
+  label: string,
+  qty: number,
+  price: number,
+  total: number,
+  baht: (n: number) => string
+): string | null {
+  if (qty <= 0 && price <= 0) return null;
+  if (qty <= 0 && price > 0) return `  ${emoji} ${label}: ${baht(price)}/กก. (⏳ รอยอดจำนวน)`;
+  if (price <= 0) return `  ${emoji} ${label}: ${qty} กก. (⏳ ยังไม่ใส่ราคา)`;
+  return `  ${emoji} ${label}: ${qty} กก. × ${baht(price)} = ${baht(total)}`;
+}
+
+/** Build read-only pork total reply (from saved record or carried-forward preview). */
+export async function buildPorkTotalSummary(input: {
+  intent: PorkSummaryIntent;
+  record: FinancialRecord | null;
+  today?: string;
+}): Promise<string> {
+  const today = input.today ?? getTodayDateString();
+  const { intent, record } = input;
+  const baht = (n: number) => `฿${n.toLocaleString("th-TH")}`;
+  const shopLabel = intent.shopId === "shop2" ? "🏪 สายหนองปิง" : "🏪 ตลาดญี่ปุ่น";
+
+  let pb = record?.porkBreakdown;
+  let source: "record" | "carried" | null = porkHasData(pb) ? "record" : null;
+
+  if (!source) {
+    const [qty, prices] = await Promise.all([
+      getCarriedPorkQuantities(intent.shopId, intent.date),
+      getCarriedPorkPrices(intent.shopId, intent.date),
+    ]);
+    const projected = buildProjectedPorkBreakdown(qty, prices);
+    if (porkHasData(projected)) {
+      pb = projected;
+      source = "carried";
+    }
+  }
+
+  if (!pb || !porkHasData(pb)) {
+    const tag = describeRecordDate(intent.date, today);
+    return (
+      `❌ ยังไม่มีข้อมูลค่าหมู${tag === intent.date ? ` วันที่ ${intent.date}` : ` (${tag})`}\n` +
+      `${shopLabel}\n\n` +
+      `💬 ส่งยอดหมู เช่น "แดง4 สับ3" เพื่อเริ่มบันทึก`
+    );
+  }
+
+  const lines: string[] = [`🥩 ค่าหมูทั้งหมด · ${shopLabel}`];
+  if (intent.date !== today) {
+    lines.push(`📅 ${describeRecordDate(intent.date, today)} (${intent.date})`);
+  }
+  lines.push("");
+
+  for (const row of [
+    porkLine("🔴", "หมูแดง", pb.redQty, pb.redPrice, pb.redTotal, baht),
+    porkLine("🟠", "หมูสับ", pb.mincedQty, pb.mincedPrice, pb.mincedTotal, baht),
+    porkLine("🟡", "มันหมู", pb.fatQty, pb.fatPrice, pb.fatTotal, baht),
+  ]) {
+    if (row) lines.push(row);
+  }
+
+  lines.push("");
+  lines.push(`💰 รวมค่าหมู: ${baht(pb.total)}`);
+
+  if (source === "carried") {
+    lines.push("📎 อ้างอิงจากวันก่อน (ยังไม่ได้บันทึกวันนี้)");
+  } else if (source === "record") {
+    lines.push(`📊 ยอดวันนั้น: ค่าใช้จ่ายรวม ${baht(record!.expense)} · กำไร ${record!.profit >= 0 ? "+" : ""}${baht(record!.profit)}`);
+  }
+
+  lines.push('\n💬 "สรุป" ดูยอดทั้งหมด · "ช่วย" คำสั่งทั้งหมด');
+  return lines.join("\n");
 }
 
 function shopLabel(rec: FinancialRecord): string {

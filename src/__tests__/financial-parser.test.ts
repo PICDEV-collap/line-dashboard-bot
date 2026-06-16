@@ -5,16 +5,15 @@ import {
   extractShoppingListFromText,
   isIncomeLikeName,
   looksLikeFinancialData,
+  looksLikePorkQuery,
   looksLikeSummaryRequest,
   parseFinancialMessageWithRegex,
   parsePork,
-  parseShopFollowUp,
   sanitizeExtraLedger,
   formatParsedDeltaItems,
   shouldUseShortConfirmation,
   buildRecordConfirmation,
   buildShortRecordConfirmation,
-  detectShopFromText,
 } from "@/lib/services/financial-parser.service";
 import { resolveRecordDateFromText } from "@/lib/utils/helpers";
 import type { FinancialRecord } from "@/lib/types/financial.types";
@@ -369,42 +368,16 @@ describe("extractShoppingListFromText", () => {
   });
 });
 
-describe("shop follow-up commands", () => {
-  it("detects หนองปลั่ง typo with รวมค่าหมู", () => {
-    expect(detectShopFromText("หนองปลั่ง รวมค่าหมู")).toEqual({
-      shopId: "shop2",
-      shopName: "ก๋วยเตี๋ยวไทยครูตอมสายหนองปิง",
-    });
-    expect(parseShopFollowUp("หนองปลั่ง รวมค่าหมู")).toEqual({
-      shop: {
-        shopId: "shop2",
-        shopName: "ก๋วยเตี๋ยวไทยครูตอมสายหนองปิง",
-      },
-      includePork: true,
-    });
-    expect(looksLikeFinancialData("หนองปลั่ง รวมค่าหมู")).toBe(true);
+describe("pork query phrases", () => {
+  it("detects pork query phrases without treating as financial save", () => {
+    expect(looksLikePorkQuery("หนองปลั่ง รวมค่าหมู")).toBe(true);
+    expect(looksLikePorkQuery("หนองปลิง ค่าหมูทั้งหมด พรุ่งนี้")).toBe(true);
+    expect(looksLikeFinancialData("หนองปลิง รวมค่าหมู")).toBe(false);
+    expect(looksLikeFinancialData("หนองปลิง ค่าหมูทั้งหมด พรุ่งนี้")).toBe(false);
   });
 
-  it("parseFinancialMessageWithRegex marks include-pork-only as financial", () => {
+  it("does not mark pork-only text as financial regex parse", () => {
     const parsed = parseFinancialMessageWithRegex("หนองปิง รวมค่าหมู");
-    expect(parsed.isFinancialData).toBe(true);
-    expect(parsed.shopId).toBe("shop2");
-    expect(parsed.note).toBe("รวมค่าหมู");
-  });
-
-  it("detects ค่าหมูทั้งหมด พรุ่งนี้ for shop2", () => {
-    const text = "หนองปลิง ค่าหมูทั้งหมด พรุ่งนี้";
-    expect(detectShopFromText(text)?.shopId).toBe("shop2");
-    expect(parseShopFollowUp(text)).toEqual({
-      shop: {
-        shopId: "shop2",
-        shopName: "ก๋วยเตี๋ยวไทยครูตอมสายหนองปิง",
-      },
-      includePork: true,
-    });
-    expect(looksLikeFinancialData(text)).toBe(true);
-    const parsed = parseFinancialMessageWithRegex(text);
-    expect(parsed.isFinancialData).toBe(true);
-    expect(parsed.date).toBe(resolveRecordDateFromText("พรุ่งนี้"));
+    expect(parsed.isFinancialData).toBe(false);
   });
 });

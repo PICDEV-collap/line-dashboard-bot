@@ -8,7 +8,7 @@ import {
   replyText,
   buildSuccessReply,
 } from "@/lib/services/line.service";
-import { appendMessage, appendOcrResult, getLatestOcrForUser, updateDailyStats } from "@/lib/services/messages.service";
+import { appendMessage, appendOcrResult, updateDailyStats } from "@/lib/services/messages.service";
 import { uploadImage, uploadPdf } from "@/lib/services/storage.service";
 import { extractTextFromImage } from "@/lib/services/gemini.service";
 import {
@@ -18,14 +18,15 @@ import {
   buildSummaryNotFoundMessage,
   formatParsedDeltaItems,
   shouldUseShortConfirmation,
-  parseShopFollowUp,
 } from "@/lib/services/financial-parser.service";
 import {
   parseSummaryIntent,
+  parsePorkSummaryIntent,
   buildAllBranchesSummary,
+  buildPorkTotalSummary,
   getAllBranchShops,
 } from "@/lib/services/summary-command.service";
-import { upsertParsedRecord, applyLineCorrection, getRecordByShopDate, getCarriedPorkQuantities } from "@/lib/services/financial-records.service";
+import { upsertParsedRecord, applyLineCorrection, getRecordByShopDate } from "@/lib/services/financial-records.service";
 import {
   naturalizeReply,
   type NaturalReplyKind,
@@ -225,6 +226,16 @@ async function processTextMessage(
     };
   }
 
+  const porkSummary = parsePorkSummaryIntent(text, today);
+  if (porkSummary) {
+    const record = await getRecordByShopDate(porkSummary.shopId, porkSummary.date);
+    const template = await buildPorkTotalSummary({ intent: porkSummary, record, today });
+    return {
+      processed: { ...msg, content: `[PORK QUERY] ${text.slice(0, 200)}`, status: "completed" },
+      replyMsg: await geminiReply(text, template, "shop_summary", { record: record ?? undefined }),
+    };
+  }
+
   if (looksLikeCorrection(text)) {
     const result = await applyLineCorrection({
       text: normalizeCommandText(text) || text,
@@ -251,61 +262,6 @@ async function processTextMessage(
     };
   }
 
-  // Shop follow-up after image OCR, e.g. "หนองปลั่ง รวมค่าหมู"
-  const followUp = parseShopFollowUp(text);
-  if (followUp) {
-    const ocr = await getLatestOcrForUser(msg.userId, 60);
-    const combinedText = ocr ? `${ocr.rawText}\n${text}` : text;
-    let parsed = await parseFinancialMessage(combinedText);
-    parsed.shopId = followUp.shop.shopId;
-    parsed.shopName = followUp.shop.shopName;
-
-    parsed.date = parsed.date ?? recordDate;
-
-    if (followUp.includePork) {
-      const targetDate = parsed.date ?? recordDate;
-      const carried = await getCarriedPorkQuantities(followUp.shop.shopId, targetDate);
-      if (carried.porkRed && !parsed.porkRed) parsed.porkRed = carried.porkRed;
-      if (carried.porkMinced && !parsed.porkMinced) parsed.porkMinced = carried.porkMinced;
-      if (carried.porkFat && !parsed.porkFat) parsed.porkFat = carried.porkFat;
-      parsed.isFinancialData = true;
-      parsed.confidence = Math.max(parsed.confidence ?? 0, 0.75);
-    }
-
-    if (parsed.isFinancialData && parsed.confidence >= 0.6) {
-      const record = await upsertParsedRecord({
-        date: parsed.date ?? recordDate,
-        shopId: parsed.shopId ?? followUp.shop.shopId,
-        shopName: parsed.shopName ?? followUp.shop.shopName,
-        parsed,
-      });
-      const { carryMeta, ...saved } = record;
-      const addedItems = formatParsedDeltaItems(parsed);
-      const useShort = shouldUseShortConfirmation(parsed, combinedText);
-      const prefix = ocr ? "📷 รวมจากรูปที่ส่งก่อนหน้า" : undefined;
-      const template = buildRecordConfirmation(saved, {
-        carryMeta,
-        addedItems,
-        prefix,
-        mode: useShort ? "short" : "full",
-      });
-      return {
-        processed: {
-          ...msg,
-          content: `[FOLLOWUP] ${text.slice(0, 200)}`,
-          status: "completed",
-        },
-        replyMsg: await geminiReply(
-          text,
-          template,
-          useShort ? "record_saved_short" : "record_saved_full",
-          { record: saved, addedItems, prefix }
-        ),
-      };
-    }
-  }
-
-  // Check if this looks like financial data before calling Gemini
   if (looksLikeFinancialData(text)) {
     const parsed = await parseFinancialMessage(text);
 
@@ -424,7 +380,7 @@ async function processImageMessage(
         replyMsg:
           "📷 รับรูปแล้ว แต่อ่านข้อความไม่ได้ชั่วคราว\n\n" +
           "💡 ลองพิมพ์สรุปเป็นข้อความ เช่น\n" +
-          "หนองปิง รวมค่าหมู\n" +
+          "หนองปิง ค่าหมูทั้งหมด\n" +
           "หรือส่งรายการซื้อของทีละบรรทัด",
       };
     }
@@ -497,7 +453,7 @@ async function processImageMessage(
       },
       replyMsg:
         `📷 รับรูปภาพแล้ว\n\n📝 ข้อความที่อ่านได้:\n${ocr.rawText.slice(0, 300)}${ocr.rawText.length > 300 ? "…" : ""}\n\n` +
-        "💡 ถ้าต้องการบันทึก ลองพิมพ์ชื่อสาขา + รวมค่าหมู หรือส่งรายการเป็นข้อความ",
+        "💡 ถ้าต้องการบันทึก ลองพิมพ์รายการซื้อของเป็นข้อความ · พิมพ์ \"ค่าหมูทั้งหมด\" เพื่อดูยอดหมู",
     };
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
@@ -514,8 +470,7 @@ async function processImageMessage(
       },
       replyMsg:
         "📷 รับรูปแล้ว แต่ประมวลผลไม่สำเร็จ\n\n" +
-        "💡 ลองส่งใหม่ หรือพิมพ์รายการซื้อของ เช่น\n" +
-        "หนองปิง รวมค่าหมู",
+        "💡 ลองส่งใหม่ หรือพิมพ์ \"หนองปิง ค่าหมูทั้งหมด\" เพื่อดูยอด",
     };
   }
 }

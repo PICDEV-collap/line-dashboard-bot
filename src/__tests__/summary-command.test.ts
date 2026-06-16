@@ -1,9 +1,11 @@
 import {
   parseSummaryIntent,
+  parsePorkSummaryIntent,
   normalizeSummaryCommandText,
   buildAllBranchesSummary,
   looksLikeSummaryRequest,
 } from "@/lib/services/summary-command.service";
+import { resolveRecordDateFromText } from "@/lib/utils/helpers";
 import type { FinancialRecord } from "@/lib/types/financial.types";
 
 const sampleRecord = (shopId: string, revenue: number): FinancialRecord => ({
@@ -73,7 +75,9 @@ describe("summary-command.service", () => {
     expect(parseSummaryIntent("สรุป", today)?.type).toBe("default_shop");
     expect(parseSummaryIntent("ดูยอด", today)?.type).toBe("default_shop");
     expect(parseSummaryIntent("เช็คยอด", today)?.type).toBe("default_shop");
-    expect(parseSummaryIntent("สรุปพรุ่งนี้", today)?.date).toBe("2026-06-16");
+    expect(parseSummaryIntent("สรุปพรุ่งนี้", today)?.date).toBe(
+      resolveRecordDateFromText("พรุ่งนี้", today)
+    );
     expect(parseSummaryIntent("หนองปิง สรุปพรุ่งนี้", today)?.shopId).toBe("shop2");
   });
 
@@ -85,6 +89,22 @@ describe("summary-command.service", () => {
   it("looksLikeSummaryRequest covers all summary intents", () => {
     expect(looksLikeSummaryRequest("หนองปิงด้วย")).toBe(true);
     expect(looksLikeSummaryRequest("สรุปทุกสาขา")).toBe(true);
+    expect(looksLikeSummaryRequest("หนองปลิง ค่าหมูทั้งหมด")).toBe(true);
+  });
+
+  it("parses pork total query (read-only)", () => {
+    expect(parsePorkSummaryIntent("หนองปลิง รวมค่าหมู", today)).toEqual({
+      date: today,
+      shopId: "shop2",
+      shopName: "ก๋วยเตี๋ยวไทยครูตอมสายหนองปิง",
+    });
+    const tomorrow = resolveRecordDateFromText("พรุ่งนี้", today)!;
+    expect(parsePorkSummaryIntent("หนองปลิง ค่าหมูทั้งหมด พรุ่งนี้", today)).toEqual({
+      date: tomorrow,
+      shopId: "shop2",
+      shopName: "ก๋วยเตี๋ยวไทยครูตอมสายหนองปิง",
+    });
+    expect(parsePorkSummaryIntent("โอน 5000", today)).toBeNull();
   });
 
   it("buildAllBranchesSummary aggregates totals", () => {
