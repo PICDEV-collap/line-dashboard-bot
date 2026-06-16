@@ -54,8 +54,11 @@ async function geminiReply(
     record?: import("@/lib/types/financial.types").FinancialRecord | null;
     addedItems?: string[];
     prefix?: string;
+    /** Query replies: skip Groq rewrite for instant LINE response */
+    instant?: boolean;
   } = {}
 ): Promise<string> {
+  if (extra.instant) return template;
   return naturalizeReply({
     kind,
     userMessage,
@@ -228,12 +231,20 @@ async function processTextMessage(
 
   const porkSummary = parsePorkSummaryIntent(text, today);
   if (porkSummary) {
-    const record = await getRecordByShopDate(porkSummary.shopId, porkSummary.date);
-    const template = await buildPorkTotalSummary({ intent: porkSummary, record, today });
-    return {
-      processed: { ...msg, content: `[PORK QUERY] ${text.slice(0, 200)}`, status: "completed" },
-      replyMsg: await geminiReply(text, template, "shop_summary", { record: record ?? undefined }),
-    };
+    try {
+      const record = await getRecordByShopDate(porkSummary.shopId, porkSummary.date);
+      const replyMsg = await buildPorkTotalSummary({ intent: porkSummary, record, today });
+      return {
+        processed: { ...msg, content: `[PORK QUERY] ${text.slice(0, 200)}`, status: "completed" },
+        replyMsg,
+      };
+    } catch (err) {
+      logger.error("Pork summary query failed", err instanceof Error ? err : new Error(String(err)));
+      return {
+        processed: { ...msg, content: `[PORK QUERY FAILED] ${text.slice(0, 200)}`, status: "failed" },
+        replyMsg: "❌ ดึงยอดหมูไม่ได้ชั่วคราว ลองใหม่หรือพิมพ์ \"สรุป\"",
+      };
+    }
   }
 
   if (looksLikeCorrection(text)) {

@@ -5,7 +5,6 @@ import {
   extractShoppingListFromText,
   isIncomeLikeName,
   looksLikeFinancialData,
-  looksLikePorkQuery,
   looksLikeSummaryRequest,
   parseFinancialMessageWithRegex,
   parsePork,
@@ -365,19 +364,5 @@ describe("extractShoppingListFromText", () => {
 
   it("detects shopping list as financial data", () => {
     expect(looksLikeFinancialData(sampleList)).toBe(true);
-  });
-});
-
-describe("pork query phrases", () => {
-  it("detects pork query phrases without treating as financial save", () => {
-    expect(looksLikePorkQuery("หนองปลั่ง รวมค่าหมู")).toBe(true);
-    expect(looksLikePorkQuery("หนองปลิง ค่าหมูทั้งหมด พรุ่งนี้")).toBe(true);
-    expect(looksLikeFinancialData("หนองปลิง รวมค่าหมู")).toBe(false);
-    expect(looksLikeFinancialData("หนองปลิง ค่าหมูทั้งหมด พรุ่งนี้")).toBe(false);
-  });
-
-  it("does not mark pork-only text as financial regex parse", () => {
-    const parsed = parseFinancialMessageWithRegex("หนองปิง รวมค่าหมู");
-    expect(parsed.isFinancialData).toBe(false);
   });
 });

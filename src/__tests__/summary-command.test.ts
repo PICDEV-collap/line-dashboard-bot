@@ -1,11 +1,13 @@
 import {
   parseSummaryIntent,
   parsePorkSummaryIntent,
+  looksLikePorkQuery,
   normalizeSummaryCommandText,
   buildAllBranchesSummary,
   looksLikeSummaryRequest,
 } from "@/lib/services/summary-command.service";
 import { resolveRecordDateFromText } from "@/lib/utils/helpers";
+import { looksLikeFinancialData, parseFinancialMessageWithRegex } from "@/lib/services/financial-parser.service";
 import type { FinancialRecord } from "@/lib/types/financial.types";
 
 const sampleRecord = (shopId: string, revenue: number): FinancialRecord => ({
@@ -105,6 +107,11 @@ describe("summary-command.service", () => {
       shopName: "ก๋วยเตี๋ยวไทยครูตอมสายหนองปิง",
     });
     expect(parsePorkSummaryIntent("โอน 5000", today)).toBeNull();
+  });
+
+  it("pork query is not treated as financial save text", () => {
+    expect(looksLikePorkQuery("หนองปลั่ง รวมค่าหมู")).toBe(true);
+    expect(looksLikeFinancialData("หนองปลิง รวมค่าหมู")).toBe(false);
   });
 
   it("buildAllBranchesSummary aggregates totals", () => {

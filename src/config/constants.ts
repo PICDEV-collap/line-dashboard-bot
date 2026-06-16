@@ -21,6 +21,12 @@ export const ENV = {
   /** 0 = use ai-timing default / adaptive stats */
   AI_NATURAL_REPLY_TIMEOUT_MS: () =>
     parseInt(optionalEnv("AI_NATURAL_REPLY_TIMEOUT_MS", "0"), 10),
+  /** false = always use template replies (skip Groq rewrite) */
+  AI_NATURAL_REPLY_ENABLED: () =>
+    optionalEnv("AI_NATURAL_REPLY_ENABLED", "true").toLowerCase() !== "false",
+  /** Groq financial parse timeout */
+  AI_PARSE_TIMEOUT_MS: () =>
+    parseInt(optionalEnv("AI_PARSE_TIMEOUT_MS", "8000"), 10),
   DASHBOARD_API_KEY: () => requireEnv("DASHBOARD_API_KEY"),
   DEFAULT_SHOP_ID: () => optionalEnv("DEFAULT_SHOP_ID", "shop1"),
   DEFAULT_SHOP_NAME: () => optionalEnv("DEFAULT_SHOP_NAME", "ก๋วยเตี๋ยวไทยครูตอมตลาดญี่ปุ่น"),

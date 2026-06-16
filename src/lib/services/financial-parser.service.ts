@@ -1,6 +1,7 @@
 import Groq from "groq-sdk";
 import { ENV } from "@/config/constants";
 import { createLogger } from "@/lib/middleware/logger";
+import { withTimeout } from "@/lib/utils/ai-timeout";
 import {
   safeJsonParse,
   getTodayDateString,
@@ -101,15 +102,19 @@ export async function parseFinancialMessage(
   try {
     const client = getClient();
 
-    const result = await client.chat.completions.create({
-      model: ENV.GROQ_MODEL(),
-      messages: [
-        { role: "system", content: FINANCIAL_DETECT_PROMPT },
-        { role: "user", content: text },
-      ],
-      temperature: 0.1,
-      max_tokens: 2048,
-    });
+    const result = await withTimeout(
+      client.chat.completions.create({
+        model: ENV.GROQ_MODEL(),
+        messages: [
+          { role: "system", content: FINANCIAL_DETECT_PROMPT },
+          { role: "user", content: text },
+        ],
+        temperature: 0.1,
+        max_tokens: 2048,
+      }),
+      ENV.AI_PARSE_TIMEOUT_MS(),
+      "Financial parse"
+    );
 
     const raw = (result.choices?.[0]?.message?.content ?? "").trim();
     const cleaned = raw
@@ -481,14 +486,6 @@ export function extractShoppingListFromText(text: string): {
   if (materialsTotal <= 0) return null;
 
   return { items, materialsTotal };
-}
-
-/** Phrases that ask for pork total (read-only), not a save command. */
-export const PORK_QUERY_RE =
-  /รวม(?:ค่า)?หมู(?:ทั้งหมด)?|ค่าหมู(?:ทั้งหมด)?|หมูทั้งหมด|คิดหมู(?:ด้วย)?|รวมหมู(?:ด้วย)?/i;
-
-export function looksLikePorkQuery(text: string): boolean {
-  return PORK_QUERY_RE.test(text);
 }
 
 // Extra expenses: lines starting with จ่าย/ซื้อ — prefix stripped from name.

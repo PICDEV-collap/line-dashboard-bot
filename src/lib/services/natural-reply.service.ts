@@ -5,6 +5,7 @@ import {
   GEMINI_NATURAL_REPLY_TIMEOUT_MS,
   recommendedTimeoutFromSamples,
 } from "@/config/gemini-timing";
+import { withTimeout } from "@/lib/utils/ai-timeout";
 import { createLogger } from "@/lib/middleware/logger";
 import type { FinancialRecord } from "@/lib/types/financial.types";
 import { detectShopFromText } from "@/lib/services/financial-parser.service";
@@ -137,13 +138,12 @@ function buildPrompt(ctx: NaturalReplyContext, template: string): string {
   return parts.join("\n");
 }
 
-async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) => {
-      setTimeout(() => reject(new Error(`AI natural reply timeout after ${ms}ms`)), ms);
-    }),
-  ]);
+async function withReplyTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return withTimeout(promise, ms, "AI natural reply");
+}
+
+export function isNaturalReplyEnabled(): boolean {
+  return ENV.AI_NATURAL_REPLY_ENABLED();
 }
 
 /** @deprecated use parseSummaryIntent from summary-command.service */
@@ -186,12 +186,13 @@ async function callGroqNaturalReply(ctx: NaturalReplyContext, template: string):
 export async function naturalizeReply(ctx: NaturalReplyContext): Promise<string> {
   const template = ctx.template.trim();
   if (!template) return template;
+  if (!isNaturalReplyEnabled()) return template;
 
   const timeoutMs = getNaturalReplyTimeoutMs();
   const start = Date.now();
 
   try {
-    const raw = await withTimeout(callGroqNaturalReply(ctx, template), timeoutMs);
+    const raw = await withReplyTimeout(callGroqNaturalReply(ctx, template), timeoutMs);
     const latencyMs = Date.now() - start;
     recordLatency(latencyMs);
 
@@ -239,7 +240,7 @@ export async function benchmarkNaturalReply(
   const timeoutMs = getNaturalReplyTimeoutMs();
   const start = Date.now();
   try {
-    const reply = await withTimeout(callGroqNaturalReply(ctx, template), timeoutMs);
+    const reply = await withReplyTimeout(callGroqNaturalReply(ctx, template), timeoutMs);
     const latencyMs = Date.now() - start;
     recordLatency(latencyMs);
     return {
@@ -262,7 +263,7 @@ export async function pingGemini(): Promise<{ latencyMs: number; ok: boolean; er
   const start = Date.now();
   try {
     const client = getClient();
-    const result = await withTimeout(
+    const result = await withReplyTimeout(
       client.chat.completions.create({
         model: ENV.GROQ_MODEL(),
         messages: [{ role: "user", content: "ตอบคำเดียวว่า ok" }],
