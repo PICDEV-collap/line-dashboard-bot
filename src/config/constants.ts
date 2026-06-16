@@ -15,11 +15,12 @@ export const ENV = {
   LINE_CHANNEL_SECRET: () => requireEnv("LINE_CHANNEL_SECRET"),
   SUPABASE_URL: () => requireEnv("SUPABASE_URL"),
   SUPABASE_SERVICE_KEY: () => requireEnv("SUPABASE_SERVICE_KEY"),
-  GEMINI_API_KEY: () => requireEnv("GEMINI_API_KEY"),
-  GEMINI_MODEL: () => optionalEnv("GEMINI_MODEL", "gemini-2.0-flash"),
-  /** 0 = use gemini-timing default / adaptive stats */
-  GEMINI_NATURAL_REPLY_TIMEOUT_MS: () =>
-    parseInt(optionalEnv("GEMINI_NATURAL_REPLY_TIMEOUT_MS", "0"), 10),
+  GROQ_API_KEY: () => requireEnv("GROQ_API_KEY"),
+  GROQ_MODEL: () => optionalEnv("GROQ_MODEL", "llama-3.3-70b-versatile"),
+  GROQ_VISION_MODEL: () => optionalEnv("GROQ_VISION_MODEL", "llama-3.2-90b-vision-preview"),
+  /** 0 = use ai-timing default / adaptive stats */
+  AI_NATURAL_REPLY_TIMEOUT_MS: () =>
+    parseInt(optionalEnv("AI_NATURAL_REPLY_TIMEOUT_MS", "0"), 10),
   DASHBOARD_API_KEY: () => requireEnv("DASHBOARD_API_KEY"),
   DEFAULT_SHOP_ID: () => optionalEnv("DEFAULT_SHOP_ID", "shop1"),
   DEFAULT_SHOP_NAME: () => optionalEnv("DEFAULT_SHOP_NAME", "ก๋วยเตี๋ยวไทยครูตอมตลาดญี่ปุ่น"),

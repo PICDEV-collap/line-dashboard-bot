@@ -4,13 +4,15 @@ import {
   naturalizeReply,
 } from "@/lib/services/natural-reply.service";
 
-jest.mock("@google/generative-ai", () => ({
-  GoogleGenerativeAI: jest.fn().mockImplementation(() => ({
-    getGenerativeModel: () => ({
-      generateContent: jest.fn().mockRejectedValue(new Error("offline")),
-    }),
-  })),
-}));
+jest.mock("groq-sdk", () => {
+  return jest.fn().mockImplementation(() => ({
+    chat: {
+      completions: {
+        create: jest.fn().mockRejectedValue(new Error("offline")),
+      },
+    },
+  }));
+});
 
 describe("natural-reply.service", () => {
   it("detects shop summary follow-up", () => {
@@ -30,7 +32,7 @@ describe("natural-reply.service", () => {
     });
   });
 
-  it("falls back to template when Gemini fails", async () => {
+  it("falls back to template when Groq fails", async () => {
     const template = "✅ บันทึกแล้ว · วัตถุดิบ ฿1,120";
     const out = await naturalizeReply({
       kind: "record_saved_short",

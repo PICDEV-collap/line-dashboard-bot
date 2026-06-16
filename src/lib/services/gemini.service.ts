@@ -1,18 +1,14 @@
-import {
-  GoogleGenerativeAI,
-  HarmCategory,
-  HarmBlockThreshold,
-} from "@google/generative-ai";
+import Groq from "groq-sdk";
 import { ENV, SUPPORTED_OCR_TYPES } from "@/config/constants";
 import { withRetry } from "@/lib/utils/retry";
 import { ExternalServiceError, ValidationError } from "@/lib/utils/error-handler";
 import { createLogger } from "@/lib/middleware/logger";
 import { safeJsonParse } from "@/lib/utils/helpers";
 
-const logger = createLogger("GeminiService");
+const logger = createLogger("AIService");
 
-function getClient(): GoogleGenerativeAI {
-  return new GoogleGenerativeAI(ENV.GEMINI_API_KEY());
+function getClient(): Groq {
+  return new Groq({ apiKey: ENV.GROQ_API_KEY() });
 }
 
 export interface OcrExtraction {
@@ -22,26 +18,6 @@ export interface OcrExtraction {
   language?: string;
   documentType?: string;
 }
-
-// Safety settings — permissive for document OCR
-const SAFETY_SETTINGS = [
-  {
-    category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-    threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH,
-  },
-  {
-    category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-    threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH,
-  },
-  {
-    category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-    threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH,
-  },
-  {
-    category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-    threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH,
-  },
-];
 
 const OCR_PROMPT = `Analyze this image carefully and perform the following tasks:
 
@@ -79,29 +55,32 @@ export async function extractTextFromImage(
 
   return withRetry(async () => {
     const client = getClient();
-    const model = client.getGenerativeModel({
-      model: ENV.GEMINI_MODEL(),
-      safetySettings: SAFETY_SETTINGS,
+    const base64 = imageBuffer.toString("base64");
+
+    const result = await client.chat.completions.create({
+      model: ENV.GROQ_VISION_MODEL(),
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: OCR_PROMPT },
+            {
+              type: "image_url",
+              image_url: { url: `data:${mimeType};base64,${base64}` },
+            },
+          ],
+        },
+      ],
+      temperature: 0.1,
+      max_tokens: 4096,
     });
 
-    const result = await model.generateContent([
-      OCR_PROMPT,
-      {
-        inlineData: {
-          mimeType,
-          data: imageBuffer.toString("base64"),
-        },
-      },
-    ]);
-
-    const response = result.response;
-    const text = response.text();
+    const text = result.choices?.[0]?.message?.content ?? "";
 
     if (!text) {
-      throw new ExternalServiceError("Gemini", "Empty response from OCR");
+      throw new ExternalServiceError("Groq", "Empty response from OCR");
     }
 
-    // Strip potential markdown code fences
     const cleaned = text
       .replace(/^```json\s*/i, "")
       .replace(/^```\s*/i, "")
@@ -143,12 +122,25 @@ export async function extractTextFromImage(
 
 export async function describeImage(imageBuffer: Buffer, mimeType = "image/jpeg"): Promise<string> {
   const client = getClient();
-  const model = client.getGenerativeModel({ model: ENV.GEMINI_MODEL() });
+  const base64 = imageBuffer.toString("base64");
 
-  const result = await model.generateContent([
-    "Describe this image briefly in Thai. What do you see?",
-    { inlineData: { mimeType, data: imageBuffer.toString("base64") } },
-  ]);
+  const result = await client.chat.completions.create({
+    model: ENV.GROQ_VISION_MODEL(),
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "Describe this image briefly in Thai. What do you see?" },
+          {
+            type: "image_url",
+            image_url: { url: `data:${mimeType};base64,${base64}` },
+          },
+        ],
+      },
+    ],
+    temperature: 0.3,
+    max_tokens: 1024,
+  });
 
-  return result.response.text();
+  return result.choices?.[0]?.message?.content ?? "";
 }

@@ -5,15 +5,15 @@ import {
   getNaturalReplyTimeoutMs,
   getRecentNaturalReplyLatencies,
 } from "@/lib/services/natural-reply.service";
-import { GEMINI_NATURAL_REPLY_TIMEOUT_MS } from "@/config/gemini-timing";
+import { AI_NATURAL_REPLY_TIMEOUT_MS } from "@/config/gemini-timing";
 import { createLogger } from "@/lib/middleware/logger";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const logger = createLogger("GeminiBenchmarkRoute");
+const logger = createLogger("AIBenchmarkRoute");
 
-/** POST — measure Gemini natural-reply latency (requires DASHBOARD_API_KEY). */
+/** POST — measure Groq natural-reply latency (requires DASHBOARD_API_KEY). */
 export async function POST(request: Request): Promise<NextResponse> {
   try {
     validateDashboardApiKey(request.headers.get("authorization"));
@@ -34,10 +34,10 @@ export async function POST(request: Request): Promise<NextResponse> {
     data: {
       short,
       full,
-      configuredTimeoutMs: GEMINI_NATURAL_REPLY_TIMEOUT_MS,
+      configuredTimeoutMs: AI_NATURAL_REPLY_TIMEOUT_MS,
       activeTimeoutMs: timeoutMs,
       recentLatenciesMs: [...getRecentNaturalReplyLatencies()],
-      recommendedEnv: `GEMINI_NATURAL_REPLY_TIMEOUT_MS=${timeoutMs}`,
+      recommendedEnv: `AI_NATURAL_REPLY_TIMEOUT_MS=${timeoutMs}`,
     },
   });
 }

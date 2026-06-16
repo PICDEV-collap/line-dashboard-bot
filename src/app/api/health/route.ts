@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { ENV } from "@/config/constants";
 import { getSupabaseClient } from "@/lib/services/supabase.service";
 import { pingGemini } from "@/lib/services/natural-reply.service";
-import { GEMINI_NATURAL_REPLY_TIMEOUT_MS } from "@/config/gemini-timing";
+import { AI_NATURAL_REPLY_TIMEOUT_MS, GEMINI_NATURAL_REPLY_TIMEOUT_MS } from "@/config/gemini-timing";
 import { createLogger } from "@/lib/middleware/logger";
 
 export const runtime = "nodejs";
@@ -22,10 +22,10 @@ interface HealthReport {
   services: {
     supabase: ServiceHealth;
     supabaseStorage: ServiceHealth;
-    gemini: ServiceHealth;
+    groq: ServiceHealth;
     line: ServiceHealth;
   };
-  geminiNaturalReplyTimeoutMs?: number;
+  aiNaturalReplyTimeoutMs?: number;
   version: string;
   environment: string;
 }
@@ -65,10 +65,10 @@ async function checkSupabaseStorage(): Promise<ServiceHealth> {
   }
 }
 
-async function checkGemini(deepPing: boolean): Promise<ServiceHealth> {
+async function checkGroq(deepPing: boolean): Promise<ServiceHealth> {
   const start = Date.now();
   try {
-    ENV.GEMINI_API_KEY();
+    ENV.GROQ_API_KEY();
     if (!deepPing) {
       return { status: "ok", latencyMs: Date.now() - start };
     }
@@ -114,14 +114,15 @@ async function checkLine(): Promise<ServiceHealth> {
 export async function GET(request: Request): Promise<NextResponse> {
   logger.info("Health check initiated");
 
-  const deepGeminiPing =
+  const deepAiPing =
+    new URL(request.url).searchParams.get("aiPing") === "1" ||
     new URL(request.url).searchParams.get("geminiPing") === "1";
 
-  const [dbHealth, storageHealth, geminiHealth, lineHealth] =
+  const [dbHealth, storageHealth, groqHealth, lineHealth] =
     await Promise.allSettled([
       checkSupabase(),
       checkSupabaseStorage(),
-      checkGemini(deepGeminiPing),
+      checkGroq(deepAiPing),
       checkLine(),
     ]);
 
@@ -134,10 +135,10 @@ export async function GET(request: Request): Promise<NextResponse> {
       storageHealth.status === "fulfilled"
         ? storageHealth.value
         : { status: "error" as const, error: String(storageHealth.reason) },
-    gemini:
-      geminiHealth.status === "fulfilled"
-        ? geminiHealth.value
-        : { status: "error" as const, error: String(geminiHealth.reason) },
+    groq:
+      groqHealth.status === "fulfilled"
+        ? groqHealth.value
+        : { status: "error" as const, error: String(groqHealth.reason) },
     line:
       lineHealth.status === "fulfilled"
         ? lineHealth.value
@@ -152,7 +153,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     status: allOk ? "healthy" : anyError ? "unhealthy" : "degraded",
     timestamp: new Date().toISOString(),
     services,
-    geminiNaturalReplyTimeoutMs: GEMINI_NATURAL_REPLY_TIMEOUT_MS,
+    aiNaturalReplyTimeoutMs: AI_NATURAL_REPLY_TIMEOUT_MS,
     version: process.env.npm_package_version ?? "1.0.0",
     environment: ENV.NODE_ENV(),
   };

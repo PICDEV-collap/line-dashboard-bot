@@ -8,7 +8,7 @@ export type SummaryIntent =
   | { type: "single_shop"; date: string; shopId: string; shopName: string }
   | { type: "default_shop"; date: string; shopId: string; shopName: string };
 
-const SHOP_SUFFIX_RE = "(?:หนองปิง|สายหนองปิง|ญี่ปุ่น|ตลาดญี่ปุ่น)";
+const SHOP_SUFFIX_RE = "(?:สายหนองปิง|หนองปลิง|หนองปิง|ตลาดญี่ปุ่น|ปลิง|ปิง|ญี่ปุ่น|ยี่ปุ่น)";
 const SUMMARY_VERB_RE = "(?:สรุป|ดูยอด|ยอดวัน|ยอด|เช็คยอด|ดูบัญชี|บัญชี)";
 const DATE_SUFFIX_RE = "(?:วันนี้|พรุ่งนี้|เมื่อวาน)?";
 const ALL_BRANCHES_RE =

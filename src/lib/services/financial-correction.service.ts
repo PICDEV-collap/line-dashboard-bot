@@ -22,7 +22,7 @@ export type CorrectionAction =
   | { op: "clear"; field: "transfer" | "cash" | "delivery" };
 
 const CORRECTION_PREFIX = "(?:แก้|เปลี่ยน|ตั้ง|ปรับ)";
-const SHOP_KW = /(?:ตลาดญี่ปุ่น|สายหนองปิง|ญี่ปุ่น|หนองปิง)/g;
+const SHOP_KW = /(?:ตลาดญี่ปุ่น|สายหนองปิง|หนองปลิง|หนองปิง|ญี่ปุ่น|ยี่ปุ่น|ปลิง|ปิง)/g;
 
 const SET_FIELD = new RegExp(
   `^${CORRECTION_PREFIX}\\s*(โอน|สด|delivery|เดลิเวอรี่|วัตถุดิบ|อุปกรณ์|(?:ค่า)?แก๊ส|ค่าแรง|(?:ค่า)?น้ำแข็ง|ค่าเช่า|เช่า|ค่าน้ำ|น้ำประปา|ค่าไฟฟ้า|ค่าไฟ|ไฟฟ้า)\\s*([\\d,]+)\\s*$`,

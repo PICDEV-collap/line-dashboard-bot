@@ -1,6 +1,7 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import Groq from "groq-sdk";
 import { ENV } from "@/config/constants";
 import {
+  AI_NATURAL_REPLY_TIMEOUT_MS,
   GEMINI_NATURAL_REPLY_TIMEOUT_MS,
   recommendedTimeoutFromSamples,
 } from "@/config/gemini-timing";
@@ -13,7 +14,6 @@ const logger = createLogger("NaturalReply");
 const MAX_REPLY_CHARS = 4800;
 const LATENCY_WINDOW = 20;
 
-/** Rolling latency samples from recent natural-reply calls (per server instance). */
 const recentLatenciesMs: number[] = [];
 
 export type NaturalReplyKind =
@@ -64,8 +64,8 @@ const NATURAL_REPLY_PROMPT = `คุณเป็นผู้ช่วยบั�
 6. จบด้วยคำแนะนำสั้นๆ เช่น พิมพ์ "สรุป" หรือ "ช่วย" ถ้าเหมาะสม
 7. ตอบข้อความเดียว ไม่มี markdown ไม่มี JSON`;
 
-function getClient(): GoogleGenerativeAI {
-  return new GoogleGenerativeAI(ENV.GEMINI_API_KEY());
+function getClient(): Groq {
+  return new Groq({ apiKey: ENV.GROQ_API_KEY() });
 }
 
 function shopLabel(rec: FinancialRecord): string {
@@ -102,14 +102,13 @@ function recordSnapshot(rec: FinancialRecord): Record<string, unknown> {
   };
 }
 
-/** Resolve timeout: env override → adaptive recent samples → static default. */
 export function getNaturalReplyTimeoutMs(): number {
-  const envMs = ENV.GEMINI_NATURAL_REPLY_TIMEOUT_MS();
+  const envMs = ENV.AI_NATURAL_REPLY_TIMEOUT_MS();
   if (envMs > 0) return envMs;
   if (recentLatenciesMs.length >= 3) {
     return recommendedTimeoutFromSamples(recentLatenciesMs);
   }
-  return GEMINI_NATURAL_REPLY_TIMEOUT_MS;
+  return AI_NATURAL_REPLY_TIMEOUT_MS;
 }
 
 export function getRecentNaturalReplyLatencies(): readonly number[] {
@@ -123,8 +122,6 @@ function recordLatency(ms: number): void {
 
 function buildPrompt(ctx: NaturalReplyContext, template: string): string {
   const parts: string[] = [
-    NATURAL_REPLY_PROMPT,
-    "",
     `ประเภท: ${KIND_LABELS[ctx.kind]}`,
     `ข้อความลูกค้า: "${ctx.userMessage}"`,
   ];
@@ -144,7 +141,7 @@ async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
     promise,
     new Promise<T>((_, reject) => {
-      setTimeout(() => reject(new Error(`Gemini natural reply timeout after ${ms}ms`)), ms);
+      setTimeout(() => reject(new Error(`AI natural reply timeout after ${ms}ms`)), ms);
     }),
   ]);
 }
@@ -172,14 +169,20 @@ function stripMarkdownFences(raw: string): string {
     .trim();
 }
 
-async function callGeminiNaturalReply(ctx: NaturalReplyContext, template: string): Promise<string> {
+async function callGroqNaturalReply(ctx: NaturalReplyContext, template: string): Promise<string> {
   const client = getClient();
-  const model = client.getGenerativeModel({ model: ENV.GEMINI_MODEL() });
-  const result = await model.generateContent(buildPrompt(ctx, template));
-  return stripMarkdownFences(result.response.text().trim());
+  const result = await client.chat.completions.create({
+    model: ENV.GROQ_MODEL(),
+    messages: [
+      { role: "system", content: NATURAL_REPLY_PROMPT },
+      { role: "user", content: buildPrompt(ctx, template) },
+    ],
+    temperature: 0.5,
+    max_tokens: 2048,
+  });
+  return stripMarkdownFences((result.choices?.[0]?.message?.content ?? "").trim());
 }
 
-/** Rewrite a template reply into natural Thai via Gemini; fallback to template on error/timeout. */
 export async function naturalizeReply(ctx: NaturalReplyContext): Promise<string> {
   const template = ctx.template.trim();
   if (!template) return template;
@@ -188,16 +191,16 @@ export async function naturalizeReply(ctx: NaturalReplyContext): Promise<string>
   const start = Date.now();
 
   try {
-    const raw = await withTimeout(callGeminiNaturalReply(ctx, template), timeoutMs);
+    const raw = await withTimeout(callGroqNaturalReply(ctx, template), timeoutMs);
     const latencyMs = Date.now() - start;
     recordLatency(latencyMs);
 
     if (!raw || raw.length < 20) {
-      logger.warn("Gemini natural reply too short, using template", { latencyMs });
+      logger.warn("AI natural reply too short, using template", { latencyMs });
       return template;
     }
     if (raw.length > MAX_REPLY_CHARS) {
-      logger.warn("Gemini natural reply too long, using template", { latencyMs });
+      logger.warn("AI natural reply too long, using template", { latencyMs });
       return template;
     }
 
@@ -210,7 +213,7 @@ export async function naturalizeReply(ctx: NaturalReplyContext): Promise<string>
     return raw;
   } catch (error) {
     const latencyMs = Date.now() - start;
-    logger.warn("Gemini natural reply failed, using template", {
+    logger.warn("AI natural reply failed, using template", {
       error: error instanceof Error ? error.message : String(error),
       latencyMs,
       timeoutMs,
@@ -219,7 +222,6 @@ export async function naturalizeReply(ctx: NaturalReplyContext): Promise<string>
   }
 }
 
-/** Benchmark one natural-reply call (for scripts / health deep check). */
 export async function benchmarkNaturalReply(
   kind: NaturalReplyKind = "record_saved_short"
 ): Promise<NaturalReplyBenchmarkResult> {
@@ -237,7 +239,7 @@ export async function benchmarkNaturalReply(
   const timeoutMs = getNaturalReplyTimeoutMs();
   const start = Date.now();
   try {
-    const reply = await withTimeout(callGeminiNaturalReply(ctx, template), timeoutMs);
+    const reply = await withTimeout(callGroqNaturalReply(ctx, template), timeoutMs);
     const latencyMs = Date.now() - start;
     recordLatency(latencyMs);
     return {
@@ -246,7 +248,7 @@ export async function benchmarkNaturalReply(
       replyChars: reply.length,
       usedTemplate: false,
     };
-  } catch (error) {
+  } catch {
     return {
       kind,
       latencyMs: Date.now() - start,
@@ -256,14 +258,19 @@ export async function benchmarkNaturalReply(
   }
 }
 
-/** Minimal Gemini ping for health checks. */
 export async function pingGemini(): Promise<{ latencyMs: number; ok: boolean; error?: string }> {
   const start = Date.now();
   try {
     const client = getClient();
-    const model = client.getGenerativeModel({ model: ENV.GEMINI_MODEL() });
-    const result = await withTimeout(model.generateContent("ตอบคำเดียวว่า ok"), 8000);
-    const text = result.response.text().trim();
+    const result = await withTimeout(
+      client.chat.completions.create({
+        model: ENV.GROQ_MODEL(),
+        messages: [{ role: "user", content: "ตอบคำเดียวว่า ok" }],
+        max_tokens: 10,
+      }),
+      8000
+    );
+    const text = (result.choices?.[0]?.message?.content ?? "").trim();
     return { latencyMs: Date.now() - start, ok: text.length > 0 };
   } catch (error) {
     return {

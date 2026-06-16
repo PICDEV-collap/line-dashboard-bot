@@ -14,10 +14,10 @@
     "benchmark:natural-reply": "node scripts/benchmark-natural-reply.mjs"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.21.0",
     "@line/bot-sdk": "^9.3.0",
     "@supabase/supabase-js": "^2.49.0",
     "axios": "^1.7.9",
+    "groq-sdk": "^1.2.1",
     "next": "^16.2.9",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
