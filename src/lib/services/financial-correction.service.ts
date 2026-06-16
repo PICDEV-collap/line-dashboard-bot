@@ -1,6 +1,40 @@
 import type { FinancialRecord, PorkBreakdown } from "@/lib/types/financial.types";
 import { normalizeRecurringExtraName, recurringCategoryOf } from "@/lib/services/recurring-expenses.service";
-import { normalizeNaturalCommandLine } from "@/lib/services/smart-command.service";
+import {
+  CORRECTION_PREFIX,
+  hasPorkRemovalMarker,
+  PORK_REMOVE,
+  porkKindFromKeyword,
+  stripShopPrefix,
+} from "@/lib/thai/lexicon";
+import { normalizeCommandText, normalizeNaturalCommandLine } from "@/lib/thai/normalizer";
+import { routeLineMessage } from "@/lib/services/thai-intent-router.service";
+
+export { normalizeCommandText };
+
+const SET_FIELD = new RegExp(
+  `^${CORRECTION_PREFIX}\\s*(โอน|สด|delivery|เดลิเวอรี่|วัตถุดิบ|อุปกรณ์|(?:ค่า)?แก๊ส|ค่าแรง|(?:ค่า)?น้ำแข็ง|ค่าเช่า|เช่า|ค่าน้ำ|น้ำประปา|ค่าไฟฟ้า|ค่าไฟ|ไฟฟ้า)\\s*([\\d,]+)\\s*$`,
+  "i"
+);
+const CLEAR_FIELD = /^ลบ\s+(โอน|สด|delivery|เดลิเวอรี่)\s*$/i;
+const REMOVE_EXTRA = /^ลบ\s+(.+?)\s*$/i;
+const PORK_QTY_PRICE = new RegExp(
+  `^${CORRECTION_PREFIX}\\s*(หมูแดง|หมูเนื้อ|แดง|หมูสับ|สับ|มันหมู|หมูมัน|มัน)\\s+([\\d,]+)\\s+([\\d,]+)\\s*$`,
+  "i"
+);
+const PORK_PRICE = new RegExp(
+  `^(?:${CORRECTION_PREFIX}|ราคา)\\s*(หมูแดง|หมูเนื้อ|แดง|หมูสับ|สับ|มันหมู|หมูมัน|มัน)\\s*(?:ราคา\\s*)?([\\d,]+)\\s*(?:บาท|/กก)?\\s*$`,
+  "i"
+);
+const PORK_PRICE_GLUED = new RegExp(
+  `^${CORRECTION_PREFIX}\\s*(หมูแดง|หมูเนื้อ|แดง|หมูสับ|สับ|มันหมู|หมูมัน|มัน)\\s*ราคา\\s*([\\d,]+)\\s*$`,
+  "i"
+);
+const LABOR_SHORTHAND = /^ค่า\s+([\d,]+)\s*$/i;
+const LABOR_LINE = new RegExp(
+  `^(?:${CORRECTION_PREFIX})?\\s*ค่าแรง\\s*([\\d,]+)\\s*$`,
+  "i"
+);
 
 export type NumericRecordField =
   | "transfer"
@@ -21,41 +55,6 @@ export type CorrectionAction =
   | { op: "removeExtraExpense"; name: string }
   | { op: "removeExtraIncome"; name: string }
   | { op: "clear"; field: "transfer" | "cash" | "delivery" };
-
-const CORRECTION_PREFIX = "(?:แก้|เปลี่ยน|ตั้ง|ปรับ)";
-const SHOP_KW = /(?:ตลาดญี่ปุ่น|สายหนองปิง|หนองปลิง|หนองปิง|ญี่ปุ่น|ยี่ปุ่น|ปลิง|ปิง)/g;
-
-const SET_FIELD = new RegExp(
-  `^${CORRECTION_PREFIX}\\s*(โอน|สด|delivery|เดลิเวอรี่|วัตถุดิบ|อุปกรณ์|(?:ค่า)?แก๊ส|ค่าแรง|(?:ค่า)?น้ำแข็ง|ค่าเช่า|เช่า|ค่าน้ำ|น้ำประปา|ค่าไฟฟ้า|ค่าไฟ|ไฟฟ้า)\\s*([\\d,]+)\\s*$`,
-  "i"
-);
-const CLEAR_FIELD = /^ลบ\s+(โอน|สด|delivery|เดลิเวอรี่)\s*$/i;
-const REMOVE_EXTRA = /^ลบ\s+(.+?)\s*$/i;
-const PORK_QTY_PRICE = new RegExp(
-  `^${CORRECTION_PREFIX}\\s*(หมูแดง|หมูเนื้อ|แดง|หมูสับ|สับ|มันหมู|หมูมัน|มัน)\\s+([\\d,]+)\\s+([\\d,]+)\\s*$`,
-  "i"
-);
-const PORK_PRICE = new RegExp(
-  `^(?:${CORRECTION_PREFIX}|ราคา)\\s*(หมูแดง|หมูเนื้อ|แดง|หมูสับ|สับ|มันหมู|หมูมัน|มัน)\\s*(?:ราคา\\s*)?([\\d,]+)\\s*(?:บาท|/กก)?\\s*$`,
-  "i"
-);
-/** Glued: "ปรับหมูสับราคา120", "ปรับมันหมูราคา65" */
-const PORK_PRICE_GLUED = new RegExp(
-  `^${CORRECTION_PREFIX}\\s*(หมูแดง|หมูเนื้อ|แดง|หมูสับ|สับ|มันหมู|หมูมัน|มัน)\\s*ราคา\\s*([\\d,]+)\\s*$`,
-  "i"
-);
-/** "เอาหมูแดง ออก 1 กก", "หมูสับ ออก 2" */
-const PORK_REMOVE = new RegExp(
-  `(?:เอา\\s*)?(หมูแดง|หมูเนื้อ|แดง|หมูสับ|สับ|มันหมู|หมูมัน|มัน)\\s*ออก\\s*([\\d.,]+)\\s*(?:กก\\.?|กิโล)?`,
-  "i"
-);
-/** Shorthand: "ค่า 850" = ค่าแรง (พูดสั้นในร้าน) */
-const LABOR_SHORTHAND = /^ค่า\s+([\d,]+)\s*$/i;
-/** Entry: "ค่าแรง 850", "ปรับค่าแรง 850" */
-const LABOR_LINE = new RegExp(
-  `^(?:${CORRECTION_PREFIX})?\\s*ค่าแรง\\s*([\\d,]+)\\s*$`,
-  "i"
-);
 
 const FIELD_MAP: Record<string, NumericRecordField> = {
   โอน: "transfer",
@@ -86,56 +85,16 @@ function num(s: string): number {
   return parseInt(s.replace(/,/g, ""), 10) || 0;
 }
 
-function stripShopPrefix(line: string): string {
-  return line.replace(SHOP_KW, "").trim();
-}
-
-/** Strip branch names from each line so "ญี่ปุ่น ปรับค่าแรง 850" is recognized. */
-export function normalizeCommandText(text: string): string {
-  return text
-    .split(/\n/)
-    .map((l) => stripShopPrefix(l.trim()))
-    .filter(Boolean)
-    .join("\n");
-}
-
-function porkKind(kw: string): "red" | "minced" | "fat" | null {
-  if (/แดง|หมูแดง|หมูเนื้อ/.test(kw)) return "red";
-  if (/สับ|หมูสับ/.test(kw)) return "minced";
-  if (/มัน|มันหมู|หมูมัน/.test(kw)) return "fat";
-  return null;
-}
-
 export function looksLikePorkRemoval(text: string): boolean {
-  const bodies = [text, normalizeCommandText(text)];
-  return bodies.some((body) =>
-    body.split(/\n/).some((raw) => PORK_REMOVE.test(stripShopPrefix(raw.trim())))
-  );
+  return hasPorkRemovalMarker(text) || hasPorkRemovalMarker(normalizeCommandText(text));
 }
 
 export function looksLikeCorrectionHelp(text: string): boolean {
-  const t = text.trim();
-  return /^(?:ช่วย|วิธีแก้|help|คำสั่ง)(?:\s|$)/i.test(t);
-}
-
-function lineLooksLikeCorrection(line: string): boolean {
-  const l = stripShopPrefix(line.trim());
-  if (!l) return false;
-  return (
-    /^(?:แก้|เปลี่ยน|ตั้ง|ปรับ|ลบ)\s*\S/.test(l) ||
-    /^(?:แก้|เปลี่ยน|ตั้ง|ปรับ)(?:หมู|ค่า)/i.test(l) ||
-    /^ปรับ(?:หมู|แดง|สับ|มัน)/i.test(l) ||
-    /^ราคา\s*(?:หมู|แดง|สับ|มัน)/i.test(l) ||
-    PORK_REMOVE.test(l) ||
-    /(?:เอา|เอา).*ออก/i.test(l) ||
-    LABOR_SHORTHAND.test(l) ||
-    LABOR_LINE.test(l)
-  );
+  return routeLineMessage(text).kind === "HELP";
 }
 
 export function looksLikeCorrection(text: string): boolean {
-  const bodies = [text, normalizeCommandText(text)];
-  return bodies.some((body) => body.split(/\n/).some((raw) => lineLooksLikeCorrection(raw)));
+  return routeLineMessage(text).kind === "CORRECTION";
 }
 
 export function parseCorrectionMessage(text: string): CorrectionAction[] {
@@ -151,7 +110,7 @@ export function parseCorrectionMessage(text: string): CorrectionAction[] {
 
     let m = line.match(PORK_REMOVE);
     if (m) {
-      const pork = porkKind(m[1]);
+      const pork = porkKindFromKeyword(m[1]);
       const qty = num(m[2]);
       if (pork && qty > 0) {
         actions.push({ op: "adjustPorkQty", pork, delta: -qty });
@@ -161,14 +120,14 @@ export function parseCorrectionMessage(text: string): CorrectionAction[] {
 
     m = line.match(PORK_QTY_PRICE);
     if (m) {
-      const pork = porkKind(m[1]);
+      const pork = porkKindFromKeyword(m[1]);
       if (pork) actions.push({ op: "set", field: "porkQtyPrice", pork, qty: num(m[2]), price: num(m[3]) });
       continue;
     }
 
     m = line.match(PORK_PRICE) ?? line.match(PORK_PRICE_GLUED);
     if (m) {
-      const pork = porkKind(m[1]);
+      const pork = porkKindFromKeyword(m[1]);
       const price = num(m[2]);
       if (pork && price > 0) actions.push({ op: "set", field: "porkPrice", pork, value: price });
       continue;

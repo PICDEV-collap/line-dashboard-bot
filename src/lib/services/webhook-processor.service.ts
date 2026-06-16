@@ -13,15 +13,12 @@ import { uploadImage, uploadPdf } from "@/lib/services/storage.service";
 import { extractTextFromImage } from "@/lib/services/gemini.service";
 import {
   parseFinancialMessage,
-  looksLikeFinancialData,
   buildRecordConfirmation,
   buildSummaryNotFoundMessage,
   formatParsedDeltaItems,
   shouldUseShortConfirmation,
 } from "@/lib/services/financial-parser.service";
 import {
-  parseSummaryIntent,
-  parsePorkSummaryIntent,
   buildAllBranchesSummary,
   buildPorkTotalSummary,
   getAllBranchShops,
@@ -32,14 +29,10 @@ import {
   type NaturalReplyKind,
 } from "@/lib/services/natural-reply.service";
 import {
-  looksLikeCorrection,
-  looksLikeCorrectionHelp,
   buildCorrectionHelpMessage,
   buildUnrecognizedFinancialHint,
-  normalizeCommandText,
-  parseCorrectionMessage,
 } from "@/lib/services/financial-correction.service";
-import { detectShopFromText } from "@/lib/services/financial-parser.service";
+import { detectShopFromText, looksLikeFinancialData, routeLineMessage } from "@/lib/services/thai-intent-router.service";
 import { ENV, SUPPORTED_OCR_TYPES } from "@/config/constants";
 import type { LineEvent, ProcessedMessage } from "@/lib/types/line.types";
 import type { MessageRow, OcrResultRow, StatsRow } from "@/lib/types/db.types";
@@ -186,170 +179,148 @@ async function processTextMessage(
   const today = getTodayDateString();
   const recordDate = resolveRecordDateFromText(text) ?? today;
   const shop = detectShopFromText(text);
+  const intent = routeLineMessage(text, today);
 
-  if (looksLikeCorrectionHelp(text)) {
-    return {
-      processed: { ...msg, content: "[HELP] correction", status: "completed" },
-      replyMsg: buildCorrectionHelpMessage(),
-    };
-  }
-
-  const summaryIntent = parseSummaryIntent(text, today);
-  if (summaryIntent) {
-    if (summaryIntent.type === "all_branches") {
-      const records = (
-        await Promise.all(
-          getAllBranchShops().map((s) => getRecordByShopDate(s.shopId, summaryIntent.date))
-        )
-      ).filter((r): r is NonNullable<typeof r> => r !== null);
-
-      const template = buildAllBranchesSummary(records, summaryIntent.date, today);
+  switch (intent.kind) {
+    case "HELP":
       return {
-        processed: { ...msg, content: "[SUMMARY] all branches", status: "completed" },
-        replyMsg: await geminiReply(text, template, "all_branches_summary"),
+        processed: { ...msg, content: "[HELP] correction", status: "completed" },
+        replyMsg: buildCorrectionHelpMessage(),
       };
-    }
 
-    const { shopId, date } = summaryIntent;
-    const record = await getRecordByShopDate(shopId, date);
-    if (!record) {
-      const template = buildSummaryNotFoundMessage(date, today);
-      return {
-        processed: { ...msg, content: "[SUMMARY] empty", status: "completed" },
-        replyMsg: await geminiReply(text, template, "summary_not_found"),
-      };
-    }
+    case "QUERY_SUMMARY": {
+      const summaryIntent = intent.payload;
+      if (summaryIntent.type === "all_branches") {
+        const records = (
+          await Promise.all(
+            getAllBranchShops().map((s) => getRecordByShopDate(s.shopId, summaryIntent.date))
+          )
+        ).filter((r): r is NonNullable<typeof r> => r !== null);
 
-    const template = buildRecordConfirmation(record, { mode: "full" });
-    const kind: NaturalReplyKind =
-      summaryIntent.type === "single_shop" ? "shop_summary" : "summary";
-    return {
-      processed: { ...msg, content: `[SUMMARY] ${kind}`, status: "completed" },
-      replyMsg: await geminiReply(text, template, kind, { record }),
-    };
-  }
-
-  const porkSummary = parsePorkSummaryIntent(text, today);
-  if (porkSummary) {
-    try {
-      const record = await getRecordByShopDate(porkSummary.shopId, porkSummary.date);
-      const replyMsg = await buildPorkTotalSummary({ intent: porkSummary, record, today });
-      return {
-        processed: { ...msg, content: `[PORK QUERY] ${text.slice(0, 200)}`, status: "completed" },
-        replyMsg,
-      };
-    } catch (err) {
-      logger.error("Pork summary query failed", err instanceof Error ? err : new Error(String(err)));
-      return {
-        processed: { ...msg, content: `[PORK QUERY FAILED] ${text.slice(0, 200)}`, status: "failed" },
-        replyMsg: "❌ ดึงยอดหมูไม่ได้ชั่วคราว ลองใหม่หรือพิมพ์ \"สรุป\"",
-      };
-    }
-  }
-
-  if (looksLikeCorrection(text)) {
-    const result = await applyLineCorrection({
-      text: normalizeCommandText(text) || text,
-      date: recordDate,
-      shopId: shop?.shopId ?? ENV.DEFAULT_SHOP_ID(),
-      shopName: shop?.shopName ?? ENV.DEFAULT_SHOP_NAME(),
-    });
-    if (!result.record) {
-      return {
-        processed: { ...msg, content: `[CORRECTION] ${text.slice(0, 200)}`, status: "completed" },
-        replyMsg: await geminiReply(text, result.message, "unrecognized"),
-      };
-    }
-    const template = buildRecordConfirmation(result.record, {
-      prefix: result.message,
-      mode: "short",
-    });
-    return {
-      processed: { ...msg, content: `[CORRECTION] ${text.slice(0, 200)}`, status: "completed" },
-      replyMsg: await geminiReply(text, template, "correction", {
-        record: result.record,
-        prefix: result.message,
-      }),
-    };
-  }
-
-  if (looksLikeFinancialData(text)) {
-    const parsed = await parseFinancialMessage(text);
-
-    if (parsed.isFinancialData && parsed.confidence >= 0.6) {
-      logger.info("Financial message detected", { confidence: parsed.confidence });
-
-      // Merge into the day's record (accumulates across multiple messages)
-      const record = await upsertParsedRecord({
-        date: parsed.date ?? recordDate,
-        shopId: parsed.shopId ?? ENV.DEFAULT_SHOP_ID(),
-        shopName: parsed.shopName ?? ENV.DEFAULT_SHOP_NAME(),
-        parsed,
-      });
-
-      const { carryMeta, ...saved } = record;
-      const addedItems = formatParsedDeltaItems(parsed);
-      const useShort = shouldUseShortConfirmation(parsed, text);
-      const template = buildRecordConfirmation(saved, {
-        carryMeta,
-        addedItems,
-        mode: useShort ? "short" : "full",
-      });
-      return {
-        processed: {
-          ...msg,
-          content: `[FINANCIAL] ${text.slice(0, 200)}`,
-          status: "completed",
-        },
-        replyMsg: await geminiReply(
-          text,
-          template,
-          useShort ? "record_saved_short" : "record_saved_full",
-          { record: saved, addedItems }
-        ),
-      };
-    }
-
-    // Heuristic matched but parser couldn't extract — try correction / shorthand
-    const norm = normalizeCommandText(text);
-    if (parseCorrectionMessage(norm || text).length > 0) {
-      const result = await applyLineCorrection({
-        text: norm || text,
-        date: recordDate,
-        shopId: shop?.shopId ?? ENV.DEFAULT_SHOP_ID(),
-        shopName: shop?.shopName ?? ENV.DEFAULT_SHOP_NAME(),
-      });
-      if (result.record) {
-        const template = buildRecordConfirmation(result.record, {
-          prefix: result.message,
-          mode: "short",
-        });
+        const template = buildAllBranchesSummary(records, summaryIntent.date, today);
         return {
-          processed: { ...msg, content: `[CORRECTION] ${text.slice(0, 200)}`, status: "completed" },
-          replyMsg: await geminiReply(text, template, "correction", {
-            record: result.record,
-            prefix: result.message,
-          }),
+          processed: { ...msg, content: "[SUMMARY] all branches", status: "completed" },
+          replyMsg: await geminiReply(text, template, "all_branches_summary"),
+        };
+      }
+
+      const { shopId, date } = summaryIntent;
+      const record = await getRecordByShopDate(shopId, date);
+      if (!record) {
+        const template = buildSummaryNotFoundMessage(date, today);
+        return {
+          processed: { ...msg, content: "[SUMMARY] empty", status: "completed" },
+          replyMsg: await geminiReply(text, template, "summary_not_found"),
+        };
+      }
+
+      const template = buildRecordConfirmation(record, { mode: "full" });
+      const kind: NaturalReplyKind =
+        summaryIntent.type === "single_shop" ? "shop_summary" : "summary";
+      return {
+        processed: { ...msg, content: `[SUMMARY] ${kind}`, status: "completed" },
+        replyMsg: await geminiReply(text, template, kind, { record }),
+      };
+    }
+
+    case "QUERY_PORK": {
+      const porkSummary = intent.payload;
+      try {
+        const record = await getRecordByShopDate(porkSummary.shopId, porkSummary.date);
+        const replyMsg = await buildPorkTotalSummary({ intent: porkSummary, record, today });
+        return {
+          processed: { ...msg, content: `[PORK QUERY] ${text.slice(0, 200)}`, status: "completed" },
+          replyMsg,
+        };
+      } catch (err) {
+        logger.error("Pork summary query failed", err instanceof Error ? err : new Error(String(err)));
+        return {
+          processed: { ...msg, content: `[PORK QUERY FAILED] ${text.slice(0, 200)}`, status: "failed" },
+          replyMsg: "❌ ดึงยอดหมูไม่ได้ชั่วคราว ลองใหม่หรือพิมพ์ \"สรุป\"",
         };
       }
     }
 
-    const hint = buildUnrecognizedFinancialHint();
-    return {
-      processed: { ...msg, content: `[UNRECOGNIZED] ${text.slice(0, 200)}`, status: "completed" },
-      replyMsg: await geminiReply(text, hint, "unrecognized"),
-    };
-  }
+    case "CORRECTION": {
+      const result = await applyLineCorrection({
+        text: intent.normalizedText,
+        date: recordDate,
+        shopId: shop?.shopId ?? ENV.DEFAULT_SHOP_ID(),
+        shopName: shop?.shopName ?? ENV.DEFAULT_SHOP_NAME(),
+      });
+      if (!result.record) {
+        return {
+          processed: { ...msg, content: `[CORRECTION] ${text.slice(0, 200)}`, status: "completed" },
+          replyMsg: await geminiReply(text, result.message, "unrecognized"),
+        };
+      }
+      const template = buildRecordConfirmation(result.record, {
+        prefix: result.message,
+        mode: "short",
+      });
+      return {
+        processed: { ...msg, content: `[CORRECTION] ${text.slice(0, 200)}`, status: "completed" },
+        replyMsg: await geminiReply(text, template, "correction", {
+          record: result.record,
+          prefix: result.message,
+        }),
+      };
+    }
 
-  // Regular text message
-  return {
-    processed: {
-      ...msg,
-      content: text,
-      status: "completed",
-    },
-    replyMsg: buildSuccessReply("text"),
-  };
+    case "SAVE_FINANCIAL": {
+      const parsed = await parseFinancialMessage(text);
+
+      if (parsed.isFinancialData && parsed.confidence >= 0.6) {
+        logger.info("Financial message detected", { confidence: parsed.confidence });
+
+        const record = await upsertParsedRecord({
+          date: parsed.date ?? recordDate,
+          shopId: parsed.shopId ?? ENV.DEFAULT_SHOP_ID(),
+          shopName: parsed.shopName ?? ENV.DEFAULT_SHOP_NAME(),
+          parsed,
+        });
+
+        const { carryMeta, ...saved } = record;
+        const addedItems = formatParsedDeltaItems(parsed);
+        const useShort = shouldUseShortConfirmation(parsed, text);
+        const template = buildRecordConfirmation(saved, {
+          carryMeta,
+          addedItems,
+          mode: useShort ? "short" : "full",
+        });
+        return {
+          processed: {
+            ...msg,
+            content: `[FINANCIAL] ${text.slice(0, 200)}`,
+            status: "completed",
+          },
+          replyMsg: await geminiReply(
+            text,
+            template,
+            useShort ? "record_saved_short" : "record_saved_full",
+            { record: saved, addedItems }
+          ),
+        };
+      }
+
+      const hint = buildUnrecognizedFinancialHint();
+      return {
+        processed: { ...msg, content: `[UNRECOGNIZED] ${text.slice(0, 200)}`, status: "completed" },
+        replyMsg: await geminiReply(text, hint, "unrecognized"),
+      };
+    }
+
+    case "UNKNOWN":
+    default:
+      return {
+        processed: {
+          ...msg,
+          content: text,
+          status: "completed",
+        },
+        replyMsg: buildSuccessReply("text"),
+      };
+  }
 }
 
 async function processImageMessage(

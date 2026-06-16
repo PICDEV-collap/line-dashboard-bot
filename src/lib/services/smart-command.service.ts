@@ -1,4 +1,5 @@
 import type { CorrectionAction } from "@/lib/services/financial-correction.service";
+export { normalizeNaturalCommandLine } from "@/lib/thai/normalizer";
 
 const PORK_LABELS: Record<"red" | "minced" | "fat", string> = {
   red: "หมูแดง",
@@ -16,19 +17,6 @@ const FIELD_LABELS: Record<string, string> = {
   materials: "วัตถุดิบ",
   supplies: "อุปกรณ์",
 };
-
-/**
- * Pre-process Thai shop shorthand before regex matching.
- * "ปรับหมูสับราคา 120" → "ปรับ หมูสับ ราคา 120"
- */
-export function normalizeNaturalCommandLine(line: string): string {
-  return line
-    .replace(/^(ปรับ|แก้|เปลี่ยน|ตั้ง)(หมู|ค่า|แดง|สับ|มัน)/i, "$1 $2")
-    .replace(/(หมู(?:แดง|สับ|มัน|เนื้อ)?)(ราคา)/gi, "$1 $2")
-    .replace(/ราคา(\d)/g, "ราคา $1")
-    .replace(/\s+/g, " ")
-    .trim();
-}
 
 /** Human-readable summary of what the bot understood. */
 export function buildCorrectionSummary(actions: CorrectionAction[]): string {

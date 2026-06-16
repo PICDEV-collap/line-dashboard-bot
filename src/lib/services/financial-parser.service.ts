@@ -10,6 +10,15 @@ import {
 } from "@/lib/utils/helpers";
 import type { ParsedFinancialInput, ExtraExpense, ExtraIncome, FinancialRecord } from "@/lib/types/financial.types";
 import { extractRecurringExpenses, buildCarriedDefaultsNotice, type CarriedDefaultsNotice } from "@/lib/services/recurring-expenses.service";
+import {
+  detectShopFromText,
+  hasPorkRemovalMarker,
+  SHOP_KW,
+  stripShopPrefix,
+} from "@/lib/thai/lexicon";
+import { looksLikeFinancialData } from "@/lib/services/thai-intent-router.service";
+
+export { detectShopFromText, looksLikeFinancialData };
 
 const logger = createLogger("FinancialParser");
 
@@ -158,12 +167,6 @@ export async function parseFinancialMessage(
 
 function num(s: string): number {
   return parseInt(s.replace(/,/g, ""), 10) || 0;
-}
-
-const SHOP_KW = /(?:ตลาดญี่ปุ่น|สายหนองปิง|หนองปล(?:ิง|ลั่ง|ลัง)|หนองปิง|ญี่ปุ่น|ยี่ปุ่น|ปล(?:ิง|ลั่ง)|ปิง)/g;
-
-function stripShopPrefix(line: string): string {
-  return line.replace(SHOP_KW, "").trim();
 }
 
 function mergeExtraItems<T extends { name: string; amount: number }>(
@@ -332,7 +335,7 @@ export function extractDeterministicPork(text: string): {
   porkMinced?: { qty: number; price: number };
   porkFat?: { qty: number; price: number };
 } {
-  if (/ออก\s*[\d.]+\s*(?:กก)?/i.test(text) && /(?:เอา\s*)?(?:หมู|แดง|สับ|มัน)/i.test(text)) {
+  if (hasPorkRemovalMarker(text)) {
     return {};
   }
 
@@ -516,31 +519,6 @@ export function extractExtraExpenses(text: string): ExtraExpense[] {
   return out;
 }
 
-// Detect shop from first line of message
-// Returns { shopId, shopName } or null if not detected
-export function detectShopFromText(text: string): { shopId: string; shopName: string } | null {
-  const fullText = text.split(/\n/).map((l) => l.trim()).filter(Boolean).join(" ");
-  const SHOPS = [
-    {
-      id: "shop2",
-      name: "ก๋วยเตี๋ยวไทยครูตอมสายหนองปิง",
-      keywords: ["สายหนองปิง", "หนองปิง", "หนองปลิง", "หนองปลั่ง", "ปลิง", "ปลั่ง", "ปิง"],
-    },
-    {
-      id: "shop1",
-      name: "ก๋วยเตี๋ยวไทยครูตอมตลาดญี่ปุ่น",
-      keywords: ["ตลาดญี่ปุ่น", "ญี่ปุ่น", "ยี่ปุ่น"],
-    },
-  ];
-
-  for (const shop of SHOPS) {
-    if (shop.keywords.some((kw) => fullText.includes(kw))) {
-      return { shopId: shop.id, shopName: shop.name };
-    }
-  }
-  return null;
-}
-
 export function parseFinancialMessageWithRegex(text: string): ParsedFinancialInput {
   const shop = detectShopFromText(text);
 
@@ -614,48 +592,6 @@ export function parseFinancialMessageWithRegex(text: string): ParsedFinancialInp
   });
 
   return parsed;
-}
-
-// Quick heuristic check before calling Gemini (saves API quota)
-export function looksLikeFinancialData(text: string): boolean {
-  const patterns = [
-    /โอน\s*\d+/,
-    /สด\s*\d+/,
-    /เงินสด\s*\d+/,
-    /delivery\s*\d+/i,
-    /เดลิเวอรี/,
-    /หมู(แดง|สับ|มัน|เนื้อ)?\s*\d/,
-    /\d+\s*กก/,
-    /(?:^|\s)แดง\s*\d/,
-    /(?:^|\s)สับ\s*\d/,
-    /(?:^|\s)มัน\s*\d/,
-    /(?:^|\n)ได้[^\n\d]*[\d,]+/m,
-    /(?:^|\n)คนละครึ่ง[\d,]+/m,
-    /(?:^|\n)ได้\s*คนละครึ่ง[\d,]+/im,
-    /(?:^|\n)รับ[^\n\d]*[\d,]+/m,
-    /(?:^|\n)จ่าย[^\n\d]*[\d,]+/m,
-    /(?:^|\n)ปรับ[^\n\d]*[\d,]+/m,
-    /^ค่า\s+\d/m,
-    /(?:^|\n)ค่าแรง\s*[\d,]+/m,
-    /(?:^|\n)ซื้อ[^\n\d]*[\d,]+/m,
-    /รายรับ\s*\d+/,
-    /ขายได้\s*\d+/,
-    /วัตถุดิบ\s*\d+/,
-    /ค่าแรง\s*\d+/,
-    /(?:^|\n)ค่าเช่า\s*[\d,]+/m,
-    /(?:^|\n)ค่าไฟ(?:ฟ้า)?\s*[\d,]+/m,
-    /(?:^|\n)ค่าน้ำ\s*[\d,]+/m,
-    /ค่าน้ำแข็ง/,
-    // A branch name (incl. fuzzy variants) together with a number → a daily entry/expense
-    /(?:ตลาดญี่ปุ่น|ญี่ปุ่น|ยี่ปุ่น|สายหนองปิง|หนองปิง|หนองปล(?:ิง|ลั่ง)|ปล(?:ิง|ลั่ง)|ปิง)[\s\S]*\d/,
-    // Shopping list lines (OCR/handwritten)
-    /(?:^|\n)[\u0E00-\u0E7Fa-zA-Z][^\n\d]{1,30}\s+\d{2,}(?:\s*\([\d.]+\))?/m,
-    // Store name + amount → implied purchase
-    /(?:แม็คโคร|แม็กโคร|แมคโคร|โลตัส|บิ๊กซี|ท็อปส์|เทสโก้)\s*[\d,]+/i,
-    // "ซื้อของ ... 1220" style purchases
-    /ซื้อ[\s\S]*\d/,
-  ];
-  return patterns.some((p) => p.test(text));
 }
 
 // Build a human-readable confirmation for the LINE reply from the SAVED record,

@@ -1,131 +1,37 @@
 import { ENV } from "@/config/constants";
-import { describeRecordDate, getTodayDateString, resolveRecordDateFromText } from "@/lib/utils/helpers";
-import { detectShopFromText } from "@/lib/services/financial-parser.service";
+import { describeRecordDate, getTodayDateString } from "@/lib/utils/helpers";
 import type { FinancialRecord, PorkBreakdown } from "@/lib/types/financial.types";
 import {
   getCarriedPorkPrices,
   getCarriedPorkQuantities,
   type CarriedPorkQuantities,
 } from "@/lib/services/financial-records.service";
+import { PORK_QUERY_RE, looksLikePorkQuery as lexiconLooksLikePorkQuery } from "@/lib/thai/lexicon";
+import { normalizeSummaryCommandText as thaiNormalizeSummary } from "@/lib/thai/normalizer";
+import type { PorkSummaryIntent } from "@/lib/thai/types";
+import { routeLineMessage } from "@/lib/services/thai-intent-router.service";
 
-export type SummaryIntent =
-  | { type: "all_branches"; date: string }
-  | { type: "single_shop"; date: string; shopId: string; shopName: string }
-  | { type: "default_shop"; date: string; shopId: string; shopName: string };
+export type { SummaryIntent, PorkSummaryIntent } from "@/lib/thai/types";
 
-export interface PorkSummaryIntent {
-  date: string;
-  shopId: string;
-  shopName: string;
-}
-
-const SHOP_SUFFIX_RE = "(?:สายหนองปิง|หนองปลิง|หนองปิง|ตลาดญี่ปุ่น|ปลิง|ปิง|ญี่ปุ่น|ยี่ปุ่น)";
-const SUMMARY_VERB_RE = "(?:สรุป|ดูยอด|ยอดวัน|ยอด|เช็คยอด|ดูบัญชี|บัญชี)";
-const DATE_SUFFIX_RE = "(?:วันนี้|พรุ่งนี้|เมื่อวาน)?";
-const ALL_BRANCHES_RE =
-  /^(?:สรุป|ดูยอด|ยอด|เช็คยอด|ดูบัญชี)(?:วัน)?(?:ทุกสาขา|ทั้งสองสาขา|ทั้งหมด|รวม(?:ทุก)?สาขา)|(?:ทุกสาขา|ทั้งสองสาขา|ทั้งหมด)(?:ด้วย|นะ|ครับ|ค่ะ|จ้า)?$/u;
-
-/** Phrases that ask for pork total (read-only query). */
-export const PORK_QUERY_RE =
-  /รวม(?:ค่า)?หมู(?:ทั้งหมด)?|ค่าหมู(?:ทั้งหมด)?|หมูทั้งหมด|คิดหมู(?:ด้วย)?|รวมหมู(?:ด้วย)?/i;
+/** @deprecated import from @/lib/thai/lexicon */
+export { PORK_QUERY_RE };
 
 export function looksLikePorkQuery(text: string): boolean {
-  return PORK_QUERY_RE.test(text);
+  return lexiconLooksLikePorkQuery(text);
 }
 
-/** Split glued Thai: หนองปิงด้วย → หนองปิง ด้วย, สรุปหนองปิง → สรุป หนองปิง */
+/** Split glued Thai summary commands — delegates to shared normalizer. */
 export function normalizeSummaryCommandText(text: string): string {
-  return text
-    .trim()
-    .replace(new RegExp(`^(${SHOP_SUFFIX_RE})(ด้วย)`, "u"), "$1 $2")
-    .replace(new RegExp(`^(${SUMMARY_VERB_RE})(${SHOP_SUFFIX_RE})`, "u"), "$1 $2")
-    .replace(new RegExp(`^(${SHOP_SUFFIX_RE})(${SUMMARY_VERB_RE})`, "u"), "$1 $2")
-    .replace(new RegExp(`^(${SUMMARY_VERB_RE})(ทุกสาขา|ทั้งสองสาขา|ทั้งหมด)`, "u"), "$1 $2")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function detectShopInSummaryCommand(norm: string, compact: string) {
-  const patterns = [
-    new RegExp(`^${SUMMARY_VERB_RE}\\s*${SHOP_SUFFIX_RE}`, "u"),
-    new RegExp(`^${SHOP_SUFFIX_RE}\\s*${SUMMARY_VERB_RE}`, "u"),
-    new RegExp(`^${SUMMARY_VERB_RE}${SHOP_SUFFIX_RE}`, "u"),
-    new RegExp(`^${SHOP_SUFFIX_RE}${SUMMARY_VERB_RE}`, "u"),
-    new RegExp(`^ดูยอด${SHOP_SUFFIX_RE}`, "u"),
-    new RegExp(`^${SHOP_SUFFIX_RE}ด้วย`, "u"),
-  ];
-  for (const p of patterns) {
-    if (p.test(norm) || p.test(compact)) {
-      return detectShopFromText(`${norm}\n`);
-    }
-  }
-  return null;
-}
-
-function isShopFollowUp(norm: string, compact: string): boolean {
-  return (
-    new RegExp(`^${SHOP_SUFFIX_RE}\\s*ด้วย`, "u").test(norm) ||
-    new RegExp(`^${SHOP_SUFFIX_RE}ด้วย`, "u").test(compact) ||
-    new RegExp(`^สาขา${SHOP_SUFFIX_RE}`, "u").test(compact) ||
-    new RegExp(`^ดู${SHOP_SUFFIX_RE}$`, "u").test(compact)
-  );
-}
-
-function isDefaultSummary(norm: string, compact: string): boolean {
-  return (
-    new RegExp(`^${SUMMARY_VERB_RE}\\s*${DATE_SUFFIX_RE}$`, "u").test(norm) ||
-    new RegExp(`^${SUMMARY_VERB_RE}${DATE_SUFFIX_RE}$`, "u").test(compact)
-  );
-}
-
-function isAllBranchesSummary(norm: string, compact: string): boolean {
-  return ALL_BRANCHES_RE.test(norm) || ALL_BRANCHES_RE.test(compact);
+  return thaiNormalizeSummary(text);
 }
 
 /** Parse any summary-related LINE command. */
 export function parseSummaryIntent(
   text: string,
   today: string = getTodayDateString()
-): SummaryIntent | null {
-  const raw = text.trim();
-  if (!raw) return null;
-
-  const norm = normalizeSummaryCommandText(raw);
-  const compact = norm.replace(/\s+/g, "");
-  const date = resolveRecordDateFromText(raw, today) ?? resolveRecordDateFromText(norm, today) ?? today;
-
-  if (isAllBranchesSummary(norm, compact)) {
-    return { type: "all_branches", date };
-  }
-
-  if (isShopFollowUp(norm, compact)) {
-    const shop = detectShopFromText(`${norm}\n`) ?? detectShopFromText(`${compact}\n`);
-    if (shop) {
-      return { type: "single_shop", date, shopId: shop.shopId, shopName: shop.shopName };
-    }
-  }
-
-  const shopInCmd = detectShopInSummaryCommand(norm, compact);
-  if (shopInCmd) {
-    return {
-      type: "single_shop",
-      date,
-      shopId: shopInCmd.shopId,
-      shopName: shopInCmd.shopName,
-    };
-  }
-
-  if (isDefaultSummary(norm, compact)) {
-    const shop = detectShopFromText(raw);
-    return {
-      type: "default_shop",
-      date,
-      shopId: shop?.shopId ?? ENV.DEFAULT_SHOP_ID(),
-      shopName: shop?.shopName ?? ENV.DEFAULT_SHOP_NAME(),
-    };
-  }
-
-  return null;
+) {
+  const intent = routeLineMessage(text, today);
+  return intent.kind === "QUERY_SUMMARY" ? intent.payload : null;
 }
 
 /** @deprecated use parseSummaryIntent */
@@ -137,17 +43,9 @@ export function looksLikeSummaryRequest(text: string): boolean {
 export function parsePorkSummaryIntent(
   text: string,
   today: string = getTodayDateString()
-): PorkSummaryIntent | null {
-  const raw = text.trim();
-  if (!raw || !looksLikePorkQuery(raw)) return null;
-
-  const shop = detectShopFromText(raw) ?? {
-    shopId: ENV.DEFAULT_SHOP_ID(),
-    shopName: ENV.DEFAULT_SHOP_NAME(),
-  };
-  const date = resolveRecordDateFromText(raw, today) ?? today;
-
-  return { date, shopId: shop.shopId, shopName: shop.shopName };
+) {
+  const intent = routeLineMessage(text, today);
+  return intent.kind === "QUERY_PORK" ? intent.payload : null;
 }
 
 function finalizePorkBreakdown(pb: PorkBreakdown): PorkBreakdown {
