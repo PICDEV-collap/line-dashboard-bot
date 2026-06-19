@@ -2,13 +2,11 @@ import Groq from "groq-sdk";
 import { ENV } from "@/config/constants";
 import {
   AI_NATURAL_REPLY_TIMEOUT_MS,
-  GEMINI_NATURAL_REPLY_TIMEOUT_MS,
   recommendedTimeoutFromSamples,
 } from "@/config/gemini-timing";
 import { withTimeout } from "@/lib/utils/ai-timeout";
 import { createLogger } from "@/lib/middleware/logger";
 import type { FinancialRecord } from "@/lib/types/financial.types";
-import { detectShopFromText } from "@/lib/services/financial-parser.service";
 import { parseSummaryIntent } from "@/lib/services/summary-command.service";
 
 const logger = createLogger("NaturalReply");

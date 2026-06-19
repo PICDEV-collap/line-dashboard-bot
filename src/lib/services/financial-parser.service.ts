@@ -13,7 +13,6 @@ import { extractRecurringExpenses, buildCarriedDefaultsNotice, type CarriedDefau
 import {
   detectShopFromText,
   hasPorkRemovalMarker,
-  SHOP_KW,
   stripShopPrefix,
 } from "@/lib/thai/lexicon";
 import { looksLikeFinancialData } from "@/lib/services/thai-intent-router.service";

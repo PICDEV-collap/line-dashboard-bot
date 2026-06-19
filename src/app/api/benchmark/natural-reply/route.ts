@@ -26,7 +26,6 @@ export async function POST(request: Request): Promise<NextResponse> {
   const short = await benchmarkNaturalReply("record_saved_short");
   const full = await benchmarkNaturalReply("summary");
 
-  const samples = [short.latencyMs, full.latencyMs].filter((ms) => ms > 0);
   const timeoutMs = getNaturalReplyTimeoutMs();
 
   return NextResponse.json({

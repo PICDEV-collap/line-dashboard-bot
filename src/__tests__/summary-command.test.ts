@@ -7,7 +7,7 @@ import {
   looksLikeSummaryRequest,
 } from "@/lib/services/summary-command.service";
 import { resolveRecordDateFromText } from "@/lib/utils/helpers";
-import { looksLikeFinancialData, parseFinancialMessageWithRegex } from "@/lib/services/financial-parser.service";
+import { looksLikeFinancialData } from "@/lib/services/financial-parser.service";
 import type { FinancialRecord } from "@/lib/types/financial.types";
 
 const sampleRecord = (shopId: string, revenue: number): FinancialRecord => ({
@@ -36,6 +36,10 @@ const sampleRecord = (shopId: string, revenue: number): FinancialRecord => ({
   createdAt: "",
   updatedAt: "",
 });
+
+// SummaryIntent is a discriminated union; only single_shop/default_shop carry shopId.
+const shopIdOf = (intent: ReturnType<typeof parseSummaryIntent>): string | undefined =>
+  intent && intent.type !== "all_branches" ? intent.shopId : undefined;
 
 describe("summary-command.service", () => {
   const today = "2026-06-15";
@@ -68,9 +72,9 @@ describe("summary-command.service", () => {
 
   it("parses shop-specific summary commands", () => {
     expect(parseSummaryIntent("สรุปหนองปิง", today)?.type).toBe("single_shop");
-    expect(parseSummaryIntent("ญี่ปุ่น สรุป", today)?.shopId).toBe("shop1");
-    expect(parseSummaryIntent("ดูยอดญี่ปุ่น", today)?.shopId).toBe("shop1");
-    expect(parseSummaryIntent("ดูหนองปิง", today)?.shopId).toBe("shop2");
+    expect(shopIdOf(parseSummaryIntent("ญี่ปุ่น สรุป", today))).toBe("shop1");
+    expect(shopIdOf(parseSummaryIntent("ดูยอดญี่ปุ่น", today))).toBe("shop1");
+    expect(shopIdOf(parseSummaryIntent("ดูหนองปิง", today))).toBe("shop2");
   });
 
   it("parses default summary with date keywords", () => {
@@ -80,7 +84,7 @@ describe("summary-command.service", () => {
     expect(parseSummaryIntent("สรุปพรุ่งนี้", today)?.date).toBe(
       resolveRecordDateFromText("พรุ่งนี้", today)
     );
-    expect(parseSummaryIntent("หนองปิง สรุปพรุ่งนี้", today)?.shopId).toBe("shop2");
+    expect(shopIdOf(parseSummaryIntent("หนองปิง สรุปพรุ่งนี้", today))).toBe("shop2");
   });
 
   it("ignores non-summary messages", () => {

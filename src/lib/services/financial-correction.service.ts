@@ -1,5 +1,5 @@
 import type { FinancialRecord, PorkBreakdown } from "@/lib/types/financial.types";
-import { normalizeRecurringExtraName, recurringCategoryOf } from "@/lib/services/recurring-expenses.service";
+import { recurringCategoryOf } from "@/lib/services/recurring-expenses.service";
 import {
   CORRECTION_PREFIX,
   hasPorkRemovalMarker,

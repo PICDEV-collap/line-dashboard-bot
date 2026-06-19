@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { ENV } from "@/config/constants";
 import { getSupabaseClient } from "@/lib/services/supabase.service";
 import { pingGemini } from "@/lib/services/natural-reply.service";
-import { AI_NATURAL_REPLY_TIMEOUT_MS, GEMINI_NATURAL_REPLY_TIMEOUT_MS } from "@/config/gemini-timing";
+import { AI_NATURAL_REPLY_TIMEOUT_MS } from "@/config/gemini-timing";
 import { createLogger } from "@/lib/middleware/logger";
 
 export const runtime = "nodejs";
