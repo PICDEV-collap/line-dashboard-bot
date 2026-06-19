@@ -26,6 +26,21 @@ import {
 import { upsertParsedRecord, applyLineCorrection, getRecordByShopDate } from "@/lib/services/financial-records.service";
 import { buildReportUrl, buildReportLinkMessage, getAppBaseUrl } from "@/lib/services/report.service";
 import {
+  isLearningEnabled,
+  learningKey,
+  lookupAlias,
+  learnAlias,
+  interpretCommand,
+  decideCommandAction,
+  getPendingCommand,
+  setPendingCommand,
+  clearPendingCommand,
+  isAffirmative,
+  isNegative,
+  isPendingFresh,
+} from "@/lib/services/command-learning.service";
+import type { LineIntent } from "@/lib/thai/types";
+import {
   naturalizeReply,
   type NaturalReplyKind,
 } from "@/lib/services/natural-reply.service";
@@ -182,9 +197,159 @@ async function processTextMessage(
 ): Promise<{ processed: ProcessedMessage; replyMsg: string }> {
   const text = event.message?.text ?? "";
   const today = getTodayDateString();
+
+  // 0. If we previously asked "did you mean …?", resolve the ใช่/ไม่ reply first.
+  if (isLearningEnabled()) {
+    const resolved = await resolvePendingConfirmation(text, msg, baseUrl, today);
+    if (resolved) return resolved;
+  }
+
+  // 1. Deterministic routing (fast, free) — unchanged behavior for known commands.
+  const intent = routeLineMessage(text, today);
+  if (intent.kind !== "UNKNOWN") {
+    return handleIntent(intent, text, msg, baseUrl, today);
+  }
+
+  // 2. Unknown command → learned alias, then AI interpretation + learning.
+  if (isLearningEnabled()) {
+    return resolveUnknownWithLearning(text, msg, baseUrl, today);
+  }
+  return genericTextReply(msg, text);
+}
+
+function genericTextReply(
+  msg: ProcessedMessage,
+  text: string
+): { processed: ProcessedMessage; replyMsg: string } {
+  return {
+    processed: { ...msg, content: text, status: "completed" },
+    replyMsg: buildSuccessReply("text"),
+  };
+}
+
+/** Resolve a pending "หมายถึง X ใช่ไหม?" prompt. Returns null if there's nothing to resolve. */
+async function resolvePendingConfirmation(
+  text: string,
+  msg: ProcessedMessage,
+  baseUrl: string,
+  today: string
+): Promise<{ processed: ProcessedMessage; replyMsg: string } | null> {
+  const pending = await getPendingCommand(msg.userId).catch(() => null);
+  if (!pending || !isPendingFresh(pending.createdAt)) {
+    if (pending) await clearPendingCommand(msg.userId).catch(() => {});
+    return null;
+  }
+
+  if (isAffirmative(text)) {
+    await clearPendingCommand(msg.userId).catch(() => {});
+    await learnAlias({
+      normalized: pending.normalized,
+      canonicalText: pending.canonicalText,
+      intent: pending.intent,
+      confidence: pending.confidence,
+      source: "confirmed",
+    }).catch((e) => logger.warn("learnAlias (confirmed) failed", String(e)));
+    const canonIntent = routeLineMessage(pending.canonicalText, today);
+    const res = await handleIntent(canonIntent, pending.canonicalText, msg, baseUrl, today);
+    return {
+      processed: { ...res.processed, content: `[LEARN confirmed] ${pending.canonicalText}` },
+      replyMsg: `✅ จำไว้แล้วครับ คราวหน้าพิมพ์แบบเดิมได้เลย\n\n${res.replyMsg}`,
+    };
+  }
+
+  if (isNegative(text)) {
+    await clearPendingCommand(msg.userId).catch(() => {});
+    return {
+      processed: { ...msg, content: "[LEARN rejected]", status: "completed" },
+      replyMsg: 'โอเคครับ ยกเลิกให้แล้ว 🙏 ลองพิมพ์ใหม่อีกครั้ง หรือพิมพ์ "ช่วย" ดูคำสั่งทั้งหมด',
+    };
+  }
+
+  // Neither ใช่ nor ไม่ → user moved on; drop the stale prompt and process normally.
+  await clearPendingCommand(msg.userId).catch(() => {});
+  return null;
+}
+
+/** UNKNOWN message → check learned aliases, then ask AI to interpret + (auto-act | confirm | learn). */
+async function resolveUnknownWithLearning(
+  text: string,
+  msg: ProcessedMessage,
+  baseUrl: string,
+  today: string
+): Promise<{ processed: ProcessedMessage; replyMsg: string }> {
+  const normalized = learningKey(text);
+
+  // 2a. Already learned this phrasing → re-route instantly (no AI call).
+  const alias = await lookupAlias(normalized).catch(() => null);
+  if (alias) {
+    const canonIntent = routeLineMessage(alias.canonicalText, today);
+    if (canonIntent.kind !== "UNKNOWN") {
+      const res = await handleIntent(canonIntent, alias.canonicalText, msg, baseUrl, today);
+      return { processed: { ...res.processed, content: `[LEARN hit] ${alias.canonicalText}` }, replyMsg: res.replyMsg };
+    }
+  }
+
+  // 2b. Ask Groq to interpret the messy text.
+  const ai = await interpretCommand(text);
+  const decision = decideCommandAction(
+    ai,
+    ENV.AI_COMMAND_CONFIDENCE_HIGH(),
+    ENV.AI_COMMAND_CONFIDENCE_MIN()
+  );
+
+  if (decision.action === "financial") {
+    return handleIntent({ kind: "SAVE_FINANCIAL" }, text, msg, baseUrl, today);
+  }
+
+  if (decision.action === "auto" || decision.action === "confirm") {
+    const canonIntent = routeLineMessage(decision.canonical, today);
+    if (canonIntent.kind !== "UNKNOWN") {
+      if (decision.action === "auto") {
+        await learnAlias({
+          normalized,
+          canonicalText: decision.canonical,
+          intent: canonIntent.kind,
+          confidence: ai.confidence,
+          source: "ai",
+        }).catch((e) => logger.warn("learnAlias (ai) failed", String(e)));
+        const res = await handleIntent(canonIntent, decision.canonical, msg, baseUrl, today);
+        return {
+          processed: { ...res.processed, content: `[LEARN auto] ${decision.canonical}` },
+          replyMsg: `🔧 เข้าใจว่าหมายถึง “${decision.canonical}” นะครับ\n\n${res.replyMsg}`,
+        };
+      }
+      await setPendingCommand({
+        userId: msg.userId,
+        rawText: text,
+        normalized,
+        canonicalText: decision.canonical,
+        intent: canonIntent.kind,
+        confidence: ai.confidence,
+      }).catch((e) => logger.warn("setPendingCommand failed", String(e)));
+      return {
+        processed: { ...msg, content: `[LEARN confirm?] ${decision.canonical}`, status: "completed" },
+        replyMsg: `🤔 หมายถึง “${decision.canonical}” ใช่ไหมครับ?\nพิมพ์ “ใช่” เพื่อยืนยัน (แล้วผมจะจำไว้ให้) หรือพิมพ์คำสั่งใหม่อีกครั้ง`,
+      };
+    }
+  }
+
+  // Couldn't resolve confidently → gentle hint.
+  return {
+    processed: { ...msg, content: `[UNKNOWN] ${text.slice(0, 200)}`, status: "completed" },
+    replyMsg:
+      'ขอโทษครับ ผมยังไม่เข้าใจข้อความนี้ 🙏\nลองพิมพ์ "ช่วย" เพื่อดูคำสั่งทั้งหมด หรือพิมพ์ยอด เช่น "โอน 5000 สด 3000"',
+  };
+}
+
+async function handleIntent(
+  intent: LineIntent,
+  text: string,
+  msg: ProcessedMessage,
+  baseUrl: string,
+  today: string
+): Promise<{ processed: ProcessedMessage; replyMsg: string }> {
   const recordDate = resolveRecordDateFromText(text) ?? today;
   const shop = detectShopFromText(text);
-  const intent = routeLineMessage(text, today);
 
   switch (intent.kind) {
     case "HELP":

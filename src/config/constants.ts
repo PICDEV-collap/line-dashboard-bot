@@ -27,6 +27,15 @@ export const ENV = {
   /** Groq financial parse timeout */
   AI_PARSE_TIMEOUT_MS: () =>
     parseInt(optionalEnv("AI_PARSE_TIMEOUT_MS", "8000"), 10),
+  /** false = disable the AI command-learning layer (UNKNOWN messages just get a generic reply) */
+  AI_COMMAND_LEARNING_ENABLED: () =>
+    optionalEnv("AI_COMMAND_LEARNING_ENABLED", "true").toLowerCase() !== "false",
+  /** AI confidence ≥ this → act on the corrected command immediately and learn it */
+  AI_COMMAND_CONFIDENCE_HIGH: () =>
+    parseFloat(optionalEnv("AI_COMMAND_CONFIDENCE_HIGH", "0.8")),
+  /** AI confidence in [min, high) → ask the user to confirm before acting/learning */
+  AI_COMMAND_CONFIDENCE_MIN: () =>
+    parseFloat(optionalEnv("AI_COMMAND_CONFIDENCE_MIN", "0.5")),
   DASHBOARD_API_KEY: () => requireEnv("DASHBOARD_API_KEY"),
   DEFAULT_SHOP_ID: () => optionalEnv("DEFAULT_SHOP_ID", "shop1"),
   DEFAULT_SHOP_NAME: () => optionalEnv("DEFAULT_SHOP_NAME", "ก๋วยเตี๋ยวไทยครูตอมตลาดญี่ปุ่น"),

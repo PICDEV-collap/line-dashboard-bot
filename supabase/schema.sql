@@ -99,7 +99,38 @@ create index if not exists idx_financial_records_date
   on financial_records (date desc);
 
 -- ─────────────────────────────────────────
--- 5. Storage bucket
+-- 5. command_aliases — learned typo/phrasing → canonical command
+--    Lets the bot "learn" how a user types commands and self-correct.
+-- ─────────────────────────────────────────
+create table if not exists command_aliases (
+  normalized      text        primary key,  -- normalized raw user input (lookup key)
+  canonical_text  text        not null,     -- corrected command that the router understands
+  intent          text,                     -- resolved LineIntent kind (analytics/debug)
+  hits            integer     not null default 1,
+  confidence      numeric,
+  source          text        not null default 'ai',  -- 'ai' (auto, high-confidence) | 'confirmed' (user said yes)
+  created_at      timestamptz default now(),
+  updated_at      timestamptz default now(),
+  last_used_at    timestamptz default now()
+);
+
+create index if not exists idx_command_aliases_intent on command_aliases (intent);
+
+-- ─────────────────────────────────────────
+-- 6. pending_commands — one in-flight AI interpretation awaiting "ใช่/ไม่"
+-- ─────────────────────────────────────────
+create table if not exists pending_commands (
+  user_id         text        primary key,
+  raw_text        text        not null,
+  normalized      text        not null,
+  canonical_text  text        not null,
+  intent          text,
+  confidence      numeric,
+  created_at      timestamptz default now()
+);
+
+-- ─────────────────────────────────────────
+-- 7. Storage bucket
 -- ─────────────────────────────────────────
 -- รันใน SQL Editor หรือสร้าง bucket ผ่าน UI:
 -- Storage → New bucket → Name: "line-files" → Public: ON
