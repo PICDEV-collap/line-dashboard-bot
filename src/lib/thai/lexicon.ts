@@ -135,6 +135,37 @@ export const ALL_BRANCHES_RE =
 
 export const HELP_RE = /^(?:ช่วย|วิธีแก้|help|คำสั่ง)(?:\s|$)/i;
 
+/** A request to generate a monthly/yearly PDF report. */
+export const REPORT_RE = /รายงาน|report|รีพอร์ต|พีดีเอฟ/i;
+
+/** Thai month names + common abbreviations → month number (1-12). */
+export const THAI_MONTH_TO_NUM: Record<string, number> = {
+  มกราคม: 1, มกรา: 1, "ม.ค.": 1, มค: 1,
+  กุมภาพันธ์: 2, กุมภา: 2, "ก.พ.": 2, กพ: 2,
+  มีนาคม: 3, มีนา: 3, "มี.ค.": 3, มีค: 3,
+  เมษายน: 4, เมษา: 4, "เม.ย.": 4, เมย: 4,
+  พฤษภาคม: 5, พฤษภา: 5, "พ.ค.": 5, พค: 5,
+  มิถุนายน: 6, มิถุนา: 6, "มิ.ย.": 6, มิย: 6,
+  กรกฎาคม: 7, กรกฎา: 7, "ก.ค.": 7, กค: 7,
+  สิงหาคม: 8, สิงหา: 8, "ส.ค.": 8, สค: 8,
+  กันยายน: 9, กันยา: 9, "ก.ย.": 9, กย: 9,
+  ตุลาคม: 10, ตุลา: 10, "ต.ค.": 10, ตค: 10,
+  พฤศจิกายน: 11, พฤศจิกา: 11, "พ.ย.": 11, พย: 11,
+  ธันวาคม: 12, ธันวา: 12, "ธ.ค.": 12, ธค: 12,
+};
+
+/** Find a Thai month number mentioned in text (longest keyword first). */
+export function matchThaiMonthNumber(text: string): number | null {
+  const compact = text.replace(/[\s.]/g, "");
+  const keys = Object.keys(THAI_MONTH_TO_NUM).sort((a, b) => b.length - a.length);
+  for (const key of keys) {
+    if (text.includes(key) || compact.includes(key.replace(/\./g, ""))) {
+      return THAI_MONTH_TO_NUM[key];
+    }
+  }
+  return null;
+}
+
 export const FILLER_SUFFIX_RE = /(?:ครับ|ค่ะ|คะ|นะ|จ้า|อ่ะ|อะ|ด้วย)?\s*$/u;
 
 export const SHOP_LINE_ONLY_RE = new RegExp(

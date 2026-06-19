@@ -19,6 +19,7 @@ export function looksLikeFinancialData(text: string): boolean {
   if (
     intent.kind === "QUERY_PORK" ||
     intent.kind === "QUERY_SUMMARY" ||
+    intent.kind === "QUERY_REPORT" ||
     intent.kind === "HELP" ||
     intent.kind === "CORRECTION"
   ) {

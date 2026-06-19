@@ -9,6 +9,14 @@ export interface PorkSummaryIntent {
   shopName: string;
 }
 
+export interface ReportSummaryIntent {
+  period: "month" | "year";
+  month?: string; // YYYY-MM (period === "month")
+  year?: string; // YYYY (period === "year")
+  shopId?: string; // undefined = all branches
+  shopName?: string;
+}
+
 export type LineMarker =
   | "pork_query"
   | "summary_verb"
@@ -55,6 +63,7 @@ export type LineIntent =
   | { kind: "HELP" }
   | { kind: "QUERY_SUMMARY"; payload: SummaryIntent }
   | { kind: "QUERY_PORK"; payload: PorkSummaryIntent }
+  | { kind: "QUERY_REPORT"; payload: ReportSummaryIntent }
   | { kind: "CORRECTION"; normalizedText: string }
   | { kind: "SAVE_FINANCIAL" }
   | { kind: "UNKNOWN" };

@@ -71,10 +71,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     ip,
   });
 
+  // Public base URL of this deployment — used to build report links the bot
+  // sends back. Derived from the request so it matches the configured webhook domain.
+  const proto = request.headers.get("x-forwarded-proto") ?? "https";
+  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? "";
+  const baseUrl = host ? `${proto}://${host}` : "";
+
   // 5. Early 200 response — LINE requires < 30s response
   // Process events asynchronously (Vercel allows this via maxDuration)
   const processingPromise = (async () => {
-    await processWebhookEvents(body.events);
+    await processWebhookEvents(body.events, baseUrl);
     logger.info("Webhook processing complete", {
       durationMs: Date.now() - startTime,
       eventCount: body.events.length,

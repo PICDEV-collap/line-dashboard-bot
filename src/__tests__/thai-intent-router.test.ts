@@ -39,3 +39,43 @@ describe("thai-intent-router", () => {
     expect(normalizeNaturalCommandLine("ปรับหมูสับราคา 120")).toBe("ปรับ หมูสับ ราคา 120");
   });
 });
+
+describe("report intent routing", () => {
+  // today = 2026-06-15 → current month 2026-06, current year 2026
+  const reportCases: Array<{
+    input: string;
+    period: "month" | "year";
+    month?: string;
+    year?: string;
+    shopId?: string;
+  }> = [
+    { input: "รายงาน", period: "month", month: "2026-06" },
+    { input: "ขอรายงานเดือนนี้", period: "month", month: "2026-06" },
+    { input: "รายงานเดือนที่แล้ว", period: "month", month: "2026-05" },
+    { input: "รายงานเดือนมีนาคม", period: "month", month: "2026-03" },
+    { input: "รายงานเดือน 3", period: "month", month: "2026-03" },
+    { input: "report", period: "month", month: "2026-06" },
+    { input: "รายงานปีนี้", period: "year", year: "2026" },
+    { input: "รายงานปี 2568", period: "year", year: "2025" },
+    { input: "รายงานปีที่แล้ว", period: "year", year: "2025" },
+    { input: "รายงานหนองปิงเดือนนี้", period: "month", month: "2026-06", shopId: "shop2" },
+  ];
+
+  it.each(reportCases)("routes %j to a report intent", ({ input, period, month, year, shopId }) => {
+    const intent = routeLineMessage(input, today);
+    expect(intent.kind).toBe("QUERY_REPORT");
+    if (intent.kind !== "QUERY_REPORT") return;
+    expect(intent.payload.period).toBe(period);
+    if (month) expect(intent.payload.month).toBe(month);
+    if (year) expect(intent.payload.year).toBe(year);
+    if (shopId) expect(intent.payload.shopId).toBe(shopId);
+  });
+
+  it("does not misclassify a daily summary as a report", () => {
+    expect(routeLineMessage("สรุป", today).kind).toBe("QUERY_SUMMARY");
+  });
+
+  it("report request is not treated as financial save", () => {
+    expect(looksLikeFinancialData("รายงานเดือนนี้")).toBe(false);
+  });
+});

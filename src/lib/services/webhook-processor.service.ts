@@ -24,6 +24,7 @@ import {
   getAllBranchShops,
 } from "@/lib/services/summary-command.service";
 import { upsertParsedRecord, applyLineCorrection, getRecordByShopDate } from "@/lib/services/financial-records.service";
+import { buildReportUrl, buildReportLinkMessage, getAppBaseUrl } from "@/lib/services/report.service";
 import {
   naturalizeReply,
   type NaturalReplyKind,
@@ -62,14 +63,17 @@ async function geminiReply(
   });
 }
 
-export async function processWebhookEvents(events: LineEvent[]): Promise<void> {
+export async function processWebhookEvents(
+  events: LineEvent[],
+  baseUrl = ""
+): Promise<void> {
   const chunks = chunkArray(events, 3);
   for (const chunk of chunks) {
-    await Promise.allSettled(chunk.map((event) => processEvent(event)));
+    await Promise.allSettled(chunk.map((event) => processEvent(event, baseUrl)));
   }
 }
 
-async function processEvent(event: LineEvent): Promise<void> {
+async function processEvent(event: LineEvent, baseUrl = ""): Promise<void> {
   if (event.type !== "message" || !event.message) {
     logger.info("Skipping non-message event", { type: event.type });
     return;
@@ -104,7 +108,7 @@ async function processEvent(event: LineEvent): Promise<void> {
   try {
     switch (messageType) {
       case "text": {
-        const result = await processTextMessage(processed, event);
+        const result = await processTextMessage(processed, event, baseUrl);
         processed = result.processed;
         replyMsg = result.replyMsg;
         statsDelta.textCount = 1;
@@ -173,7 +177,8 @@ async function processEvent(event: LineEvent): Promise<void> {
 
 async function processTextMessage(
   msg: ProcessedMessage,
-  event: LineEvent
+  event: LineEvent,
+  baseUrl = ""
 ): Promise<{ processed: ProcessedMessage; replyMsg: string }> {
   const text = event.message?.text ?? "";
   const today = getTodayDateString();
@@ -187,6 +192,24 @@ async function processTextMessage(
         processed: { ...msg, content: "[HELP] correction", status: "completed" },
         replyMsg: buildCorrectionHelpMessage(),
       };
+
+    case "QUERY_REPORT": {
+      const report = intent.payload;
+      const base = baseUrl || getAppBaseUrl();
+      if (!base) {
+        return {
+          processed: { ...msg, content: "[REPORT] no base url", status: "completed" },
+          replyMsg:
+            'ℹ️ เปิดรายงาน PDF ได้ที่หน้า Dashboard แท็บ "📄 รายงาน PDF"\n' +
+            "(ผู้ดูแลระบบ: ตั้งค่า APP_BASE_URL เพื่อให้บอทส่งลิงก์รายงานได้)",
+        };
+      }
+      const url = buildReportUrl(base, report);
+      return {
+        processed: { ...msg, content: `[REPORT] ${text.slice(0, 200)}`, status: "completed" },
+        replyMsg: buildReportLinkMessage(report, url),
+      };
+    }
 
     case "QUERY_SUMMARY": {
       const summaryIntent = intent.payload;

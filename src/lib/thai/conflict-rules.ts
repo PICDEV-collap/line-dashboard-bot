@@ -3,6 +3,8 @@ import {
   ALL_BRANCHES_RE,
   detectShopFromText,
   HELP_RE,
+  matchThaiMonthNumber,
+  REPORT_RE,
   SHOP_SUFFIX_RE,
   SUMMARY_VERB_RE,
 } from "@/lib/thai/lexicon";
@@ -15,6 +17,7 @@ import {
 import type {
   LineIntent,
   PorkSummaryIntent,
+  ReportSummaryIntent,
   SegmentedMessage,
   SummaryIntent,
 } from "@/lib/thai/types";
@@ -96,6 +99,61 @@ function buildSummaryIntent(text: string, today: string): SummaryIntent | null {
   return null;
 }
 
+/** Buddhist-era year → Gregorian (2569 → 2026); leaves CE years unchanged. */
+function toGregorianYear(y: number): number {
+  return y > 2400 ? y - 543 : y;
+}
+
+/** Parse a monthly/yearly PDF-report request ("รายงานเดือนนี้", "รายงานปี 2568"). */
+function buildReportIntent(text: string, today: string): ReportSummaryIntent | null {
+  const raw = text.trim();
+  if (!raw || !REPORT_RE.test(raw)) return null;
+
+  const norm = normalizeThaiMessage(raw).normalized;
+  const shop = detectShopFromText(raw);
+  const [cy, cm] = today.split("-").map(Number);
+
+  const monthNum = matchThaiMonthNumber(norm);
+  const yearMatch = norm.match(/25\d{2}|20\d{2}/);
+  const explicitYear = yearMatch ? toGregorianYear(parseInt(yearMatch[0], 10)) : null;
+  const hasMonthWord = /เดือน/.test(norm) || monthNum != null;
+  const hasYearWord = /ปี/.test(norm);
+
+  // Year report: "ปี" mentioned without a specific month.
+  if (hasYearWord && !hasMonthWord) {
+    let year = explicitYear ?? cy;
+    if (/ปีที่แล้ว|ปีก่อน/.test(norm)) year = cy - 1;
+    return { period: "year", year: String(year), shopId: shop?.shopId, shopName: shop?.shopName };
+  }
+
+  // Month report (default).
+  let year = explicitYear ?? cy;
+  let month = cm;
+  if (/เดือนที่แล้ว|เดือนก่อน/.test(norm)) {
+    if (cm === 1) {
+      month = 12;
+      year = explicitYear ?? cy - 1;
+    } else {
+      month = cm - 1;
+    }
+  } else if (monthNum != null) {
+    month = monthNum;
+  } else {
+    const m = norm.match(/เดือน\s*(\d{1,2})/);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      if (n >= 1 && n <= 12) month = n;
+    }
+  }
+
+  return {
+    period: "month",
+    month: `${year}-${String(month).padStart(2, "0")}`,
+    shopId: shop?.shopId,
+    shopName: shop?.shopName,
+  };
+}
+
 function buildPorkIntent(text: string, today: string): PorkSummaryIntent | null {
   if (!messageHasMarker(segmentMessage(text, today), "pork_query")) return null;
 
@@ -135,6 +193,11 @@ export function classifyIntent(text: string, today: string = getTodayDateString(
 
   if (HELP_RE.test(raw) || messageHasMarker(msg, "help")) {
     return { kind: "HELP" };
+  }
+
+  const reportIntent = buildReportIntent(raw, today);
+  if (reportIntent) {
+    return { kind: "QUERY_REPORT", payload: reportIntent };
   }
 
   const porkIntent = buildPorkIntent(raw, today);

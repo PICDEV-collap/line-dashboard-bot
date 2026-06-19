@@ -9,6 +9,8 @@
 <meta name="theme-color" content="#f97316">
 <title>Dashboard — ร้านครูตอม</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700;800&family=Chakra+Petch:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#0a0d12;--s1:#111418;--s2:#161b22;--s3:#1c2128;--border:#2a3140;--border2:#374151;--accent:#f97316;--accent2:#fb923c;--accentd:#c2410c;--green:#22c55e;--red:#ef4444;--blue:#3b82f6;--yellow:#eab308;--purple:#a855f7;--text:#e2e8f0;--muted:#64748b;--muted2:#94a3b8;--glow:0 0 20px rgba(249,115,22,0.25)}
@@ -142,6 +144,61 @@ tbody td{padding:8px 11px;color:var(--text)}
   .header{padding:10px 14px}
   .api-cfg input{width:160px}
 }
+
+/* ── REPORT (PDF) ── light "paper" theme, prints cleanly ── */
+.report-controls{align-items:flex-end}
+.report-hint{font-size:11px;color:var(--muted2);margin:0 0 14px}
+#reportSheet{background:#fff;color:#1f2937;width:920px;max-width:100%;margin:0 auto;padding:34px 40px;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,.4);font-family:'Sarabun',sans-serif;line-height:1.45}
+.rpt-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;border-bottom:3px solid #f97316;padding-bottom:16px;margin-bottom:20px}
+.rpt-brand{display:flex;align-items:center;gap:12px}
+.rpt-logo{width:46px;height:46px;border-radius:10px;background:linear-gradient(135deg,#f97316,#c2410c);display:flex;align-items:center;justify-content:center;font-size:24px}
+.rpt-shop{font-family:'Chakra Petch',sans-serif;font-size:18px;font-weight:700;color:#111827}
+.rpt-shop-sub{font-size:12px;color:#6b7280}
+.rpt-title{text-align:right}
+.rpt-title h1{font-family:'Chakra Petch',sans-serif;font-size:17px;color:#c2410c;font-weight:700;margin-bottom:2px}
+.rpt-period{font-size:14px;font-weight:600;color:#1f2937}
+.rpt-gen{font-size:10px;color:#9ca3af;margin-top:3px}
+.rpt-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
+.rpt-kpi{border:1px solid #e5e7eb;border-radius:10px;padding:12px 14px;background:#fafafa}
+.rpt-kpi .l{font-size:11px;color:#6b7280;margin-bottom:4px}
+.rpt-kpi .v{font-family:'Chakra Petch',sans-serif;font-size:20px;font-weight:700}
+.rpt-kpi.rev .v{color:#2563eb}.rpt-kpi.exp .v{color:#dc2626}.rpt-kpi.pft .v{color:#16a34a}.rpt-kpi.mgn .v{color:#d97706}
+.rpt-kpi .s{font-size:10px;color:#9ca3af;margin-top:3px}
+.rpt-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+.rpt-box{border:1px solid #e5e7eb;border-radius:10px;padding:14px 16px}
+.rpt-box h3{font-family:'Chakra Petch',sans-serif;font-size:13px;color:#374151;margin-bottom:10px;font-weight:700}
+.rpt-chart-box{border:1px solid #e5e7eb;border-radius:10px;padding:14px 16px;margin-bottom:20px}
+.rpt-chart-box h3{font-family:'Chakra Petch',sans-serif;font-size:13px;color:#374151;margin-bottom:10px;font-weight:700}
+.rpt-chart-wrap{position:relative;height:260px;width:100%}
+.rpt-line{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;padding:5px 0;border-bottom:1px solid #f3f4f6}
+.rpt-line:last-child{border-bottom:none}
+.rpt-line .nm{color:#4b5563;display:flex;align-items:center;gap:6px}
+.rpt-line .am{font-family:'Chakra Petch',sans-serif;font-weight:600;color:#1f2937}
+.rpt-line .pc{font-size:10px;color:#9ca3af;margin-left:6px}
+.rpt-table-wrap{margin-top:4px}
+.rpt-table-title{font-family:'Chakra Petch',sans-serif;font-size:13px;color:#374151;margin-bottom:8px;font-weight:700}
+table.rpt-table{width:100%;border-collapse:collapse;font-size:11.5px}
+table.rpt-table thead th{background:#f97316;color:#fff;padding:7px 9px;text-align:left;font-weight:600;font-size:11px}
+table.rpt-table thead th.num{text-align:right}
+table.rpt-table tbody td{padding:6px 9px;border-bottom:1px solid #eef0f2;color:#1f2937}
+table.rpt-table tbody td.num{text-align:right;font-family:'Chakra Petch',sans-serif}
+table.rpt-table tbody tr:nth-child(even){background:#fafafa}
+table.rpt-table tfoot td{padding:8px 9px;border-top:2px solid #d1d5db;font-weight:700;font-family:'Chakra Petch',sans-serif;background:#fff7ed}
+table.rpt-table tfoot td.num{text-align:right}
+.rpt-pos{color:#16a34a;font-weight:600}.rpt-neg{color:#dc2626;font-weight:600}
+.rpt-foot{margin-top:22px;padding-top:12px;border-top:1px solid #e5e7eb;font-size:10px;color:#9ca3af;text-align:center}
+.rpt-empty{text-align:center;color:#9ca3af;padding:50px 0;font-size:14px}
+
+/* ── PRINT: isolate the report sheet ── */
+@media print{
+  @page{size:A4;margin:12mm}
+  body{background:#fff}
+  body *{visibility:hidden}
+  #reportSheet,#reportSheet *{visibility:visible}
+  #reportSheet{position:absolute;left:0;top:0;width:100%;margin:0;padding:0;box-shadow:none;border-radius:0}
+  .rpt-kpi,.rpt-box,table.rpt-table tr{break-inside:avoid}
+  table.rpt-table thead th{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
 </style>
 </head>
 <body>
@@ -182,6 +239,7 @@ tbody td{padding:8px 11px;color:var(--text)}
   <button class="tab active" onclick="showPage('dashboard',this)">📊 Dashboard</button>
   <button class="tab" onclick="showPage('records',this)">📋 รายวัน</button>
   <button class="tab" onclick="showPage('analysis',this)">📈 วิเคราะห์</button>
+  <button class="tab" onclick="showPage('report',this)">📄 รายงาน PDF</button>
   <button class="tab" onclick="showPage('setup',this)">⚙️ ตั้งค่า</button>
 </div>
 
@@ -314,6 +372,33 @@ tbody td{padding:8px 11px;color:var(--text)}
         <div id="statsBox" style="display:flex;flex-direction:column;gap:10px;margin-top:4px"></div>
       </div>
     </div>
+  </div>
+
+  <!-- ── REPORT (PDF) ── -->
+  <div class="page" id="page-report">
+    <div class="filter-bar report-controls">
+      <div class="fg"><div class="fl">ประเภทรายงาน</div>
+        <select class="fs" id="repPeriod" onchange="onReportPeriodChange()">
+          <option value="month">รายเดือน</option>
+          <option value="year">รายปี</option>
+        </select></div>
+      <div class="fg" id="repMonthWrap"><div class="fl">เลือกเดือน</div>
+        <select class="fs" id="repMonth" onchange="renderReport()"></select></div>
+      <div class="fg" id="repYearWrap" style="display:none"><div class="fl">เลือกปี</div>
+        <select class="fs" id="repYear" onchange="renderReport()"></select></div>
+      <div class="fg"><div class="fl">สาขา</div>
+        <select class="fs" id="repShop" onchange="renderReport()">
+          <option value="all">ทุกสาขา</option>
+          <option value="shop1">ตลาดญี่ปุ่น</option>
+          <option value="shop2">สายหนองปิง</option>
+        </select></div>
+      <div style="display:flex;gap:8px;align-items:flex-end;margin-left:auto">
+        <button class="btn btn-accent" id="repDownloadBtn" onclick="downloadReportPDF()">📥 ดาวน์โหลด PDF</button>
+        <button class="btn btn-ghost" onclick="printReport()">🖨️ พิมพ์ / บันทึก PDF</button>
+      </div>
+    </div>
+    <p class="report-hint">เลือกเดือนหรือปี แล้วกด “ดาวน์โหลด PDF” เพื่อบันทึกไฟล์ทันที หรือกด “พิมพ์” เพื่อสั่งพิมพ์/บันทึกเป็น PDF ผ่านเบราว์เซอร์ (ตัวอักษรคมชัด ค้นหาได้)</p>
+    <div id="reportSheet"><div class="rpt-empty">⌛ กำลังเตรียมรายงาน...</div></div>
   </div>
 
   <!-- ── SETUP ── -->
@@ -660,6 +745,9 @@ function populateMonthDropdowns() {
     });
     sel.value = cur;
   });
+  // Keep the report selectors in sync; re-render if the report tab is open.
+  populateReportPeriods();
+  if (document.getElementById('page-report')?.classList.contains('active')) renderReport();
 }
 
 // ════════════════════════════════════════════
@@ -1037,6 +1125,229 @@ function exportCSV() {
 }
 
 // ════════════════════════════════════════════
+// REPORT (PDF) — monthly / yearly
+// ════════════════════════════════════════════
+const THAI_MONTHS_FULL = ['','มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+const THAI_MONTHS_ABBR = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+
+// Fill the report month (YYYY-MM) and year selects from loaded records; keep current pick.
+function populateReportPeriods() {
+  const months = [...new Set(allRecords.map(r => r.date.substring(0,7)))].sort();
+  const years  = [...new Set(allRecords.map(r => r.date.substring(0,4)))].sort();
+  const mSel = $('repMonth');
+  if (mSel) {
+    const cur = mSel.value;
+    mSel.innerHTML = '';
+    months.forEach(m => { const [y,mo] = m.split('-'); mSel.appendChild(new Option(`${THAI_MONTHS_FULL[+mo]} ${+y+543}`, m)); });
+    if (months.length) mSel.value = months.includes(cur) ? cur : months[months.length-1];
+  }
+  const ySel = $('repYear');
+  if (ySel) {
+    const cur = ySel.value;
+    ySel.innerHTML = '';
+    years.forEach(y => ySel.appendChild(new Option(`ปี ${+y+543}`, y)));
+    if (years.length) ySel.value = years.includes(cur) ? cur : years[years.length-1];
+  }
+}
+
+function onReportPeriodChange() {
+  const p = $('repPeriod').value;
+  $('repMonthWrap').style.display = p === 'month' ? '' : 'none';
+  $('repYearWrap').style.display  = p === 'year'  ? '' : 'none';
+  renderReport();
+}
+
+function getReportData() {
+  const period = $('repPeriod').value;
+  const shop   = $('repShop').value;
+  let recs = [...allRecords];
+  if (shop !== 'all') recs = recs.filter(r => r.shopId === shop);
+  const key = period === 'year' ? ($('repYear').value || '') : ($('repMonth').value || '');
+  if (key) recs = recs.filter(r => r.date.startsWith(key));
+  return recs.sort((a,b) => a.date.localeCompare(b.date));
+}
+
+function reportFileName() {
+  const period = $('repPeriod').value;
+  const shop = $('repShop').value;
+  const tag = shop === 'all' ? '' : '_' + shop;
+  const key = period === 'year' ? ($('repYear').value || 'year') : ($('repMonth').value || 'month');
+  return `report_kruTom_${key}${tag}.pdf`;
+}
+
+function renderReport() {
+  const sheet = $('reportSheet');
+  if (!sheet) return;
+  if (!allRecords.length) { sheet.innerHTML = '<div class="rpt-empty">ยังไม่มีข้อมูล — เชื่อมต่อ API ด้านบนก่อน แล้วลองอีกครั้ง</div>'; return; }
+
+  const period = $('repPeriod').value;
+  const shop = $('repShop').value;
+  const data = getReportData();
+
+  let periodLabel = '';
+  if (period === 'year') { periodLabel = `ประจำปี ${(+($('repYear').value)||0)+543}`; }
+  else { const [y,mo] = ($('repMonth').value || '').split('-'); periodLabel = mo ? `ประจำเดือน ${THAI_MONTHS_FULL[+mo]} ${+y+543}` : ''; }
+  const shopLabel = shop === 'shop1' ? 'สาขาตลาดญี่ปุ่น' : shop === 'shop2' ? 'สาขาสายหนองปิง' : 'ทุกสาขา';
+  const genTime = new Date().toLocaleString('th-TH', { dateStyle:'long', timeStyle:'short' });
+
+  const head = `
+    <div class="rpt-head">
+      <div class="rpt-brand">
+        <div class="rpt-logo">🍖</div>
+        <div><div class="rpt-shop">ร้านครูตอม</div><div class="rpt-shop-sub">ก๋วยเตี๋ยวไทยครูตอม</div></div>
+      </div>
+      <div class="rpt-title">
+        <h1>รายงานสรุปการเงิน</h1>
+        <div class="rpt-period">${periodLabel || '—'}</div>
+        <div class="rpt-gen">${shopLabel} · ${data.length} วัน</div>
+        <div class="rpt-gen">ออกรายงาน ${genTime}</div>
+      </div>
+    </div>`;
+  const foot = `<div class="rpt-foot">สร้างโดยระบบ Dashboard ร้านครูตอม · ข้อมูลจากระบบบันทึกผ่าน LINE</div>`;
+
+  if (!data.length) { sheet.innerHTML = head + '<div class="rpt-empty">ไม่มีข้อมูลในช่วงเวลานี้</div>' + foot; return; }
+
+  const rev = data.reduce((s,r)=>s+r.revenue,0);
+  const exp = data.reduce((s,r)=>s+r.expense,0);
+  const pft = data.reduce((s,r)=>s+r.profit,0);
+  const mgn = rev>0 ? (pft/rev*100) : 0;
+  const days = data.length;
+  const profitDays = data.filter(r=>r.profit>0 && !r.incomplete).length;
+  const lossDays = data.filter(r=>r.profit<0).length;
+
+  const kpis = `
+    <div class="rpt-kpis">
+      <div class="rpt-kpi rev"><div class="l">รายรับรวม</div><div class="v">฿${fmt(rev)}</div><div class="s">เฉลี่ย ฿${fmt(Math.round(rev/days))}/วัน</div></div>
+      <div class="rpt-kpi exp"><div class="l">ค่าใช้จ่ายรวม</div><div class="v">฿${fmt(exp)}</div><div class="s">เฉลี่ย ฿${fmt(Math.round(exp/days))}/วัน</div></div>
+      <div class="rpt-kpi pft"><div class="l">กำไรสุทธิ</div><div class="v" style="color:${pft>=0?'#16a34a':'#dc2626'}">฿${fmt(pft)}</div><div class="s">เฉลี่ย ฿${fmt(Math.round(pft/days))}/วัน</div></div>
+      <div class="rpt-kpi mgn"><div class="l">อัตรากำไร</div><div class="v">${mgn.toFixed(1)}%</div><div class="s">กำไร ${profitDays} วัน · ขาดทุน ${lossDays} วัน</div></div>
+    </div>`;
+
+  const tr = data.reduce((s,r)=>s+(r.transfer||0),0);
+  const ca = data.reduce((s,r)=>s+(r.cash||0),0);
+  const de = data.reduce((s,r)=>s+(r.delivery||0),0);
+  const payTot = tr+ca+de || 1;
+  const payHTML = [['🏦 โอนเงิน',tr],['💵 เงินสด',ca],['🛵 Delivery',de]]
+    .map(([k,v])=>`<div class="rpt-line"><span class="nm">${k}</span><span class="am">฿${fmt(v)}<span class="pc">${(v/payTot*100).toFixed(1)}%</span></span></div>`).join('');
+
+  const E = [
+    ['🥩 หมู', data.reduce((s,r)=>s+(r.pork||0),0)],
+    ['🫙 วัตถุดิบ', data.reduce((s,r)=>s+(r.materials||0),0)],
+    ['📦 อุปกรณ์', data.reduce((s,r)=>s+(r.supplies||0),0)],
+    ['👷 ค่าแรง', data.reduce((s,r)=>s+(r.labor||0),0)],
+    ['🔥 แก๊ส', data.reduce((s,r)=>s+(r.gas||0),0)],
+    ['🧊 น้ำแข็ง', data.reduce((s,r)=>s+(r.ice||0),0)],
+    ['➕ อื่นๆ', data.reduce((s,r)=>s+(r.extraExpenses||[]).reduce((a,e)=>a+e.amount,0),0)],
+  ].filter(([,v])=>v>0);
+  const expTot = E.reduce((s,[,v])=>s+v,0) || 1;
+  const expHTML = E.map(([k,v])=>`<div class="rpt-line"><span class="nm">${k}</span><span class="am">฿${fmt(v)}<span class="pc">${(v/expTot*100).toFixed(1)}%</span></span></div>`).join('');
+
+  const cols = `
+    <div class="rpt-cols">
+      <div class="rpt-box"><h3>ช่องทางรับเงิน</h3>${payHTML}</div>
+      <div class="rpt-box"><h3>สัดส่วนค่าใช้จ่าย</h3>${expHTML}</div>
+    </div>`;
+
+  // Chart series + detail table (daily for month mode, monthly for year mode)
+  let tableHTML, chartLabels, chartRev, chartExp, chartPft;
+  if (period === 'year') {
+    const byMonth = {};
+    data.forEach(r => { const k=r.date.substring(0,7); (byMonth[k]=byMonth[k]||{rev:0,exp:0,pft:0,days:0}); byMonth[k].rev+=r.revenue; byMonth[k].exp+=r.expense; byMonth[k].pft+=r.profit; byMonth[k].days++; });
+    const keys = Object.keys(byMonth).sort();
+    chartLabels = keys.map(k=>THAI_MONTHS_ABBR[+k.split('-')[1]]);
+    chartRev = keys.map(k=>byMonth[k].rev); chartExp = keys.map(k=>byMonth[k].exp); chartPft = keys.map(k=>byMonth[k].pft);
+    const rows = keys.map(k=>{ const [y,mo]=k.split('-'); const o=byMonth[k]; const pc=o.rev>0?(o.pft/o.rev*100).toFixed(1):'0.0';
+      return `<tr><td>${THAI_MONTHS_FULL[+mo]} ${+y+543}</td><td class="num">${o.days}</td><td class="num">฿${fmt(o.rev)}</td><td class="num">฿${fmt(o.exp)}</td><td class="num"><span class="${o.pft>=0?'rpt-pos':'rpt-neg'}">${o.pft<0?'-':''}฿${fmt(Math.abs(o.pft))}</span></td><td class="num">${pc}%</td></tr>`; }).join('');
+    tableHTML = `
+      <div class="rpt-table-wrap"><div class="rpt-table-title">สรุปรายเดือน</div>
+      <table class="rpt-table">
+        <thead><tr><th>เดือน</th><th class="num">วัน</th><th class="num">รายรับ</th><th class="num">ค่าใช้จ่าย</th><th class="num">กำไร</th><th class="num">%</th></tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr><td>รวม</td><td class="num">${days}</td><td class="num">฿${fmt(rev)}</td><td class="num">฿${fmt(exp)}</td><td class="num">${pft<0?'-':''}฿${fmt(Math.abs(pft))}</td><td class="num">${mgn.toFixed(1)}%</td></tr></tfoot>
+      </table></div>`;
+  } else {
+    chartLabels = data.map(r=>{ const d=new Date(r.date+'T00:00:00'); return `${d.getDate()}/${d.getMonth()+1}`; });
+    chartRev = data.map(r=>r.revenue); chartExp = data.map(r=>r.expense); chartPft = data.map(r=>r.profit);
+    const rows = data.map(r=>{ const d=new Date(r.date+'T00:00:00'); const pc=r.revenue>0?(r.profit/r.revenue*100).toFixed(1):'0.0';
+      return `<tr><td>${d.getDate()} ${THAI_MONTHS_ABBR[d.getMonth()+1]}</td><td class="num">${r.revenue>0?'฿'+fmt(r.revenue):'-'}</td><td class="num">${r.expense>0?'฿'+fmt(r.expense):'-'}</td><td class="num"><span class="${r.profit>=0?'rpt-pos':'rpt-neg'}">${(r.revenue>0||r.expense>0)?(r.profit<0?'-':'')+'฿'+fmt(Math.abs(r.profit)):'-'}</span></td><td class="num">${r.revenue>0?pc+'%':'-'}</td></tr>`; }).join('');
+    tableHTML = `
+      <div class="rpt-table-wrap"><div class="rpt-table-title">รายละเอียดรายวัน</div>
+      <table class="rpt-table">
+        <thead><tr><th>วันที่</th><th class="num">รายรับ</th><th class="num">ค่าใช้จ่าย</th><th class="num">กำไร</th><th class="num">%</th></tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr><td>รวม</td><td class="num">฿${fmt(rev)}</td><td class="num">฿${fmt(exp)}</td><td class="num">${pft<0?'-':''}฿${fmt(Math.abs(pft))}</td><td class="num">${mgn.toFixed(1)}%</td></tr></tfoot>
+      </table></div>`;
+  }
+
+  const chartBox = `<div class="rpt-chart-box"><h3>แนวโน้มรายรับ / ค่าใช้จ่าย / กำไร</h3><div class="rpt-chart-wrap"><canvas id="rptChart"></canvas></div></div>`;
+
+  sheet.innerHTML = head + kpis + chartBox + cols + tableHTML + foot;
+  renderReportChart(chartLabels, chartRev, chartExp, chartPft);
+}
+
+// Static (animation-off) light-theme chart drawn into the report sheet so it is
+// captured by both html2canvas (download) and the browser print path.
+function renderReportChart(labels, revenue, expense, profit) {
+  dc('report');
+  const el = $('rptChart');
+  if (!el || typeof Chart === 'undefined') return;
+  charts.report = new Chart(el.getContext('2d'), {
+    data: {
+      labels,
+      datasets: [
+        { type:'bar', label:'รายรับ', data:revenue, backgroundColor:'rgba(37,99,235,.55)', borderColor:'#2563eb', borderWidth:1, borderRadius:3, order:2 },
+        { type:'bar', label:'ค่าใช้จ่าย', data:expense, backgroundColor:'rgba(220,38,38,.45)', borderColor:'#dc2626', borderWidth:1, borderRadius:3, order:3 },
+        { type:'line', label:'กำไร', data:profit, borderColor:'#16a34a', backgroundColor:'rgba(22,163,74,.10)', borderWidth:2.5, pointRadius:2, tension:.3, fill:true, order:1 },
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false, animation:false, devicePixelRatio:2,
+      plugins:{ legend:{ labels:{ color:'#374151', font:{family:'Sarabun',size:12}, usePointStyle:true } }, tooltip:{ enabled:false } },
+      scales:{
+        x:{ ticks:{ color:'#6b7280', font:{size:10}, maxRotation:45 }, grid:{ color:'rgba(0,0,0,.06)' } },
+        y:{ ticks:{ color:'#6b7280', font:{size:10}, callback:v=>'฿'+fmt(v) }, grid:{ color:'rgba(0,0,0,.06)' } }
+      }
+    }
+  });
+}
+
+function printReport() {
+  renderReport();
+  setTimeout(() => window.print(), 350); // give the chart a frame to paint
+}
+
+async function downloadReportPDF() {
+  if (!window.jspdf || !window.html2canvas) { showToast('❌ โหลดไลบรารี PDF ไม่สำเร็จ — ตรวจสอบอินเทอร์เน็ต','error'); return; }
+  const sheet = $('reportSheet');
+  if (!sheet || sheet.querySelector('.rpt-empty')) { showToast('ไม่มีข้อมูลให้ออกรายงาน','error'); return; }
+  const btn = $('repDownloadBtn');
+  const orig = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '⌛ กำลังสร้าง PDF...'; }
+  try {
+    await new Promise(r => setTimeout(r, 150)); // ensure the report chart has painted
+    const canvas = await html2canvas(sheet, { scale: 2, backgroundColor: '#ffffff', useCORS: true, windowWidth: sheet.scrollWidth });
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('p','mm','a4');
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    const imgW = pageW;
+    const imgH = canvas.height * imgW / canvas.width;
+    const img = canvas.toDataURL('image/jpeg', 0.92);
+    let heightLeft = imgH, pos = 0;
+    pdf.addImage(img, 'JPEG', 0, pos, imgW, imgH);
+    heightLeft -= pageH;
+    while (heightLeft > 0) { pos -= pageH; pdf.addPage(); pdf.addImage(img, 'JPEG', 0, pos, imgW, imgH); heightLeft -= pageH; }
+    pdf.save(reportFileName());
+    showToast('📄 ดาวน์โหลด PDF เรียบร้อย','success');
+  } catch (e) {
+    console.error(e);
+    showToast('❌ สร้าง PDF ไม่สำเร็จ: ' + e.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = orig; }
+  }
+}
+
+// ════════════════════════════════════════════
 // PAGES
 // ════════════════════════════════════════════
 function showPage(id, btn) {
@@ -1047,6 +1358,7 @@ function showPage(id, btn) {
   if(id==='dashboard') renderDashboard();
   if(id==='records')   renderTable();
   if(id==='analysis')  renderAnalysis();
+  if(id==='report')  { populateReportPeriods(); renderReport(); }
   if(id==='setup') { updateApiDocs(); document.getElementById('setupApiUrl').value=apiConfig.url; document.getElementById('setupApiKey').value=apiConfig.key; }
 }
 
