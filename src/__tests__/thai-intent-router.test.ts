@@ -79,3 +79,53 @@ describe("report intent routing", () => {
     expect(looksLikeFinancialData("รายงานเดือนนี้")).toBe(false);
   });
 });
+
+// The AI command-learning layer emits these "canonical" strings; they MUST route
+// to the right intent (incl. branch + date) or the corrected command does nothing.
+describe("AI canonical commands route correctly", () => {
+  it("summary with branch + date (สรุปญี่ปุ่นพรุ่งนี้)", () => {
+    const intent = routeLineMessage("สรุปญี่ปุ่นพรุ่งนี้", today);
+    expect(intent.kind).toBe("QUERY_SUMMARY");
+    if (intent.kind !== "QUERY_SUMMARY" || intent.payload.type === "all_branches") return;
+    expect(intent.payload.shopId).toBe("shop1");
+    expect(intent.payload.date).toBe("2026-06-16"); // tomorrow relative to 2026-06-15
+  });
+
+  it("summary other branch (สรุปหนองปิง)", () => {
+    const intent = routeLineMessage("สรุปหนองปิง", today);
+    expect(intent.kind).toBe("QUERY_SUMMARY");
+    if (intent.kind !== "QUERY_SUMMARY" || intent.payload.type === "all_branches") return;
+    expect(intent.payload.shopId).toBe("shop2");
+  });
+
+  it("all-branches summary (สรุปทุกสาขา)", () => {
+    const intent = routeLineMessage("สรุปทุกสาขา", today);
+    expect(intent.kind).toBe("QUERY_SUMMARY");
+    if (intent.kind === "QUERY_SUMMARY") expect(intent.payload.type).toBe("all_branches");
+  });
+
+  it("summary with date only (สรุปเมื่อวาน)", () => {
+    const intent = routeLineMessage("สรุปเมื่อวาน", today);
+    expect(intent.kind).toBe("QUERY_SUMMARY");
+    if (intent.kind === "QUERY_SUMMARY") expect(intent.payload.date).toBe("2026-06-14");
+  });
+
+  it("pork query with branch (ค่าหมูหนองปิง)", () => {
+    const intent = routeLineMessage("ค่าหมูหนองปิง", today);
+    expect(intent.kind).toBe("QUERY_PORK");
+    if (intent.kind === "QUERY_PORK") expect(intent.payload.shopId).toBe("shop2");
+  });
+
+  it("report with branch + relative month (รายงานญี่ปุ่นเดือนที่แล้ว)", () => {
+    const intent = routeLineMessage("รายงานญี่ปุ่นเดือนที่แล้ว", today);
+    expect(intent.kind).toBe("QUERY_REPORT");
+    if (intent.kind !== "QUERY_REPORT") return;
+    expect(intent.payload.period).toBe("month");
+    expect(intent.payload.month).toBe("2026-05");
+    expect(intent.payload.shopId).toBe("shop1");
+  });
+
+  it("help (ช่วย)", () => {
+    expect(routeLineMessage("ช่วย", today).kind).toBe("HELP");
+  });
+});
