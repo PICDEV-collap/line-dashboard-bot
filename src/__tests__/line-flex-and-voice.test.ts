@@ -75,4 +75,18 @@ describe("LINE Advanced Experience (Features 1-4)", () => {
       expect(flex.contents.header.backgroundColor).toBe("#D69E2E");
     });
   });
+
+  describe("Pork Query Intent Routing", () => {
+    it("routes ข้อมูลราคาหมู and สรุปหมู to QUERY_PORK intent", () => {
+      const { routeLineMessage } = require("@/lib/services/thai-intent-router.service");
+      const res1 = routeLineMessage("ข้อมูลราคาหมู");
+      expect(res1.kind).toBe("QUERY_PORK");
+
+      const res2 = routeLineMessage("สรุปหมู");
+      expect(res2.kind).toBe("QUERY_PORK");
+
+      const res3 = routeLineMessage("เช็คหมู");
+      expect(res3.kind).toBe("QUERY_PORK");
+    });
+  });
 });

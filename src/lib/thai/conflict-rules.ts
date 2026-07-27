@@ -155,6 +155,7 @@ function buildReportIntent(text: string, today: string): ReportSummaryIntent | n
 }
 
 function buildPorkIntent(text: string, today: string): PorkSummaryIntent | null {
+  if (looksLikeFinancialSaveHeuristic(text)) return null;
   if (!messageHasMarker(segmentMessage(text, today), "pork_query")) return null;
 
   const shop = detectShopFromText(text) ?? {
