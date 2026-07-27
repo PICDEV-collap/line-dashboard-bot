@@ -144,3 +144,31 @@ export async function describeImage(imageBuffer: Buffer, mimeType = "image/jpeg"
 
   return result.choices?.[0]?.message?.content ?? "";
 }
+
+export async function transcribeAudioMessage(
+  audioBuffer: Buffer,
+  mimeType: string = "audio/m4a"
+): Promise<string> {
+  logger.info("Transcribing audio message", { mimeType, size: audioBuffer.length });
+
+  return withRetry(async () => {
+    const client = getClient();
+    try {
+      const uint8 = new Uint8Array(audioBuffer);
+      const blob = new Blob([uint8], { type: mimeType });
+      const file = new File([blob], "voice.m4a", { type: mimeType });
+      const transcription = await client.audio.transcriptions.create({
+        file,
+        model: "whisper-large-v3",
+        language: "th",
+        temperature: 0.0,
+      });
+      const text = transcription.text?.trim() ?? "";
+      logger.info("Audio transcription complete", { textLength: text.length });
+      return text;
+    } catch (err) {
+      logger.warn("Audio transcription failed, using fallback notice", String(err));
+      return "";
+    }
+  });
+}

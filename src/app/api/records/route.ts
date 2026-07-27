@@ -12,8 +12,9 @@ import {
   toApiResponse,
   ValidationError,
 } from "@/lib/utils/error-handler";
-import { ENV, DEFAULT_EXPENSES } from "@/config/constants";
-import type { FinancialRecord } from "@/lib/types/financial.types";
+import { CreateRecordSchema, RecordQueryParamsSchema, validateWithZod } from "@/lib/types/financial.schema";
+import { ENV } from "@/config/constants";
+import type { PorkBreakdown } from "@/lib/types/financial.types";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -33,32 +34,30 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   const { searchParams } = new URL(request.url);
-  const shopId = searchParams.get("shopId") ?? undefined;
-  const startDate = searchParams.get("startDate") ?? undefined;
-  const endDate = searchParams.get("endDate") ?? undefined;
-  const month = searchParams.get("month") ?? undefined; // YYYY-MM
-  const view = searchParams.get("view"); // "stats" | "records"
-  const page = Math.max(1, parseInt(searchParams.get("page") ?? "1"));
-  const limit = Math.min(366, Math.max(1, parseInt(searchParams.get("limit") ?? "100")));
+  const rawQuery = Object.fromEntries(searchParams.entries());
 
   try {
-    if (view === "stats") {
+    const params = validateWithZod(RecordQueryParamsSchema, rawQuery);
+    const page = params.page ?? 1;
+    const limit = params.limit ?? 100;
+
+    if (params.view === "stats") {
       const stats = await getFinancialStats(
-        shopId,
-        startDate ?? (month ? `${month}-01` : undefined),
-        endDate ?? (month ? `${month}-31` : undefined)
+        params.shopId,
+        params.startDate ?? (params.month ? `${params.month}-01` : undefined),
+        params.endDate ?? (params.month ? `${params.month}-31` : undefined)
       );
       return NextResponse.json(toApiResponse(stats), {
         headers: { "Cache-Control": "s-maxage=30, stale-while-revalidate=60" },
       });
     }
 
-    let records = await getAllRecords(shopId);
+    let records = await getAllRecords(params.shopId);
 
     // Date filters
-    if (month) records = records.filter((r) => r.date.startsWith(month));
-    if (startDate) records = records.filter((r) => r.date >= startDate);
-    if (endDate) records = records.filter((r) => r.date <= endDate);
+    if (params.month) records = records.filter((r) => r.date.startsWith(params.month!));
+    if (params.startDate) records = records.filter((r) => r.date >= params.startDate!);
+    if (params.endDate) records = records.filter((r) => r.date <= params.endDate!);
 
     // Sort by date desc by default
     records.sort((a, b) => b.date.localeCompare(a.date));
@@ -67,7 +66,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const offset = (page - 1) * limit;
     const paged = records.slice(offset, offset + limit);
 
-    logger.info("Records fetched", { total, page, limit, shopId });
+    logger.info("Records fetched", { total, page, limit, shopId: params.shopId });
 
     return NextResponse.json(
       toApiResponse({
@@ -76,7 +75,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       }),
       {
         headers: {
-          // Dashboard auto-refresh must see fresh data — do not cache at CDN/browser.
           "Cache-Control": "private, no-store, no-cache, must-revalidate",
           "Access-Control-Allow-Origin": "*",
         },
@@ -102,7 +100,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     });
   }
 
-  let body: Partial<FinancialRecord>;
+  let body: unknown;
   try {
     body = await request.json();
   } catch {
@@ -112,35 +110,48 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  if (!body.date) {
-    return NextResponse.json(
-      errorToApiResponse(new ValidationError("date is required")),
-      { status: 400 }
-    );
-  }
-
   try {
+    const v = validateWithZod(CreateRecordSchema, body);
+    const rev = v.revenue ?? 0;
+    const exp = v.expense ?? 0;
+
+    let porkBreakdown: PorkBreakdown | undefined = undefined;
+    if (v.porkBreakdown) {
+      porkBreakdown = {
+        redQty: v.porkBreakdown.redQty ?? 0,
+        redPrice: v.porkBreakdown.redPrice ?? 0,
+        redTotal: v.porkBreakdown.redTotal ?? 0,
+        mincedQty: v.porkBreakdown.mincedQty ?? 0,
+        mincedPrice: v.porkBreakdown.mincedPrice ?? 0,
+        mincedTotal: v.porkBreakdown.mincedTotal ?? 0,
+        fatQty: v.porkBreakdown.fatQty ?? 0,
+        fatPrice: v.porkBreakdown.fatPrice ?? 0,
+        fatTotal: v.porkBreakdown.fatTotal ?? 0,
+        total: v.porkBreakdown.total ?? 0,
+      };
+    }
+
     const record = await createRecord({
-      date: body.date,
-      shopId: body.shopId ?? ENV.DEFAULT_SHOP_ID(),
-      shopName: body.shopName ?? ENV.DEFAULT_SHOP_NAME(),
-      revenue: body.revenue ?? 0,
-      transfer: body.transfer ?? 0,
-      cash: body.cash ?? 0,
-      delivery: body.delivery ?? 0,
-      expense: body.expense ?? 0,
-      pork: body.pork ?? 0,
-      porkBreakdown: body.porkBreakdown,
-      materials: body.materials ?? 0,
-      supplies: body.supplies ?? 0,
-      gas: body.gas ?? DEFAULT_EXPENSES.gas,
-      labor: body.labor ?? DEFAULT_EXPENSES.labor,
-      ice: body.ice ?? DEFAULT_EXPENSES.ice,
-      extraExpenses: body.extraExpenses ?? [],
-      extraIncome: body.extraIncome ?? [],
-      profit: body.profit ?? (body.revenue ?? 0) - (body.expense ?? 0),
-      note: body.note ?? "",
-      status: body.status ?? "complete",
+      date: v.date,
+      shopId: v.shopId || ENV.DEFAULT_SHOP_ID(),
+      shopName: v.shopName || ENV.DEFAULT_SHOP_NAME(),
+      revenue: rev,
+      transfer: v.transfer ?? 0,
+      cash: v.cash ?? 0,
+      delivery: v.delivery ?? 0,
+      expense: exp,
+      pork: v.pork ?? 0,
+      porkBreakdown,
+      materials: v.materials ?? 0,
+      supplies: v.supplies ?? 0,
+      gas: v.gas ?? 150,
+      labor: v.labor ?? 1500,
+      ice: v.ice ?? 35,
+      extraExpenses: v.extraExpenses ?? [],
+      extraIncome: v.extraIncome ?? [],
+      profit: v.profit ?? rev - exp,
+      note: v.note ?? "",
+      status: v.status ?? "complete",
     });
 
     logger.info("Record created via API", { id: record.id });

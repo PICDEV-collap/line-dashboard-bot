@@ -224,9 +224,10 @@ export async function getRecordByShopDate(
   return getByShopDate(shopId, date);
 }
 
-// A newly-mentioned (non-zero) value wins; otherwise keep what's stored.
-function pickNum(incoming: number | undefined, existing: number): number {
-  return incoming && incoming > 0 ? incoming : existing;
+// A newly-mentioned (non-zero) value wins; if isAdd is true, it accumulates onto existing.
+function pickNum(incoming: number | undefined, existing: number, isAdd = false): number {
+  if (incoming === undefined || incoming === 0) return existing;
+  return isAdd ? existing + incoming : incoming;
 }
 
 // Pork: update qty/price only when the message provides them (qty from the
@@ -235,9 +236,13 @@ function mergePork(
   incoming: { qty: number; price: number } | undefined,
   oldQty: number,
   oldPrice: number,
-  carriedPrice = 0
+  carriedPrice = 0,
+  isAdd = false
 ): { qty: number; price: number; total: number; priceCarried: boolean } {
-  const qty = incoming && incoming.qty > 0 ? incoming.qty : oldQty;
+  let qty = oldQty;
+  if (incoming && incoming.qty > 0) {
+    qty = isAdd ? oldQty + incoming.qty : incoming.qty;
+  }
   let price = oldPrice;
   if (incoming && incoming.price > 0) price = incoming.price;
   else if (price === 0 && carriedPrice > 0 && qty > 0) price = carriedPrice;
@@ -471,9 +476,10 @@ export async function upsertParsedRecord(input: {
   const pb = existing?.porkBreakdown;
   const carried = await getCarriedDefaults(input.shopId, input.date);
 
-  const transfer = pickNum(p.transfer, existing?.transfer ?? 0);
-  const cash = pickNum(p.cash, existing?.cash ?? 0);
-  const delivery = pickNum(p.delivery, existing?.delivery ?? 0);
+  const isAdd = Boolean(p.isIncremental);
+  const transfer = pickNum(p.transfer, existing?.transfer ?? 0, isAdd);
+  const cash = pickNum(p.cash, existing?.cash ?? 0, isAdd);
+  const delivery = pickNum(p.delivery, existing?.delivery ?? 0, isAdd);
 
   let extraIncome = mergeList(existing?.extraIncome ?? [], p.extraIncome ?? []);
   let extraExpenses = mergeList(existing?.extraExpenses ?? [], p.extraExpenses ?? []);
@@ -485,9 +491,9 @@ export async function upsertParsedRecord(input: {
   );
   extraExpenses = recurringMerge.extras;
 
-  const red = mergePork(p.porkRed, pb?.redQty ?? 0, pb?.redPrice ?? 0, carried.pork.redPrice);
-  const minced = mergePork(p.porkMinced, pb?.mincedQty ?? 0, pb?.mincedPrice ?? 0, carried.pork.mincedPrice);
-  const fat = mergePork(p.porkFat, pb?.fatQty ?? 0, pb?.fatPrice ?? 0, carried.pork.fatPrice);
+  const red = mergePork(p.porkRed, pb?.redQty ?? 0, pb?.redPrice ?? 0, carried.pork.redPrice, isAdd);
+  const minced = mergePork(p.porkMinced, pb?.mincedQty ?? 0, pb?.mincedPrice ?? 0, carried.pork.mincedPrice, isAdd);
+  const fat = mergePork(p.porkFat, pb?.fatQty ?? 0, pb?.fatPrice ?? 0, carried.pork.fatPrice, isAdd);
 
   const porkBreakdown: PorkBreakdown = {
     redQty: red.qty, redPrice: red.price, redTotal: red.total,
@@ -496,8 +502,8 @@ export async function upsertParsedRecord(input: {
     total: red.total + minced.total + fat.total,
   };
 
-  const materials = pickNum(p.materials, existing?.materials ?? 0);
-  const supplies = pickNum(p.supplies, existing?.supplies ?? 0);
+  const materials = pickNum(p.materials, existing?.materials ?? 0, isAdd);
+  const supplies = pickNum(p.supplies, existing?.supplies ?? 0, isAdd);
 
   const gasPick = pickCarriedExpense(
     p.gas,

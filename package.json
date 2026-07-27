@@ -17,9 +17,11 @@
     "@line/bot-sdk": "^9.3.0",
     "@supabase/supabase-js": "^2.49.0",
     "axios": "^1.7.9",
+    "chart.js": "^4.5.1",
     "groq-sdk": "^1.2.1",
     "next": "^16.2.9",
     "react": "^19.0.0",
+    "react-chartjs-2": "^5.3.1",
     "react-dom": "^19.0.0",
     "zod": "^3.23.8"
   },

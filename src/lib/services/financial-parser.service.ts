@@ -520,10 +520,19 @@ export function extractExtraExpenses(text: string): ExtraExpense[] {
 
 export function parseFinancialMessageWithRegex(text: string): ParsedFinancialInput {
   const shop = detectShopFromText(text);
+  const trimmed = text.trim();
+
+  const isIncremental =
+    /^(?:เพิ่ม|บวก|\+|สะสม|อีก)/i.test(trimmed) ||
+    /(?:^|\s)(?:เพิ่ม|บวก|\+|สะสม|อีก)(?:\s|$)/i.test(trimmed);
 
   const transfer = num((text.match(/โอน\s*([\d,]+)/) ?? [])[1] ?? "0");
   const cash = num((text.match(/(?:เงินสด|สด)\s*([\d,]+)/) ?? [])[1] ?? "0");
-  const delivery = num((text.match(/(?:delivery|เดลิเวอรี่?|ส่ง)\s*([\d,]+)/i) ?? [])[1] ?? "0");
+  const delivery = num(
+    (text.match(
+      /(?:delivery|เดลิเวอรี่?|ไลน์แมน|lineman|แกร็บ|grab|ฟู้ดแพนด้า|foodpanda|โรบินฮู้ด|robinhood|shopeefood|ส่ง|ครึ่ง|คนละครึ่ง)\s*([\d,]+)/i
+    ) ?? [])[1] ?? "0"
+  );
 
   const { porkRed, porkMinced, porkFat } = extractDeterministicPork(text);
 
@@ -551,6 +560,7 @@ export function parseFinancialMessageWithRegex(text: string): ParsedFinancialInp
   const parsed: ParsedFinancialInput = {
     isFinancialData: false,
     confidence: 0,
+    isIncremental,
     ...(shop ?? {}),
     transfer,
     cash,
@@ -568,19 +578,33 @@ export function parseFinancialMessageWithRegex(text: string): ParsedFinancialInp
   };
 
   applyDeterministicIncomeRules(parsed, text);
-  parsed.isFinancialData =
+  const hasExtractedNumbers =
     transfer > 0 || cash > 0 || delivery > 0 || parsed.extraIncome!.length > 0 ||
     porkRed !== undefined || porkMinced !== undefined || porkFat !== undefined ||
     materialsFromList > 0 || (parsed.extraExpenses?.length ?? 0) > 0 ||
     (labor ?? 0) > 0 || (gas ?? 0) > 0 || (ice ?? 0) > 0 ||
     shopping !== null;
-  parsed.confidence = parsed.isFinancialData ? 0.85 : 0;
+
+  const mentionsFinancialKeywords =
+    /(?:โอน|สด|เงินสด|delivery|เดลิเวอรี่|ไลน์แมน|lineman|แกร็บ|grab|ฟู้ดแพนด้า|ส่ง|ครึ่ง|คนละครึ่ง|หมู|แดง|สับ|มัน|ค่าแก๊ส|แก๊ส|ค่าแรง|ค่าน้ำแข็ง|น้ำแข็ง|วัตถุดิบ|อุปกรณ์|บรรจุภัณฑ์|ค่าเช่า|ค่าไฟ|ค่าน้ำ)/i.test(text);
+
+  if (mentionsFinancialKeywords && !hasExtractedNumbers) {
+    parsed.isAmbiguous = true;
+    parsed.isFinancialData = false;
+    parsed.confidence = 0;
+    parsed.ambiguousReason = "Mentions financial keywords but lacks valid numeric amounts";
+  } else {
+    parsed.isFinancialData = hasExtractedNumbers;
+    parsed.confidence = parsed.isFinancialData ? 0.85 : 0;
+  }
 
   const resolvedDate = resolveRecordDateFromText(text);
   if (resolvedDate) parsed.date = resolvedDate;
 
   logger.info("Regex parse result", {
     isFinancialData: parsed.isFinancialData,
+    isIncremental: parsed.isIncremental,
+    isAmbiguous: parsed.isAmbiguous,
     transfer,
     cash,
     delivery,
@@ -794,4 +818,19 @@ export function buildRecordConfirmation(
   lines.push(`\n💬 พิมพ์ "สรุป" ดูรายละเอียด · "ช่วย" แก้ไขข้อมูล`);
 
   return lines.join("\n");
+}
+
+export function buildAmbiguousFinancialHint(text: string): string {
+  return [
+    `❓ ข้อความของคุณมีคีย์เวิร์ดการเงิน แต่ระบุตัวเลขไม่ชัดเจนหรือยังไม่ได้ระบุจำนวนเงิน`,
+    `ข้อความที่พิมพ์: "${text.slice(0, 100)}"`,
+    ``,
+    `💡 ตัวอย่างการพิมพ์บันทึกยอดที่ถูกต้อง:`,
+    `• "โอน 500 สด 300"`,
+    `• "เพิ่ม ไลน์แมน 300"`,
+    `• "หมูแดง 5 กก 150 บาท"`,
+    `• "ค่าแก๊ส 350 บาท"`,
+    ``,
+    `กรุณาลองพิมพ์ระบุจำนวนเงินใหม่อีกครั้งครับ 🙏`,
+  ].join("\n");
 }

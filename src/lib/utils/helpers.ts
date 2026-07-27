@@ -114,3 +114,19 @@ export function omit<T extends object, K extends keyof T>(
   keys.forEach((key) => delete result[key]);
   return result;
 }
+
+export function formatCurrency(amount: number): string {
+  return Number(amount || 0).toLocaleString("en-US");
+}
+
+export function formatDateThai(dateStr: string): string {
+  if (!dateStr) return "";
+  const [y, m, d] = dateStr.split("-").map(Number);
+  if (!y || !m || !d) return dateStr;
+  const thMonths = [
+    "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.",
+    "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."
+  ];
+  const thYear = y > 2400 ? y : y + 543;
+  return `${d} ${thMonths[m - 1]} ${thYear}`;
+}

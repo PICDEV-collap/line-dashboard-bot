@@ -19,6 +19,12 @@
       "memory": 512
     }
   },
+  "crons": [
+    {
+      "path": "/api/cron/daily-report",
+      "schedule": "0 13 * * *"
+    }
+  ],
   "headers": [
     {
       "source": "/api/dashboard/(.*)",

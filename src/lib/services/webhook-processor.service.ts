@@ -10,13 +10,14 @@ import {
 } from "@/lib/services/line.service";
 import { appendMessage, appendOcrResult, updateDailyStats } from "@/lib/services/messages.service";
 import { uploadImage, uploadPdf } from "@/lib/services/storage.service";
-import { extractTextFromImage } from "@/lib/services/gemini.service";
+import { extractTextFromImage, transcribeAudioMessage } from "@/lib/services/gemini.service";
 import {
   parseFinancialMessage,
   buildRecordConfirmation,
   buildSummaryNotFoundMessage,
   formatParsedDeltaItems,
   shouldUseShortConfirmation,
+  buildAmbiguousFinancialHint,
 } from "@/lib/services/financial-parser.service";
 import {
   buildAllBranchesSummary,
@@ -145,11 +146,21 @@ async function processEvent(event: LineEvent, baseUrl = ""): Promise<void> {
         replyMsg = buildSuccessReply("file");
         break;
 
-      case "location":
-        processed = await processLocationMessage(processed, event);
-        statsDelta.locationCount = 1;
-        replyMsg = buildSuccessReply("location");
+      case "audio": {
+        if (event.message?.id) {
+          const { buffer, mimeType } = await getMessageContentWithType(event.message.id);
+          const text = await transcribeAudioMessage(buffer, mimeType);
+          if (text) {
+            const fakeEvent = { ...event, message: { ...event.message, text } };
+            const result = await processTextMessage(processed, fakeEvent, baseUrl);
+            processed = result.processed;
+            replyMsg = `🎙️ ถอดเสียง: "${text}"\n\n${result.replyMsg}`;
+          } else {
+            replyMsg = "🎙️ ไม่สามารถถอดเสียงได้ กรุณาลองส่งใหม่อีกครั้งครับ";
+          }
+        }
         break;
+      }
 
       default:
         processed.content = `[${messageType} message]`;
@@ -457,6 +468,18 @@ async function handleIntent(
 
     case "SAVE_FINANCIAL": {
       const parsed = await parseFinancialMessage(text);
+
+      if (parsed.isAmbiguous) {
+        logger.info("Ambiguous financial message detected", { text });
+        return {
+          processed: {
+            ...msg,
+            content: `[AMBIGUOUS FINANCIAL] ${text.slice(0, 200)}`,
+            status: "completed",
+          },
+          replyMsg: buildAmbiguousFinancialHint(text),
+        };
+      }
 
       if (parsed.isFinancialData && parsed.confidence >= 0.6) {
         logger.info("Financial message detected", { confidence: parsed.confidence });

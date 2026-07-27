@@ -106,4 +106,7 @@ export interface ParsedFinancialInput {
   note?: string;
   confidence: number;
   isFinancialData: boolean;
+  isIncremental?: boolean;
+  isAmbiguous?: boolean;
+  ambiguousReason?: string;
 }

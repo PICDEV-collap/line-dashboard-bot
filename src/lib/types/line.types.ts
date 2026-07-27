@@ -91,3 +91,15 @@ export interface OcrResult {
   confidence: number;
   processingTimeMs: number;
 }
+
+export interface QuickReplyItem {
+  type: "action";
+  imageUrl?: string;
+  action: {
+    type: "message" | "postback" | "uri";
+    label: string;
+    text?: string;
+    data?: string;
+    uri?: string;
+  };
+}

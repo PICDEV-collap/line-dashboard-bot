@@ -11,7 +11,10 @@ import {
   getStatusCode,
   toApiResponse,
   AppError,
+  ValidationError,
 } from "@/lib/utils/error-handler";
+import { UpdateRecordSchema, validateWithZod } from "@/lib/types/financial.schema";
+import type { FinancialRecord } from "@/lib/types/financial.types";
 
 export const runtime = "nodejs";
 export const maxDuration = 20;
@@ -58,19 +61,20 @@ export async function PUT(
     });
   }
 
-  let body: Record<string, unknown>;
+  let body: unknown;
   try {
     body = await request.json();
   } catch {
     return NextResponse.json(
-      errorToApiResponse(new AppError("Invalid JSON body", 400)),
+      errorToApiResponse(new ValidationError("Invalid JSON body")),
       { status: 400 }
     );
   }
 
   const { id } = await params;
   try {
-    const updated = await updateRecord(id, body as never);
+    const validatedData = validateWithZod(UpdateRecordSchema, body);
+    const updated = await updateRecord(id, validatedData as Partial<Omit<FinancialRecord, "createdAt" | "id">>);
     if (!updated) {
       return NextResponse.json(
         errorToApiResponse(new AppError("Record not found", 404)),

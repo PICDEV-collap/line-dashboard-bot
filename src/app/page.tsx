@@ -82,8 +82,8 @@ export default function HomePage() {
         <Card
           title="Financial Dashboard"
           icon="🍖"
-          description="Dashboard ร้านครูตอม — เชื่อมต่อ Supabase"
-          value={<a href="/dashboard.html" target="_blank" rel="noopener noreferrer">/dashboard.html</a>}
+          description="Dashboard ร้านครูตอม — เชื่อมต่อ Supabase (Next.js React)"
+          value={<a href="/dashboard" target="_blank" rel="noopener noreferrer">/dashboard</a>}
         />
         <Card
           title="Financial Records API"

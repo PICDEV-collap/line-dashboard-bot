@@ -3,6 +3,7 @@ import { withRetry } from "@/lib/utils/retry";
 import { ExternalServiceError } from "@/lib/utils/error-handler";
 import { createLogger } from "@/lib/middleware/logger";
 import type { LineUserProfile } from "@/lib/types/line.types";
+import { buildQuickReplyPayload } from "./line-quick-reply.service";
 
 const logger = createLogger("LineService");
 
@@ -105,7 +106,7 @@ export async function getMessageContent(messageId: string): Promise<Buffer> {
 
 export async function replyMessage(
   replyToken: string,
-  messages: Array<{ type: string; text?: string }>
+  messages: Array<Record<string, any>>
 ): Promise<void> {
   if (!replyToken) {
     logger.warn("No replyToken provided, skipping reply");
@@ -113,6 +114,14 @@ export async function replyMessage(
   }
 
   logger.info("Sending reply", { replyToken });
+
+  // Attach quick replies to the last message if not already specified
+  if (messages.length > 0) {
+    const lastMsg = messages[messages.length - 1];
+    if (!lastMsg.quickReply) {
+      lastMsg.quickReply = buildQuickReplyPayload();
+    }
+  }
 
   await withRetry(() =>
     lineRequest("/message/reply", {
@@ -126,6 +135,36 @@ export async function replyText(replyToken: string, text: string): Promise<void>
   await replyMessage(replyToken, [{ type: "text", text }]);
 }
 
+export async function pushMessage(
+  to: string,
+  messages: Array<Record<string, any>>
+): Promise<void> {
+  if (!to) {
+    logger.warn("No target user/group ID provided for push message");
+    return;
+  }
+
+  logger.info("Sending push message", { to });
+
+  if (messages.length > 0) {
+    const lastMsg = messages[messages.length - 1];
+    if (!lastMsg.quickReply) {
+      lastMsg.quickReply = buildQuickReplyPayload();
+    }
+  }
+
+  await withRetry(() =>
+    lineRequest("/message/push", {
+      method: "POST",
+      body: JSON.stringify({ to, messages }),
+    })
+  );
+}
+
+export async function pushText(to: string, text: string): Promise<void> {
+  await pushMessage(to, [{ type: "text", text }]);
+}
+
 export function buildSuccessReply(type: string): string {
   const messages: Record<string, string> = {
     text: "✅ รับข้อความเรียบร้อยแล้ว",
@@ -133,7 +172,7 @@ export function buildSuccessReply(type: string): string {
     file: "✅ รับไฟล์เรียบร้อยแล้ว",
     location: "✅ รับข้อมูลตำแหน่งเรียบร้อยแล้ว",
     video: "✅ รับวิดีโอเรียบร้อยแล้ว",
-    audio: "✅ รับเสียงเรียบร้อยแล้ว",
+    audio: "🎙️ รับข้อความเสียงเรียบร้อยแล้ว กำลังแปลงเป็นข้อความ...",
     sticker: "✅ รับสติ๊กเกอร์เรียบร้อยแล้ว",
   };
   return messages[type] ?? "✅ รับข้อมูลเรียบร้อยแล้ว";
