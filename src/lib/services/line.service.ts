@@ -135,6 +135,15 @@ export async function replyText(replyToken: string, text: string): Promise<void>
   await replyMessage(replyToken, [{ type: "text", text }]);
 }
 
+export async function replyTextWithQuickReplies(
+  replyToken: string,
+  text: string,
+  quickReplyItems: any[]
+): Promise<void> {
+  const payload = buildQuickReplyPayload(quickReplyItems);
+  await replyMessage(replyToken, [{ type: "text", text, quickReply: payload }]);
+}
+
 export async function pushMessage(
   to: string,
   messages: Array<Record<string, any>>

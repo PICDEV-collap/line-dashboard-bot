@@ -23,7 +23,7 @@ const PORK_QTY_PRICE = new RegExp(
   "i"
 );
 const PORK_PRICE = new RegExp(
-  `^(?:${CORRECTION_PREFIX}|ราคา)\\s*(หมูแดง|หมูเนื้อ|แดง|หมูสับ|สับ|มันหมู|หมูมัน|มัน)\\s*(?:ราคา\\s*)?([\\d,]+)\\s*(?:บาท|/กก)?\\s*$`,
+  `^(?:${CORRECTION_PREFIX}|ราคา)?\\s*(?:ราคา\\s*)?(หมูแดง|หมูเนื้อ|แดง|หมูสับ|สับ|มันหมู|หมูมัน|มัน)\\s*(?:ราคา\\s*)?([\\d,]+)\\s*(?:บาท|/กก)?\\s*$`,
   "i"
 );
 const PORK_PRICE_GLUED = new RegExp(

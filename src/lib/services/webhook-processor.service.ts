@@ -6,6 +6,8 @@ import {
   getMessageContent,
   getMessageContentWithType,
   replyText,
+  replyTextWithQuickReplies,
+  pushText,
   buildSuccessReply,
 } from "@/lib/services/line.service";
 import { appendMessage, appendOcrResult, updateDailyStats } from "@/lib/services/messages.service";
@@ -18,6 +20,7 @@ import {
   formatParsedDeltaItems,
   shouldUseShortConfirmation,
   buildAmbiguousFinancialHint,
+  detectMissingPorkPricePrompt,
 } from "@/lib/services/financial-parser.service";
 import {
   buildAllBranchesSummary,
@@ -168,9 +171,18 @@ async function processEvent(event: LineEvent, baseUrl = ""): Promise<void> {
     }
 
     if (event.replyToken) {
-      await replyText(event.replyToken, replyMsg).catch((err) =>
-        logger.warn("Reply failed (non-critical)", err)
-      );
+      const missingPrompt = (processed as any).missingPrompt;
+      if (missingPrompt?.quickReplies) {
+        await replyTextWithQuickReplies(
+          event.replyToken,
+          replyMsg,
+          missingPrompt.quickReplies
+        ).catch((err) => logger.warn("Reply with quick replies failed", err));
+      } else {
+        await replyText(event.replyToken, replyMsg).catch((err) =>
+          logger.warn("Reply failed (non-critical)", err)
+        );
+      }
     }
   } catch (error) {
     const err = normalizeError(error);
@@ -492,19 +504,24 @@ async function handleIntent(
         });
 
         const { carryMeta, ...saved } = record;
+        const missingPrompt = detectMissingPorkPricePrompt(saved);
         const addedItems = formatParsedDeltaItems(parsed);
         const useShort = shouldUseShortConfirmation(parsed, text);
-        const template = buildRecordConfirmation(saved, {
+        let template = buildRecordConfirmation(saved, {
           carryMeta,
           addedItems,
           mode: useShort ? "short" : "full",
         });
+        if (missingPrompt) {
+          template += missingPrompt.promptText;
+        }
         return {
           processed: {
             ...msg,
             content: `[FINANCIAL] ${text.slice(0, 200)}`,
             status: "completed",
-          },
+            missingPrompt: missingPrompt ?? undefined,
+          } as any,
           replyMsg: await geminiReply(
             text,
             template,

@@ -53,6 +53,47 @@ export function getDefaultQuickReplies(): QuickReplyItem[] {
   ];
 }
 
+export function buildMissingPorkPriceQuickReplies(
+  kind: "red" | "minced" | "fat",
+  customPrices: number[] = [120, 130, 140, 150]
+): QuickReplyItem[] {
+  const porkNames = {
+    red: "หมูแดง",
+    minced: "หมูสับ",
+    fat: "มันหมู",
+  };
+  const labelName = porkNames[kind];
+
+  const priceItems: QuickReplyItem[] = customPrices.map((price) => ({
+    type: "action",
+    action: {
+      type: "message",
+      label: `${price} บ./กก.`,
+      text: `ราคา${labelName} ${price}`,
+    },
+  }));
+
+  const customPriceItem: QuickReplyItem = {
+    type: "action",
+    action: {
+      type: "message",
+      label: "✏️ ระบุราคาเอง",
+      text: `ตั้งราคา${labelName} `,
+    },
+  };
+
+  const summaryItem: QuickReplyItem = {
+    type: "action",
+    action: {
+      type: "message",
+      label: "📊 สรุปยอด",
+      text: "สรุป",
+    },
+  };
+
+  return [...priceItems, customPriceItem, summaryItem];
+}
+
 export function buildQuickReplyPayload(items?: QuickReplyItem[]) {
   const replyItems = items && items.length > 0 ? items : getDefaultQuickReplies();
   return {

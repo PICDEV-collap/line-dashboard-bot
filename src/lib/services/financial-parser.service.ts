@@ -17,6 +17,8 @@ import {
 } from "@/lib/thai/lexicon";
 import { looksLikeFinancialData } from "@/lib/services/thai-intent-router.service";
 
+import { buildMissingPorkPriceQuickReplies } from "@/lib/services/line-quick-reply.service";
+
 export { detectShopFromText, looksLikeFinancialData };
 
 const logger = createLogger("FinancialParser");
@@ -833,4 +835,42 @@ export function buildAmbiguousFinancialHint(text: string): string {
     ``,
     `กรุณาลองพิมพ์ระบุจำนวนเงินใหม่อีกครั้งครับ 🙏`,
   ].join("\n");
+}
+
+export interface MissingPricePrompt {
+  promptText: string;
+  kind: "red" | "minced" | "fat";
+  quickReplies: ReturnType<typeof buildMissingPorkPriceQuickReplies>;
+}
+
+export function detectMissingPorkPricePrompt(record: FinancialRecord): MissingPricePrompt | null {
+  const pb = record.porkBreakdown;
+  if (!pb) return null;
+
+  let missingKind: "red" | "minced" | "fat" | null = null;
+  let labelName = "";
+  let qty = 0;
+
+  if (pb.redQty > 0 && pb.redPrice === 0) {
+    missingKind = "red";
+    labelName = "หมูแดง";
+    qty = pb.redQty;
+  } else if (pb.mincedQty > 0 && pb.mincedPrice === 0) {
+    missingKind = "minced";
+    labelName = "หมูสับ";
+    qty = pb.mincedQty;
+  } else if (pb.fatQty > 0 && pb.fatPrice === 0) {
+    missingKind = "fat";
+    labelName = "มันหมู";
+    qty = pb.fatQty;
+  }
+
+  if (!missingKind) return null;
+
+  const quickReplies = buildMissingPorkPriceQuickReplies(missingKind);
+  const promptText =
+    `\n\n⚠️ ขาดราคาต่อ กก. สำหรับ${labelName} (${qty} กก.)\n` +
+    `💡 กดเลือกราคาด่วน หรือกด "✏️ ระบุราคาเอง" ด้านล่างได้เลยครับ:`;
+
+  return { promptText, kind: missingKind, quickReplies };
 }
