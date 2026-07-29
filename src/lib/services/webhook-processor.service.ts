@@ -46,6 +46,7 @@ import {
 import type { LineIntent } from "@/lib/thai/types";
 import {
   naturalizeReply,
+  generateConversationalAiReply,
   type NaturalReplyKind,
 } from "@/lib/services/natural-reply.service";
 import {
@@ -356,11 +357,11 @@ async function resolveUnknownWithLearning(
     }
   }
 
-  // Couldn't resolve confidently → gentle hint.
+  // Couldn't resolve confidently as a command -> Use Conversational AI Assistant
+  const aiReply = await generateConversationalAiReply(text);
   return {
-    processed: { ...msg, content: `[UNKNOWN] ${text.slice(0, 200)}`, status: "completed" },
-    replyMsg:
-      'ขอโทษครับ ผมยังไม่เข้าใจข้อความนี้ 🙏\nลองพิมพ์ "ช่วย" เพื่อดูคำสั่งทั้งหมด หรือพิมพ์ยอด เช่น "โอน 5000 สด 3000"',
+    processed: { ...msg, content: `[UNKNOWN AI] ${text.slice(0, 200)}`, status: "completed" },
+    replyMsg: aiReply,
   };
 }
 
@@ -418,7 +419,16 @@ async function handleIntent(
       const { shopId, date } = summaryIntent;
       const record = await getRecordByShopDate(shopId, date);
       if (!record) {
-        const template = buildSummaryNotFoundMessage(date, today);
+        let template = buildSummaryNotFoundMessage(date, today);
+        if (date === today) {
+          const yesterday = resolveRecordDateFromText("เมื่อวาน") ?? "";
+          if (yesterday) {
+            const yesterdayRec = await getRecordByShopDate(shopId, yesterday).catch(() => null);
+            if (yesterdayRec) {
+              template += `\n(ข้อมูลล่าสุดเมื่อวาน ${yesterdayRec.date}: รายรับ ฿${yesterdayRec.revenue.toLocaleString()} รายจ่าย ฿${yesterdayRec.expense.toLocaleString()} กำไร ฿${yesterdayRec.profit.toLocaleString()})`;
+            }
+          }
+        }
         return {
           processed: { ...msg, content: "[SUMMARY] empty", status: "completed" },
           replyMsg: await geminiReply(text, template, "summary_not_found"),

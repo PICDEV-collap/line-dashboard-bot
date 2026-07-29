@@ -279,3 +279,52 @@ export async function pingGemini(): Promise<{ latencyMs: number; ok: boolean; er
     };
   }
 }
+
+const CONVERSATIONAL_AI_PROMPT = `คุณเป็น AI ผู้ช่วยอัจฉริยะของร้านก๋วยเตี๋ยวไทย "ครูตอม" (มี 2 สาขา: สาขาตลาดญี่ปุ่น และ สาขาสายหนองปิง)
+ทำหน้าที่ช่วยเหลือเจ้าของร้านและทีมงานทาง LINE:
+- ตอบคำถาม ทักทาย ให้คำแนะนำร้าน ให้คำแนะนำเรื่องบัญชี/วัตถุดิบ/หมู
+- คุยอย่างฉลาด สุภาพ เป็นกันเอง ยิ้มแย้ม สดใส ใช้ภาษาไทยพูดง่ายๆ
+- ถ้าผู้ใช้ถามวิธีใช้งาน หรือทักทาย ให้แนะนำวิธีใช้งานสั้นๆ เช่น พิมพ์ "สรุป", "ค่าหมูทั้งหมด", "รายงาน", หรือพิมพ์ยอดเงิน "โอน 5000 สด 3000" เพื่อบันทึกยอด
+- ห้ามตอบว่า "ไม่เข้าใจ" แบบแข็งๆ ให้ตอบคำถามของผู้ใช้ก่อน แล้วเชื่อมโยงไปที่การช่วยเหลือบัญชี/ร้าน
+- ตอบสั้นกระชับ ไม่เกิน 3-4 ประโยค ใช้ emoji ได้ 2-4 ตัว`;
+
+export async function generateConversationalAiReply(
+  userMessage: string,
+  contextNote?: string
+): Promise<string> {
+  const fallbackReply =
+    "สวัสดีครับ! ผมเป็น AI ผู้ช่วยร้านก๋วยเตี๋ยวครูตอม 🍜\n" +
+    'สามารถพิมพ์ "สรุป" เพื่อดูยอด, "ค่าหมูทั้งหมด", หรือพิมพ์ยอด เช่น "โอน 5000 สด 3000" เพื่อบันทึกบัญชีได้เลยครับ! (พิมพ์ "ช่วย" เพื่อดูคำสั่งทั้งหมด)';
+
+  if (!userMessage.trim()) return fallbackReply;
+
+  const timeoutMs = Math.max(getNaturalReplyTimeoutMs(), 4000);
+  try {
+    const client = getClient();
+    const userPrompt = contextNote
+      ? `บริบทเพิ่มเติม: ${contextNote}\nข้อความผู้ใช้: "${userMessage}"`
+      : `ข้อความผู้ใช้: "${userMessage}"`;
+
+    const result = await withReplyTimeout(
+      client.chat.completions.create({
+        model: ENV.GROQ_MODEL(),
+        messages: [
+          { role: "system", content: CONVERSATIONAL_AI_PROMPT },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: 0.7,
+        max_tokens: 512,
+      }),
+      timeoutMs
+    );
+    const text = stripMarkdownFences((result.choices?.[0]?.message?.content ?? "").trim());
+    if (!text || text.length < 5) return fallbackReply;
+    return text;
+  } catch (error) {
+    logger.warn("Conversational AI reply failed, using fallback", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return fallbackReply;
+  }
+}
+
