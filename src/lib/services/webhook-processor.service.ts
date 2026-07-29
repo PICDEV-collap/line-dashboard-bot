@@ -507,14 +507,23 @@ async function handleIntent(
         const missingPrompt = detectMissingPorkPricePrompt(saved);
         const addedItems = formatParsedDeltaItems(parsed);
         const useShort = shouldUseShortConfirmation(parsed, text);
-        let template = buildRecordConfirmation(saved, {
+        const template = buildRecordConfirmation(saved, {
           carryMeta,
           addedItems,
           mode: useShort ? "short" : "full",
         });
+        
+        let aiReply = await geminiReply(
+          text,
+          template,
+          useShort ? "record_saved_short" : "record_saved_full",
+          { record: saved, addedItems }
+        );
+        
         if (missingPrompt) {
-          template += missingPrompt.promptText;
+          aiReply += missingPrompt.promptText;
         }
+
         return {
           processed: {
             ...msg,
@@ -522,12 +531,7 @@ async function handleIntent(
             status: "completed",
             missingPrompt: missingPrompt ?? undefined,
           } as any,
-          replyMsg: await geminiReply(
-            text,
-            template,
-            useShort ? "record_saved_short" : "record_saved_full",
-            { record: saved, addedItems }
-          ),
+          replyMsg: aiReply,
         };
       }
 
@@ -634,19 +638,27 @@ async function processImageMessage(
             mode: useShort ? "short" : "full",
           });
 
+          const missingPrompt = detectMissingPorkPricePrompt(saved);
+          let aiReply = await geminiReply(
+            ocr.rawText,
+            template,
+            useShort ? "record_saved_short" : "record_saved_full",
+            { record: saved, addedItems }
+          );
+          
+          if (missingPrompt) {
+            aiReply += missingPrompt.promptText;
+          }
+
           return {
             processed: {
               ...msg,
               content: `[IMAGE→FINANCIAL] ${ocr.rawText.slice(0, 200)}`,
               imageUrl: uploadLink || undefined,
               status: "completed",
-            },
-            replyMsg: await geminiReply(
-              ocr.rawText,
-              template,
-              useShort ? "record_saved_short" : "record_saved_full",
-              { record: saved, addedItems }
-            ),
+              missingPrompt: missingPrompt ?? undefined,
+            } as any,
+            replyMsg: aiReply,
           };
         }
       } catch (err) {
