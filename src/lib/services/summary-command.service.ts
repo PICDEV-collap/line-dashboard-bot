@@ -4,6 +4,7 @@ import type { FinancialRecord, PorkBreakdown } from "@/lib/types/financial.types
 import {
   getCarriedPorkPrices,
   getCarriedPorkQuantities,
+  getRecordByShopDate,
   type CarriedPorkQuantities,
 } from "@/lib/services/financial-records.service";
 import { PORK_QUERY_RE, looksLikePorkQuery as lexiconLooksLikePorkQuery } from "@/lib/thai/lexicon";
@@ -95,23 +96,99 @@ function porkLine(
 }
 
 /** Build read-only pork total reply (from saved record or carried-forward preview). */
+export async function buildAllBranchesPorkSummary(
+  date: string,
+  today: string = getTodayDateString()
+): Promise<string> {
+  const branches = getAllBranchShops();
+  const baht = (n: number) => `฿${n.toLocaleString("th-TH")}`;
+  const lines: string[] = [`🥩 ค่าหมูรวมทุกสาขา`];
+  if (date !== today) {
+    lines.push(`📅 ${describeRecordDate(date, today)} (${date})`);
+  }
+  lines.push("");
+
+  let grandTotal = 0;
+  let hasAnyData = false;
+
+  for (const branch of branches) {
+    const record = await getRecordByShopDate(branch.shopId, date);
+    let pb = record?.porkBreakdown;
+    let source: "record" | "carried" | null = porkHasData(pb) ? "record" : null;
+
+    if (!source) {
+      const [qty, prices] = await Promise.all([
+        getCarriedPorkQuantities(branch.shopId, date),
+        getCarriedPorkPrices(branch.shopId, date),
+      ]);
+      const projected = buildProjectedPorkBreakdown(qty, prices);
+      if (porkHasData(projected)) {
+        pb = projected;
+        source = "carried";
+      }
+    }
+
+    const shopNameLabel = branch.shopId === "shop2" ? "🏪 สายหนองปิง" : "🏪 ตลาดญี่ปุ่น";
+    lines.push(shopNameLabel);
+
+    if (!pb || !porkHasData(pb)) {
+      lines.push("  ❌ ยังไม่มีข้อมูลค่าหมู");
+    } else {
+      hasAnyData = true;
+      for (const row of [
+        porkLine("🔴", "หมูแดง", pb.redQty, pb.redPrice, pb.redTotal, baht),
+        porkLine("🟠", "หมูสับ", pb.mincedQty, pb.mincedPrice, pb.mincedTotal, baht),
+        porkLine("🟡", "มันหมู", pb.fatQty, pb.fatPrice, pb.fatTotal, baht),
+      ]) {
+        if (row) lines.push(row);
+      }
+      lines.push(`  💰 รวม (${branch.shopId === "shop2" ? "หนองปิง" : "ตลาดญี่ปุ่น"}): ${baht(pb.total)}`);
+      if (source === "carried") {
+        lines.push("  📎 (อ้างอิงจากวันก่อน)");
+      }
+      grandTotal += pb.total;
+    }
+    lines.push("");
+  }
+
+  if (!hasAnyData) {
+    const tag = describeRecordDate(date, today);
+    return (
+      `❌ ยังไม่มีข้อมูลค่าหมูในทุกสาขา${tag === date ? ` วันที่ ${date}` : ` (${tag})`}\n\n` +
+      `💬 ส่งยอดหมู เช่น "แดง4 สับ3" เพื่อเริ่มบันทึก`
+    );
+  }
+
+  lines.push(`📊 รวมค่าหมูทุกสาขา: ${baht(grandTotal)}`);
+  lines.push('\n💬 "สรุปหมู ญี่ปุ่น" · "สรุปหมู หนองปิง" · "สรุป" ดูยอดรวม');
+  return lines.join("\n");
+}
+
+/** Build read-only pork total reply (from saved record or carried-forward preview). */
 export async function buildPorkTotalSummary(input: {
   intent: PorkSummaryIntent;
-  record: FinancialRecord | null;
+  record?: FinancialRecord | null;
   today?: string;
 }): Promise<string> {
   const today = input.today ?? getTodayDateString();
-  const { intent, record } = input;
+  const { intent } = input;
+
+  if (intent.type === "all_branches" || intent.shopId === "all") {
+    return buildAllBranchesPorkSummary(intent.date, today);
+  }
+
+  const shopId = intent.shopId || ENV.DEFAULT_SHOP_ID();
+  const record = input.record ?? (await getRecordByShopDate(shopId, intent.date));
   const baht = (n: number) => `฿${n.toLocaleString("th-TH")}`;
-  const shopLabel = intent.shopId === "shop2" ? "🏪 สายหนองปิง" : "🏪 ตลาดญี่ปุ่น";
+  const shopLabel = shopId === "shop2" ? "🏪 สายหนองปิง" : "🏪 ตลาดญี่ปุ่น";
 
   let pb = record?.porkBreakdown;
   let source: "record" | "carried" | null = porkHasData(pb) ? "record" : null;
 
   if (!source) {
     const [qty, prices] = await Promise.all([
-      getCarriedPorkQuantities(intent.shopId, intent.date),
-      getCarriedPorkPrices(intent.shopId, intent.date),
+      getCarriedPorkQuantities(shopId, intent.date),
+      getCarriedPorkPrices(shopId, intent.date),
     ]);
     const projected = buildProjectedPorkBreakdown(qty, prices);
     if (porkHasData(projected)) {
@@ -152,7 +229,7 @@ export async function buildPorkTotalSummary(input: {
     lines.push(`📊 ยอดวันนั้น: ค่าใช้จ่ายรวม ${baht(record!.expense)} · กำไร ${record!.profit >= 0 ? "+" : ""}${baht(record!.profit)}`);
   }
 
-  lines.push('\n💬 "สรุป" ดูยอดทั้งหมด · "ช่วย" คำสั่งทั้งหมด');
+  lines.push('\n💬 "สรุปหมู ทุกสาขา" · "สรุป" ดูยอดทั้งหมด · "ช่วย" คำสั่งทั้งหมด');
   return lines.join("\n");
 }
 

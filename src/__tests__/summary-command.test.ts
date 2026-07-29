@@ -100,15 +100,23 @@ describe("summary-command.service", () => {
 
   it("parses pork total query (read-only)", () => {
     expect(parsePorkSummaryIntent("หนองปลิง รวมค่าหมู", today)).toEqual({
+      type: "single_shop",
       date: today,
       shopId: "shop2",
       shopName: "ก๋วยเตี๋ยวไทยครูตอมสายหนองปิง",
     });
     const tomorrow = resolveRecordDateFromText("พรุ่งนี้", today)!;
     expect(parsePorkSummaryIntent("หนองปลิง ค่าหมูทั้งหมด พรุ่งนี้", today)).toEqual({
+      type: "single_shop",
       date: tomorrow,
       shopId: "shop2",
       shopName: "ก๋วยเตี๋ยวไทยครูตอมสายหนองปิง",
+    });
+    expect(parsePorkSummaryIntent("สรุปหมู", today)).toEqual({
+      type: "all_branches",
+      date: today,
+      shopId: "all",
+      shopName: "ทุกสาขา",
     });
     expect(parsePorkSummaryIntent("โอน 5000", today)).toBeNull();
   });

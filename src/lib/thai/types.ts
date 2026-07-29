@@ -3,11 +3,10 @@ export type SummaryIntent =
   | { type: "single_shop"; date: string; shopId: string; shopName: string }
   | { type: "default_shop"; date: string; shopId: string; shopName: string };
 
-export interface PorkSummaryIntent {
-  date: string;
-  shopId: string;
-  shopName: string;
-}
+export type PorkSummaryIntent =
+  | { type: "all_branches"; date: string; shopId: string; shopName: string }
+  | { type: "single_shop"; date: string; shopId: string; shopName: string }
+  | { type: "default_shop"; date: string; shopId: string; shopName: string };
 
 export interface ReportSummaryIntent {
   period: "month" | "year";

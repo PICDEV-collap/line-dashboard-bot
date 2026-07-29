@@ -447,7 +447,10 @@ async function handleIntent(
     case "QUERY_PORK": {
       const porkSummary = intent.payload;
       try {
-        const record = await getRecordByShopDate(porkSummary.shopId, porkSummary.date);
+        const record =
+          porkSummary.type === "all_branches" || porkSummary.shopId === "all"
+            ? null
+            : await getRecordByShopDate(porkSummary.shopId, porkSummary.date);
         const replyMsg = await buildPorkTotalSummary({ intent: porkSummary, record, today });
         return {
           processed: { ...msg, content: `[PORK QUERY] ${text.slice(0, 200)}`, status: "completed" },

@@ -158,14 +158,19 @@ function buildPorkIntent(text: string, today: string): PorkSummaryIntent | null 
   if (looksLikeFinancialSaveHeuristic(text)) return null;
   if (!messageHasMarker(segmentMessage(text, today), "pork_query")) return null;
 
-  const shop = detectShopFromText(text) ?? {
-    shopId: ENV.DEFAULT_SHOP_ID(),
-    shopName: ENV.DEFAULT_SHOP_NAME(),
-    matchedKeyword: "",
-  };
   const date = resolveRecordDateFromText(text, today) ?? today;
 
-  return { date, shopId: shop.shopId, shopName: shop.shopName };
+  if (ALL_BRANCHES_RE.test(text)) {
+    return { type: "all_branches", date, shopId: "all", shopName: "ทุกสาขา" };
+  }
+
+  const shop = detectShopFromText(text);
+  if (shop) {
+    return { type: "single_shop", date, shopId: shop.shopId, shopName: shop.shopName };
+  }
+
+  // Default when no shop specified: query all branches
+  return { type: "all_branches", date, shopId: "all", shopName: "ทุกสาขา" };
 }
 
 function isCorrectionMessage(msg: SegmentedMessage): boolean {
