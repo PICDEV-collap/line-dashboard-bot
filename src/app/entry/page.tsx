@@ -241,7 +241,7 @@ export default function EntryPage() {
   };
 
   return (
-    <div style={{ minHeight: "100vh", backgroundColor: "#0F172A", color: "#F8FAFC", fontFamily: "sans-serif" }}>
+    <div style={{ minHeight: "100vh", backgroundColor: "#0F172A", color: "#F8FAFC", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", overflowX: "hidden" }}>
       {/* Top Header */}
       <div
         style={{
@@ -259,7 +259,7 @@ export default function EntryPage() {
         </p>
       </div>
 
-      <div style={{ maxWidth: "600px", margin: "0 auto", padding: "16px" }}>
+      <div style={{ maxWidth: "560px", width: "100%", margin: "0 auto", padding: "16px", boxSizing: "border-box" }}>
         {/* Status Toast */}
         {statusMessage && (
           <div
@@ -460,39 +460,83 @@ export default function EntryPage() {
                   ))}
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: "8px" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: "8px", width: "100%", boxSizing: "border-box" }}>
                   <input
                     type="text"
                     placeholder="ชื่อหัวข้อ (เช่น ยอด LINE MAN)"
                     value={deliveryTitle}
                     onChange={(e) => setDeliveryTitle(e.target.value)}
-                    style={{ padding: "8px 10px", borderRadius: "6px", backgroundColor: "#1E293B", color: "#FFF", border: "1px solid #475569", fontSize: "0.9rem" }}
+                    style={{
+                      width: "100%",
+                      minWidth: 0,
+                      boxSizing: "border-box",
+                      padding: "10px 12px",
+                      borderRadius: "8px",
+                      backgroundColor: "#1E293B",
+                      color: "#FFF",
+                      border: "1px solid #475569",
+                      fontSize: "0.9rem",
+                    }}
                   />
                   <input
                     type="number"
-                    placeholder="จำนวนเงิน"
+                    placeholder="จำนวนเงิน (฿)"
                     value={delivery}
                     onChange={(e) => setDelivery(e.target.value)}
-                    style={{ padding: "8px 10px", borderRadius: "6px", backgroundColor: "#1E293B", color: "#FFF", border: "1px solid #475569", fontSize: "0.9rem" }}
+                    style={{
+                      width: "100%",
+                      minWidth: 0,
+                      boxSizing: "border-box",
+                      padding: "10px 12px",
+                      borderRadius: "8px",
+                      backgroundColor: "#1E293B",
+                      color: "#FFF",
+                      border: "1px solid #475569",
+                      fontSize: "0.9rem",
+                    }}
                   />
                 </div>
               </div>
 
               {/* Extra Income Rows */}
               {extraIncome.length > 0 && (
-                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px", width: "100%", boxSizing: "border-box" }}>
                   {extraIncome.map((item, idx) => (
                     <div
                       key={idx}
-                      style={{ display: "flex", justifyContent: "space-between", alignItems: "center", backgroundColor: "#0F172A", padding: "6px 10px", borderRadius: "6px", fontSize: "0.85rem" }}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        backgroundColor: "#0F172A",
+                        padding: "8px 12px",
+                        borderRadius: "8px",
+                        fontSize: "0.85rem",
+                        border: "1px solid #334155",
+                        boxSizing: "border-box",
+                        width: "100%",
+                        minWidth: 0,
+                      }}
                     >
-                      <span>{item.name}: ฿{item.amount.toLocaleString()}</span>
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginRight: "8px" }}>
+                        💵 {item.name}: ฿{item.amount.toLocaleString()}
+                      </span>
                       <button
                         type="button"
                         onClick={() => handleRemoveExtraIncome(idx)}
-                        style={{ color: "#EF4444", background: "none", border: "none", cursor: "pointer", fontWeight: "bold" }}
+                        style={{
+                          color: "#EF4444",
+                          backgroundColor: "rgba(239, 68, 68, 0.12)",
+                          border: "1px solid rgba(239, 68, 68, 0.25)",
+                          borderRadius: "6px",
+                          padding: "4px 8px",
+                          cursor: "pointer",
+                          fontWeight: "bold",
+                          fontSize: "0.75rem",
+                          flexShrink: 0,
+                        }}
                       >
-                        ✕
+                        ✕ ลบ
                       </button>
                     </div>
                   ))}
@@ -500,27 +544,76 @@ export default function EntryPage() {
               )}
 
               {/* Add More Extra Income */}
-              <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto", gap: "6px" }}>
-                <input
-                  type="text"
-                  placeholder="เพิ่มรายรับอื่น (เช่น ยอดคนละครึ่ง)"
-                  value={newIncomeName}
-                  onChange={(e) => setNewIncomeName(e.target.value)}
-                  style={{ padding: "6px 8px", borderRadius: "6px", backgroundColor: "#0F172A", color: "#FFF", border: "1px solid #475569", fontSize: "0.85rem" }}
-                />
-                <input
-                  type="number"
-                  placeholder="จำนวนเงิน"
-                  value={newIncomeAmount}
-                  onChange={(e) => setNewIncomeAmount(e.target.value)}
-                  style={{ padding: "6px 8px", borderRadius: "6px", backgroundColor: "#0F172A", color: "#FFF", border: "1px solid #475569", fontSize: "0.85rem" }}
-                />
+              <div
+                style={{
+                  backgroundColor: "#0F172A",
+                  padding: "12px",
+                  borderRadius: "10px",
+                  border: "1px dashed #334155",
+                  boxSizing: "border-box",
+                  width: "100%",
+                }}
+              >
+                <div style={{ fontSize: "0.8rem", color: "#94A3B8", marginBottom: "8px", fontWeight: "bold" }}>
+                  ➕ เพิ่มรายรับอื่น
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: "8px", marginBottom: "8px", width: "100%", boxSizing: "border-box" }}>
+                  <input
+                    type="text"
+                    placeholder="ชื่อรายรับ (เช่น คนละครึ่ง)"
+                    value={newIncomeName}
+                    onChange={(e) => setNewIncomeName(e.target.value)}
+                    style={{
+                      width: "100%",
+                      minWidth: 0,
+                      boxSizing: "border-box",
+                      padding: "8px 10px",
+                      borderRadius: "8px",
+                      backgroundColor: "#1E293B",
+                      color: "#FFF",
+                      border: "1px solid #475569",
+                      fontSize: "0.85rem",
+                    }}
+                  />
+                  <input
+                    type="number"
+                    placeholder="จำนวนเงิน (฿)"
+                    value={newIncomeAmount}
+                    onChange={(e) => setNewIncomeAmount(e.target.value)}
+                    style={{
+                      width: "100%",
+                      minWidth: 0,
+                      boxSizing: "border-box",
+                      padding: "8px 10px",
+                      borderRadius: "8px",
+                      backgroundColor: "#1E293B",
+                      color: "#FFF",
+                      border: "1px solid #475569",
+                      fontSize: "0.85rem",
+                    }}
+                  />
+                </div>
                 <button
                   type="button"
                   onClick={handleAddExtraIncome}
-                  style={{ padding: "6px 12px", backgroundColor: "#059669", color: "#FFF", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer", fontSize: "0.85rem" }}
+                  style={{
+                    width: "100%",
+                    padding: "8px",
+                    backgroundColor: "#059669",
+                    color: "#FFF",
+                    border: "none",
+                    borderRadius: "8px",
+                    fontWeight: "bold",
+                    cursor: "pointer",
+                    fontSize: "0.85rem",
+                    boxSizing: "border-box",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "6px",
+                  }}
                 >
-                  + เพิ่ม
+                  <span>➕</span> เพิ่มรายการรายรับนี้
                 </button>
               </div>
             </div>
@@ -701,52 +794,126 @@ export default function EntryPage() {
             </div>
 
             {/* Custom Extra Expenses */}
-            <div style={{ borderTop: "1px solid #334155", paddingTop: "12px", marginTop: "12px" }}>
-              <label style={{ display: "block", fontSize: "0.8rem", color: "#CBD5E1", marginBottom: "8px", fontWeight: "bold" }}>
+            <div style={{ borderTop: "1px solid #334155", paddingTop: "14px", marginTop: "14px", width: "100%", boxSizing: "border-box" }}>
+              <label style={{ display: "block", fontSize: "0.85rem", color: "#CBD5E1", marginBottom: "10px", fontWeight: "bold" }}>
                 ➕ รายจ่ายพิเศษ (ดึงจากล่าสุด / เพิ่มใหม่ได้ เช่น แม็คโคร)
               </label>
 
               {extraExpenses.length > 0 && (
-                <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginBottom: "10px" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginBottom: "12px", width: "100%", boxSizing: "border-box" }}>
                   {extraExpenses.map((item, idx) => (
                     <div
                       key={idx}
-                      style={{ display: "flex", justifyContent: "space-between", alignItems: "center", backgroundColor: "#0F172A", padding: "8px 12px", borderRadius: "6px", fontSize: "0.85rem" }}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        backgroundColor: "#0F172A",
+                        padding: "8px 12px",
+                        borderRadius: "8px",
+                        fontSize: "0.85rem",
+                        border: "1px solid #334155",
+                        boxSizing: "border-box",
+                        width: "100%",
+                        minWidth: 0,
+                      }}
                     >
-                      <span>🏷️ {item.name}: ฿{item.amount.toLocaleString()}</span>
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginRight: "8px" }}>
+                        🏷️ {item.name}: ฿{item.amount.toLocaleString()}
+                      </span>
                       <button
                         type="button"
                         onClick={() => handleRemoveExtraExpense(idx)}
-                        style={{ color: "#EF4444", background: "none", border: "none", cursor: "pointer", fontWeight: "bold", fontSize: "1rem" }}
+                        style={{
+                          color: "#EF4444",
+                          backgroundColor: "rgba(239, 68, 68, 0.12)",
+                          border: "1px solid rgba(239, 68, 68, 0.25)",
+                          borderRadius: "6px",
+                          padding: "4px 8px",
+                          cursor: "pointer",
+                          fontWeight: "bold",
+                          fontSize: "0.75rem",
+                          flexShrink: 0,
+                        }}
                       >
-                        ✕
+                        ✕ ลบ
                       </button>
                     </div>
                   ))}
                 </div>
               )}
 
-              <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto", gap: "6px" }}>
-                <input
-                  type="text"
-                  placeholder="ชื่อรายการ (เช่น แม็คโคร)"
-                  value={newExpenseName}
-                  onChange={(e) => setNewExpenseName(e.target.value)}
-                  style={{ padding: "8px 10px", borderRadius: "6px", backgroundColor: "#0F172A", color: "#FFF", border: "1px solid #475569", fontSize: "0.85rem" }}
-                />
-                <input
-                  type="number"
-                  placeholder="จำนวนเงิน"
-                  value={newExpenseAmount}
-                  onChange={(e) => setNewExpenseAmount(e.target.value)}
-                  style={{ padding: "8px 10px", borderRadius: "6px", backgroundColor: "#0F172A", color: "#FFF", border: "1px solid #475569", fontSize: "0.85rem" }}
-                />
+              {/* Add Extra Expense Form */}
+              <div
+                style={{
+                  backgroundColor: "#0F172A",
+                  padding: "12px",
+                  borderRadius: "10px",
+                  border: "1px dashed #475569",
+                  boxSizing: "border-box",
+                  width: "100%",
+                }}
+              >
+                <div style={{ fontSize: "0.8rem", color: "#94A3B8", marginBottom: "8px", fontWeight: "bold" }}>
+                  ➕ เพิ่มรายการรายจ่ายพิเศษใหม่
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: "8px", marginBottom: "8px", width: "100%", boxSizing: "border-box" }}>
+                  <input
+                    type="text"
+                    placeholder="ชื่อรายการ (เช่น แม็คโคร)"
+                    value={newExpenseName}
+                    onChange={(e) => setNewExpenseName(e.target.value)}
+                    style={{
+                      width: "100%",
+                      minWidth: 0,
+                      boxSizing: "border-box",
+                      padding: "10px 12px",
+                      borderRadius: "8px",
+                      backgroundColor: "#1E293B",
+                      color: "#FFF",
+                      border: "1px solid #475569",
+                      fontSize: "0.85rem",
+                    }}
+                  />
+                  <input
+                    type="number"
+                    placeholder="จำนวนเงิน (฿)"
+                    value={newExpenseAmount}
+                    onChange={(e) => setNewExpenseAmount(e.target.value)}
+                    style={{
+                      width: "100%",
+                      minWidth: 0,
+                      boxSizing: "border-box",
+                      padding: "10px 12px",
+                      borderRadius: "8px",
+                      backgroundColor: "#1E293B",
+                      color: "#FFF",
+                      border: "1px solid #475569",
+                      fontSize: "0.85rem",
+                    }}
+                  />
+                </div>
                 <button
                   type="button"
                   onClick={handleAddExtraExpense}
-                  style={{ padding: "8px 12px", backgroundColor: "#3B82F6", color: "#FFF", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer", fontSize: "0.85rem" }}
+                  style={{
+                    width: "100%",
+                    padding: "10px",
+                    backgroundColor: "#2563EB",
+                    color: "#FFF",
+                    border: "none",
+                    borderRadius: "8px",
+                    fontWeight: "bold",
+                    cursor: "pointer",
+                    fontSize: "0.9rem",
+                    boxSizing: "border-box",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "6px",
+                  }}
                 >
-                  เพิ่ม
+                  <span>➕</span> เพิ่มรายการรายจ่ายนี้
                 </button>
               </div>
             </div>
