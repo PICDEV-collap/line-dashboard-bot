@@ -3,6 +3,7 @@ import {
   buildDataEntryFlexCard,
   buildMainMenuFlexCard,
   buildSummaryBranchSelectorCard,
+  buildPorkDateSelectorCard,
 } from "@/lib/services/line-entry-form.service";
 import { routeLineMessage } from "@/lib/services/thai-intent-router.service";
 
@@ -66,6 +67,19 @@ describe("LINE Menu Redesign & Easy Data Entry (TDD)", () => {
       expect(jsonStr).toContain("สรุป ทั้งหมด");
       expect(jsonStr).toContain("สรุป ตลาดญี่ปุ่น");
       expect(jsonStr).toContain("สรุป สายหนองปิง");
+    });
+
+    it("generates Pork Date Selector Flex Card with date options", () => {
+      const card = buildPorkDateSelectorCard("2026-09-05");
+      expect(card.type).toBe("flex");
+      expect(card.altText).toContain("ยอดหมู");
+      expect(card.contents.type).toBe("bubble");
+
+      const jsonStr = JSON.stringify(card);
+      expect(jsonStr).toContain("ยอดหมูวันนี้");
+      expect(jsonStr).toContain("ยอดหมูเมื่อวาน");
+      expect(jsonStr).toContain("สรุปหมู วันนี้");
+      expect(jsonStr).toContain("สรุปหมู เมื่อวาน");
     });
   });
 

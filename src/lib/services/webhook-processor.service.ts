@@ -15,6 +15,7 @@ import {
   buildDataEntryFlexCard,
   buildMainMenuFlexCard,
   buildSummaryBranchSelectorCard,
+  buildPorkDateSelectorCard,
 } from "@/lib/services/line-entry-form.service";
 import { syncRichMenuToLine } from "@/lib/services/line-richmenu.service";
 import { appendMessage, appendOcrResult, updateDailyStats } from "@/lib/services/messages.service";
@@ -495,6 +496,21 @@ async function handleIntent(
 
     case "QUERY_PORK": {
       const porkSummary = intent.payload;
+      const explicitDate = resolveRecordDateFromText(text, today);
+
+      // When user taps "เช็คยอดหมู (เลือกวัน)" or asks generally without a date/shop:
+      if (!explicitDate && porkSummary.type === "all_branches") {
+        return {
+          processed: {
+            ...msg,
+            content: "[PORK_DATE_SELECTOR]",
+            status: "completed",
+            flexCard: buildPorkDateSelectorCard(today),
+          } as any,
+          replyMsg: "🥩 กรุณาเลือกวันที่ต้องการเช็คยอดหมูครับ",
+        };
+      }
+
       try {
         const record =
           porkSummary.type === "all_branches" || porkSummary.shopId === "all"

@@ -28,8 +28,12 @@ export function resolveRecordDateFromText(
   text: string,
   today: string = getTodayDateString()
 ): string | undefined {
+  const isoMatch = text.match(/\b(\d{4}-\d{2}-\d{2})\b/);
+  if (isoMatch) return isoMatch[1];
   if (/พรุ่งนี้/.test(text)) return shiftDateString(today, 1);
   if (/เมื่อวาน/.test(text)) return shiftDateString(today, -1);
+  if (/2\s*วันก่อน/.test(text)) return shiftDateString(today, -2);
+  if (/3\s*วันก่อน/.test(text)) return shiftDateString(today, -3);
   if (/วันนี้/.test(text)) return today;
   return undefined;
 }

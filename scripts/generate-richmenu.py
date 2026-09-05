@@ -25,8 +25,8 @@ def generate_rich_menu_image(output_path='public/richmenu.png'):
             'col': 1, 'row': 0
         },
         {
-            'title': 'เช็คยอดหมูประจำวัน',
-            'sub': 'หมูแดง • หมูสับ • มันหมู ทุกสาขา',
+            'title': 'เช็คยอดหมู (เลือกวัน)',
+            'sub': 'วันนี้ • เมื่อวาน • เลือกวันที่',
             'bg': '#7c2d12',
             'border': '#ea580c',
             'accent': '#fb923c',

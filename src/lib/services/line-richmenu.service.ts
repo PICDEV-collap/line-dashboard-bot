@@ -14,7 +14,7 @@ export function getRichMenuDefinition() {
   return {
     size: { width: 2500, height: 843 },
     selected: true,
-    name: "ร้านครูตอม Main Menu v6 (Large Font Grid)",
+    name: "ร้านครูตอม Main Menu v7 (Pork Date Selector)",
     chatBarText: "📌 เมนูร้านครูตอม",
     areas: [
       // Tile 1: 📝 กรอกรายรับ-รายจ่าย (Top Left)
@@ -27,10 +27,10 @@ export function getRichMenuDefinition() {
         bounds: { x: 1250, y: 0, width: 1250, height: 421 },
         action: { type: "message", label: "สรุปวันนี้", text: "สรุป" },
       },
-      // Tile 3: 🥩 เช็คหมู (Bottom Left)
+      // Tile 3: 🥩 เช็คยอดหมู (Bottom Left) -> Allows date selection
       {
         bounds: { x: 0, y: 421, width: 1250, height: 422 },
-        action: { type: "message", label: "เช็คหมู", text: "สรุปหมู" },
+        action: { type: "message", label: "เช็คยอดหมู", text: "เช็คหมู" },
       },
       // Tile 4: ❓ ช่วยเหลือ (Bottom Right)
       {

@@ -1,6 +1,4 @@
-/**
- * LINE Flex Message Templates for Data Entry Form & Main Navigation Menu.
- */
+import { formatDateThai, getTodayDateString, shiftDateString } from "@/lib/utils/helpers";
 
 export function buildDataEntryFlexCard(baseUrl: string = "") {
   const entryUrl = baseUrl ? `${baseUrl}/entry` : "/entry";
@@ -428,3 +426,203 @@ export function buildSummaryBranchSelectorCard(date: string = "") {
     },
   };
 }
+
+/**
+ * Interactive Flex Card to let user select a date when querying pork summary.
+ */
+export function buildPorkDateSelectorCard(today: string = getTodayDateString()) {
+  const yesterday = shiftDateString(today, -1);
+  const twoDaysAgo = shiftDateString(today, -2);
+
+  const todayLabel = formatDateThai(today);
+  const yesterdayLabel = formatDateThai(yesterday);
+  const twoDaysAgoLabel = formatDateThai(twoDaysAgo);
+
+  return {
+    type: "flex" as const,
+    altText: "🥩 เลือกดูยอดหมูตามวันที่",
+    contents: {
+      type: "bubble",
+      size: "mega",
+      header: {
+        type: "box",
+        layout: "vertical",
+        backgroundColor: "#7C2D12",
+        paddingAll: "16px",
+        contents: [
+          {
+            type: "text",
+            text: "🥩 เช็คยอดหมู ร้านครูตอม",
+            weight: "bold",
+            color: "#FFFFFF",
+            size: "lg",
+          },
+          {
+            type: "text",
+            text: "เลือกวันที่ต้องการดูยอดหมู (หมูแดง • หมูสับ • มันหมู)",
+            color: "#FED7AA",
+            size: "xs",
+            margin: "xs",
+          },
+        ],
+      },
+      body: {
+        type: "box",
+        layout: "vertical",
+        spacing: "md",
+        paddingAll: "16px",
+        contents: [
+          // Option 1: วันนี้
+          {
+            type: "box",
+            layout: "vertical",
+            backgroundColor: "#FFF7ED",
+            cornerRadius: "md",
+            paddingAll: "12px",
+            borderWidth: "1px",
+            borderColor: "#FDBA74",
+            action: {
+              type: "message",
+              label: "ยอดหมูวันนี้",
+              text: "สรุปหมู วันนี้",
+            },
+            contents: [
+              {
+                type: "text",
+                text: `📅 ยอดหมูวันนี้ (${todayLabel})`,
+                weight: "bold",
+                size: "sm",
+                color: "#9A3412",
+              },
+              {
+                type: "text",
+                text: "ดูยอดหมู กก. และราคาล่าสุดวันนี้ (รวมทุกสาขา)",
+                size: "xxs",
+                color: "#64748B",
+                margin: "xs",
+              },
+            ],
+          },
+          // Option 2: เมื่อวาน
+          {
+            type: "box",
+            layout: "vertical",
+            backgroundColor: "#F8FAFC",
+            cornerRadius: "md",
+            paddingAll: "12px",
+            borderWidth: "1px",
+            borderColor: "#CBD5E1",
+            action: {
+              type: "message",
+              label: "ยอดหมูเมื่อวาน",
+              text: "สรุปหมู เมื่อวาน",
+            },
+            contents: [
+              {
+                type: "text",
+                text: `📅 ยอดหมูเมื่อวาน (${yesterdayLabel})`,
+                weight: "bold",
+                size: "sm",
+                color: "#334155",
+              },
+              {
+                type: "text",
+                text: "ตรวจสอบข้อมูลการใช้หมูและต้นทุนเมื่อวาน",
+                size: "xxs",
+                color: "#64748B",
+                margin: "xs",
+              },
+            ],
+          },
+          // Option 3: ย้อนหลัง 2 วัน
+          {
+            type: "box",
+            layout: "vertical",
+            backgroundColor: "#F8FAFC",
+            cornerRadius: "md",
+            paddingAll: "12px",
+            borderWidth: "1px",
+            borderColor: "#CBD5E1",
+            action: {
+              type: "message",
+              label: "ยอดหมู 2 วันก่อน",
+              text: `สรุปหมู ${twoDaysAgo}`,
+            },
+            contents: [
+              {
+                type: "text",
+                text: `📅 ย้อนหลัง 2 วัน (${twoDaysAgoLabel})`,
+                weight: "bold",
+                size: "sm",
+                color: "#475569",
+              },
+              {
+                type: "text",
+                text: "ดูข้อมูลย้อนหลัง 2 วัน",
+                size: "xxs",
+                color: "#64748B",
+                margin: "xs",
+              },
+            ],
+          },
+          // Option 4: Quick Branch Buttons
+          {
+            type: "box",
+            layout: "horizontal",
+            spacing: "sm",
+            margin: "sm",
+            contents: [
+              {
+                type: "box",
+                layout: "vertical",
+                backgroundColor: "#0F766E",
+                cornerRadius: "md",
+                paddingAll: "10px",
+                alignItems: "center",
+                action: {
+                  type: "message",
+                  label: "หมู ตลาดญี่ปุ่น",
+                  text: "สรุปหมู ตลาดญี่ปุ่น วันนี้",
+                },
+                contents: [
+                  {
+                    type: "text",
+                    text: "🏪 ตลาดญี่ปุ่น",
+                    weight: "bold",
+                    size: "xs",
+                    color: "#FFFFFF",
+                    align: "center",
+                  },
+                ],
+              },
+              {
+                type: "box",
+                layout: "vertical",
+                backgroundColor: "#6B21A8",
+                cornerRadius: "md",
+                paddingAll: "10px",
+                alignItems: "center",
+                action: {
+                  type: "message",
+                  label: "หมู สายหนองปิง",
+                  text: "สรุปหมู สายหนองปิง วันนี้",
+                },
+                contents: [
+                  {
+                    type: "text",
+                    text: "🏪 สายหนองปิง",
+                    weight: "bold",
+                    size: "xs",
+                    color: "#FFFFFF",
+                    align: "center",
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    },
+  };
+}
+

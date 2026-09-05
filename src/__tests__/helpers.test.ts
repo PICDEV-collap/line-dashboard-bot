@@ -59,6 +59,8 @@ describe("helpers", () => {
     expect(resolveRecordDateFromText("หนองปิง\nพรุ่งนี้\nวัตถุดิบ 1120", today)).toBe("2026-06-16");
     expect(resolveRecordDateFromText("เมื่อวาน โอน 1000", today)).toBe("2026-06-14");
     expect(resolveRecordDateFromText("วันนี้ สด 500", today)).toBe("2026-06-15");
+    expect(resolveRecordDateFromText("สรุปหมู 2 วันก่อน", today)).toBe("2026-06-13");
+    expect(resolveRecordDateFromText("สรุปหมู 2026-06-10", today)).toBe("2026-06-10");
     expect(resolveRecordDateFromText("โอน 5000", today)).toBeUndefined();
   });
 
