@@ -11,33 +11,33 @@ def generate_rich_menu_image(output_path='public/richmenu.png'):
         {
             'title': 'กรอกรายรับ-รายจ่าย',
             'sub': 'เปิดตารางบันทึกยอดบนมือถือ',
-            'badge': 'ENTRY',
             'bg': '#064e3b',
-            'accent': '#10b981',
+            'border': '#10b981',
+            'accent': '#34d399',
             'col': 0, 'row': 0
         },
         {
             'title': 'สรุปวันนี้ (เลือกสาขา)',
-            'sub': 'รวมทุกสาขา / ตลาดญี่ปุ่น / สายหนองปิง',
-            'badge': 'SUMMARY',
+            'sub': 'รวมทุกสาขา • ตลาดญี่ปุ่น • สายหนองปิง',
             'bg': '#1e3a8a',
-            'accent': '#3b82f6',
+            'border': '#3b82f6',
+            'accent': '#60a5fa',
             'col': 1, 'row': 0
         },
         {
             'title': 'เช็คยอดหมูประจำวัน',
-            'sub': 'หมูแดง / หมูสับ / มันหมู ทุกสาขา',
-            'badge': 'PORK',
+            'sub': 'หมูแดง • หมูสับ • มันหมู ทุกสาขา',
             'bg': '#7c2d12',
-            'accent': '#ea580c',
+            'border': '#ea580c',
+            'accent': '#fb923c',
             'col': 0, 'row': 1
         },
         {
             'title': 'ช่วยเหลือ / คู่มือคำสั่ง',
-            'sub': 'ดูคำสั่งและวิธีใช้งานบอท',
-            'badge': 'HELP',
-            'bg': '#1f2937',
-            'accent': '#64748b',
+            'sub': 'ดูคำแนะนำและวิธีใช้งานบอท',
+            'bg': '#1e293b',
+            'border': '#64748b',
+            'accent': '#94a3b8',
             'col': 1, 'row': 1
         }
     ]
@@ -49,56 +49,59 @@ def generate_rich_menu_image(output_path='public/richmenu.png'):
     if not os.path.exists(font_path_bold):
         font_path_bold = 'C:/Windows/Fonts/tahomabd.ttf'
 
-    font_path_reg = 'C:/Windows/Fonts/LeelawUI.ttf'
-    if not os.path.exists(font_path_reg):
-        font_path_reg = 'C:/Windows/Fonts/tahoma.ttf'
-
-    f_badge = ImageFont.truetype(font_path_bold, 36)
-    f_title = ImageFont.truetype(font_path_bold, 70)
-    f_sub = ImageFont.truetype(font_path_reg, 38)
+    # Prominent headline typography fitting button frames
+    f_title = ImageFont.truetype(font_path_bold, 122)
+    f_sub = ImageFont.truetype(font_path_bold, 58)
 
     for t in tiles:
         x1 = col_x[t['col']]
         x2 = col_x[t['col'] + 1]
         y1 = row_y[t['row']]
         y2 = row_y[t['row'] + 1]
-        cx = (x1 + x2) // 2
 
-        # Tile background
-        draw.rectangle([x1, y1, x2, y2], fill=t['bg'], outline='#0f172a', width=6)
-        
-        # Accent top bar
-        draw.rectangle([x1, y1, x2, y1 + 10], fill=t['accent'])
+        # Inset padding to give clean button frames
+        pad_x = 12
+        pad_y = 10
+        bx1 = x1 + pad_x
+        bx2 = x2 - pad_x
+        by1 = y1 + pad_y
+        by2 = y2 - pad_y
+        cx = (bx1 + bx2) // 2
 
-        # 1. Badge
-        b_text = t['badge']
-        bbox_b = draw.textbbox((0, 0), b_text, font=f_badge)
-        bw = bbox_b[2] - bbox_b[0]
-        bh = bbox_b[3] - bbox_b[1]
-        by1 = y1 + 42
-        bx1 = cx - bw // 2 - 24
-        bx2 = cx + bw // 2 + 24
-        by2 = by1 + bh + 14
-        draw.rounded_rectangle([bx1, by1, bx2, by2], radius=10, fill='#0b0f19', outline=t['accent'], width=3)
-        draw.text((cx - bw // 2, by1 + 6), b_text, fill=t['accent'], font=f_badge)
+        # Draw button card with rounded corners and border
+        draw.rounded_rectangle([bx1, by1, bx2, by2], radius=24, fill=t['bg'], outline=t['border'], width=6)
 
-        # 2. Title
+        # Top accent highlight bar inside button card
+        draw.rounded_rectangle([bx1 + 20, by1 + 4, bx2 - 20, by1 + 10], radius=3, fill=t['accent'])
+
+        # Calculate bounding boxes
         bbox_t = draw.textbbox((0, 0), t['title'], font=f_title)
         tw = bbox_t[2] - bbox_t[0]
-        title_y = y1 + 165
-        draw.text((cx - tw // 2 + 2, title_y + 2), t['title'], fill='#000000', font=f_title)
-        draw.text((cx - tw // 2, title_y), t['title'], fill='#FFFFFF', font=f_title)
+        th = bbox_t[3] - bbox_t[1]
 
-        # 3. Subtitle
         bbox_s = draw.textbbox((0, 0), t['sub'], font=f_sub)
         sw = bbox_s[2] - bbox_s[0]
-        sub_y = y1 + 280
-        draw.text((cx - sw // 2 + 1, sub_y + 1), t['sub'], fill='#000000', font=f_sub)
-        draw.text((cx - sw // 2, sub_y), t['sub'], fill='#E2E8F0', font=f_sub)
+        sh = bbox_s[3] - bbox_s[1]
+
+        gap = 26
+        total_text_h = th + gap + sh
+
+        # Vertically center text in the button frame
+        start_y = by1 + (by2 - by1 - total_text_h) // 2 - 14
+        title_y = start_y
+        sub_y = title_y + th + gap
+
+        # Title with subtle shadow for contrast
+        draw.text((cx - tw // 2 + 3, title_y + 3), t['title'], fill='#000000', font=f_title)
+        draw.text((cx - tw // 2, title_y), t['title'], fill='#FFFFFF', font=f_title)
+
+        # Subtitle with subtle shadow for contrast
+        draw.text((cx - sw // 2 + 2, sub_y + 2), t['sub'], fill='#000000', font=f_sub)
+        draw.text((cx - sw // 2, sub_y), t['sub'], fill='#F1F5F9', font=f_sub)
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     img.save(output_path, 'PNG', optimize=True)
-    print(f"Generated 4-tile compact {output_path}: {img.size} ({os.path.getsize(output_path)} bytes)")
+    print(f"Generated large-font 4-tile {output_path}: {img.size} ({os.path.getsize(output_path)} bytes)")
 
 if __name__ == '__main__':
     generate_rich_menu_image()

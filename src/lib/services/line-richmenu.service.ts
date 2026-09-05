@@ -14,7 +14,7 @@ export function getRichMenuDefinition() {
   return {
     size: { width: 2500, height: 843 },
     selected: true,
-    name: "ร้านครูตอม Main Menu v5 (Branch Selector)",
+    name: "ร้านครูตอม Main Menu v6 (Large Font Grid)",
     chatBarText: "📌 เมนูร้านครูตอม",
     areas: [
       // Tile 1: 📝 กรอกรายรับ-รายจ่าย (Top Left)
