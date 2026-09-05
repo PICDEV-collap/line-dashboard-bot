@@ -431,10 +431,12 @@ export function buildSummaryBranchSelectorCard(date: string = "") {
  * Interactive Flex Card to let user select a date when querying pork summary.
  */
 export function buildPorkDateSelectorCard(today: string = getTodayDateString()) {
+  const tomorrow = shiftDateString(today, 1);
   const yesterday = shiftDateString(today, -1);
   const twoDaysAgo = shiftDateString(today, -2);
 
   const todayLabel = formatDateThai(today);
+  const tomorrowLabel = formatDateThai(tomorrow);
   const yesterdayLabel = formatDateThai(yesterday);
   const twoDaysAgoLabel = formatDateThai(twoDaysAgo);
 
@@ -503,7 +505,38 @@ export function buildPorkDateSelectorCard(today: string = getTodayDateString()) 
               },
             ],
           },
-          // Option 2: เมื่อวาน
+          // Option 2: พรุ่งนี้
+          {
+            type: "box",
+            layout: "vertical",
+            backgroundColor: "#EFF6FF",
+            cornerRadius: "md",
+            paddingAll: "12px",
+            borderWidth: "1px",
+            borderColor: "#93C5FD",
+            action: {
+              type: "message",
+              label: "ยอดหมูพรุ่งนี้",
+              text: "สรุปหมู พรุ่งนี้",
+            },
+            contents: [
+              {
+                type: "text",
+                text: `🔮 ยอดหมูพรุ่งนี้ (${tomorrowLabel})`,
+                weight: "bold",
+                size: "sm",
+                color: "#1D4ED8",
+              },
+              {
+                type: "text",
+                text: "ดูพรีวิวและราคาหมูสำหรับวันพรุ่งนี้",
+                size: "xxs",
+                color: "#64748B",
+                margin: "xs",
+              },
+            ],
+          },
+          // Option 3: เมื่อวาน
           {
             type: "box",
             layout: "vertical",
@@ -534,7 +567,7 @@ export function buildPorkDateSelectorCard(today: string = getTodayDateString()) 
               },
             ],
           },
-          // Option 3: ย้อนหลัง 2 วัน
+          // Option 4: ย้อนหลัง 2 วัน
           {
             type: "box",
             layout: "vertical",

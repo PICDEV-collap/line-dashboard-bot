@@ -26,7 +26,7 @@ def generate_rich_menu_image(output_path='public/richmenu.png'):
         },
         {
             'title': 'เช็คยอดหมู (เลือกวัน)',
-            'sub': 'วันนี้ • เมื่อวาน • เลือกวันที่',
+            'sub': 'วันนี้ • พรุ่งนี้ • เมื่อวาน',
             'bg': '#7c2d12',
             'border': '#ea580c',
             'accent': '#fb923c',

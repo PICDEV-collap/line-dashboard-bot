@@ -77,8 +77,10 @@ describe("LINE Menu Redesign & Easy Data Entry (TDD)", () => {
 
       const jsonStr = JSON.stringify(card);
       expect(jsonStr).toContain("ยอดหมูวันนี้");
+      expect(jsonStr).toContain("ยอดหมูพรุ่งนี้");
       expect(jsonStr).toContain("ยอดหมูเมื่อวาน");
       expect(jsonStr).toContain("สรุปหมู วันนี้");
+      expect(jsonStr).toContain("สรุปหมู พรุ่งนี้");
       expect(jsonStr).toContain("สรุปหมู เมื่อวาน");
     });
   });
