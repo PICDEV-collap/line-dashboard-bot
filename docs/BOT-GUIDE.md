@@ -254,6 +254,7 @@ Bot จะแจ้งในข้อความตอบกลับว่า�
 | `2301b60` | มิ.ย. 2569 | **Hybrid Gemini + regex** สำหรับหมู + Gemini fallback คำสั่งแก้ไข + smart command |
 | `f9cffbd` | มิ.ย. 2569 | Dashboard refresh เมื่อ focus หน้าต่าง + bypass cache |
 | `5da09c4` | มิ.ย. 2569 | Dashboard auto-refresh เมื่อ bot บันทึกข้อมูลใหม่ |
+| `feat` | ก.ย. 2569 | **Redesign แถบเมนู LINE (Rich Menu & Flex Card)** + เอา Quick Reply อัตโนมัติออก + **ตารางกรอกรายรับ-รายจ่าย (`/entry`)** คำนวณกำไรสดๆ |
 
 ### ปัญหาที่แก้แล้ว
 

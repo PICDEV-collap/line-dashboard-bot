@@ -220,6 +220,24 @@ export function classifyIntent(text: string, today: string = getTodayDateString(
     if (payload) return { kind: "QUERY_SUMMARY", payload };
   }
 
+  const normText = normalizeThaiMessage(raw).normalized;
+  const compactText = normText.replace(/\s+/g, "");
+
+  if (/^(?:เมนู|menu|แถบเมนู)$/i.test(compactText) || /^(?:เมนู|menu|แถบเมนู)$/i.test(normText)) {
+    return { kind: "MENU" };
+  }
+
+  if (
+    /^(?:กรอกข้อมูล|กรอกรายรับ|กรอกรายจ่าย|กรอกยอด|บันทึกยอด|ลงยอด|ลงรายจ่าย|ฟอร์ม|ตารางกรอกข้อมูล)$/i.test(
+      compactText
+    ) ||
+    /^(?:กรอกข้อมูล|กรอกรายรับ|กรอกรายจ่าย|กรอกยอด|บันทึกยอด|ลงยอด|ลงรายจ่าย|ฟอร์ม|ตารางกรอกข้อมูล)$/i.test(
+      normText
+    )
+  ) {
+    return { kind: "ENTRY_FORM" };
+  }
+
   if (looksLikeFinancialSaveHeuristic(raw)) {
     return { kind: "SAVE_FINANCIAL" };
   }

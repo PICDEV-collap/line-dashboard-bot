@@ -65,4 +65,7 @@ export type LineIntent =
   | { kind: "QUERY_REPORT"; payload: ReportSummaryIntent }
   | { kind: "CORRECTION"; normalizedText: string }
   | { kind: "SAVE_FINANCIAL" }
+  | { kind: "ENTRY_FORM" }
+  | { kind: "MENU" }
   | { kind: "UNKNOWN" };
+

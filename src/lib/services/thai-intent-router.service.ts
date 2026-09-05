@@ -21,7 +21,9 @@ export function looksLikeFinancialData(text: string): boolean {
     intent.kind === "QUERY_SUMMARY" ||
     intent.kind === "QUERY_REPORT" ||
     intent.kind === "HELP" ||
-    intent.kind === "CORRECTION"
+    intent.kind === "CORRECTION" ||
+    intent.kind === "ENTRY_FORM" ||
+    intent.kind === "MENU"
   ) {
     return false;
   }

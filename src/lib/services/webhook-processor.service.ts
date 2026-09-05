@@ -6,10 +6,12 @@ import {
   getMessageContent,
   getMessageContentWithType,
   replyText,
+  replyFlex,
   replyTextWithQuickReplies,
   pushText,
   buildSuccessReply,
 } from "@/lib/services/line.service";
+import { buildDataEntryFlexCard, buildMainMenuFlexCard } from "@/lib/services/line-entry-form.service";
 import { appendMessage, appendOcrResult, updateDailyStats } from "@/lib/services/messages.service";
 import { uploadImage, uploadPdf } from "@/lib/services/storage.service";
 import { extractTextFromImage, transcribeAudioMessage } from "@/lib/services/gemini.service";
@@ -172,8 +174,13 @@ async function processEvent(event: LineEvent, baseUrl = ""): Promise<void> {
     }
 
     if (event.replyToken) {
+      const flexCard = (processed as any).flexCard;
       const missingPrompt = (processed as any).missingPrompt;
-      if (missingPrompt?.quickReplies) {
+      if (flexCard) {
+        await replyFlex(event.replyToken, flexCard).catch((err) =>
+          logger.warn("Reply flex failed", err)
+        );
+      } else if (missingPrompt?.quickReplies) {
         await replyTextWithQuickReplies(
           event.replyToken,
           replyMsg,
@@ -376,6 +383,28 @@ async function handleIntent(
   const shop = detectShopFromText(text);
 
   switch (intent.kind) {
+    case "ENTRY_FORM":
+      return {
+        processed: {
+          ...msg,
+          content: "[ENTRY_FORM]",
+          status: "completed",
+          flexCard: buildDataEntryFlexCard(baseUrl),
+        } as any,
+        replyMsg: "📝 กรุณาเลือกรายการหรือเปิดตารางกรอกยอดบนมือถือครับ",
+      };
+
+    case "MENU":
+      return {
+        processed: {
+          ...msg,
+          content: "[MENU]",
+          status: "completed",
+          flexCard: buildMainMenuFlexCard(baseUrl),
+        } as any,
+        replyMsg: "📌 เมนูหลัก ร้านครูตอม",
+      };
+
     case "HELP":
       return {
         processed: { ...msg, content: "[HELP] correction", status: "completed" },

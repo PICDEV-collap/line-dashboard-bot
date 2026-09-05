@@ -64,21 +64,22 @@ export function KpiCards({ records }: KpiCardsProps) {
       style={{
         display: "grid",
         gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-        gap: 12,
-        marginBottom: 18,
+        gap: 14,
+        marginBottom: 20,
       }}
     >
       {cards.map((card, idx) => (
         <div
           key={idx}
           style={{
-            background: "#161b22",
-            border: "1px solid #2a3140",
-            borderRadius: 12,
-            padding: 16,
+            background: "linear-gradient(145deg, #181e28, #11151c)",
+            border: "1px solid rgba(42, 49, 64, 0.8)",
+            borderRadius: 14,
+            padding: "16px 18px",
             position: "relative",
             overflow: "hidden",
-            transition: "transform 0.2s",
+            boxShadow: "0 4px 20px rgba(0, 0, 0, 0.25)",
+            transition: "all 0.2s ease",
           }}
         >
           <div
@@ -91,22 +92,55 @@ export function KpiCards({ records }: KpiCardsProps) {
               background: card.accentGradient,
             }}
           />
-          <div style={{ fontSize: 20, marginBottom: 6 }}>{card.icon}</div>
-          <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 3 }}>
-            {card.title}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
+              marginBottom: 10,
+            }}
+          >
+            <div style={{ fontSize: 12, color: "#94a3b8", fontWeight: 500 }}>
+              {card.title}
+            </div>
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                background: "rgba(255, 255, 255, 0.04)",
+                border: "1px solid rgba(255, 255, 255, 0.06)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 16,
+              }}
+            >
+              {card.icon}
+            </div>
           </div>
           <div
             style={{
               fontFamily: "Chakra Petch, sans-serif",
-              fontSize: 22,
+              fontSize: 24,
               fontWeight: 700,
-              lineHeight: 1,
+              lineHeight: 1.1,
               color: card.color,
+              letterSpacing: "0.2px",
             }}
           >
             {card.value}
           </div>
-          <div style={{ fontSize: 10, color: "#64748b", marginTop: 4 }}>
+          <div
+            style={{
+              fontSize: 11,
+              color: "#64748b",
+              marginTop: 6,
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+            }}
+          >
             {card.sub}
           </div>
         </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import type { DashboardTab } from "./types";
 
 interface NavbarProps {
@@ -29,30 +30,31 @@ export function Navbar({
       <header
         style={{
           background:
-            "linear-gradient(135deg, #150800, #1e0d00 60%, #150800)",
-          borderBottom: "1px solid rgba(249, 115, 22, 0.3)",
-          padding: "14px 24px",
+            "linear-gradient(135deg, rgba(21, 8, 0, 0.95), rgba(30, 13, 0, 0.9) 60%, rgba(21, 8, 0, 0.95))",
+          backdropFilter: "blur(12px)",
+          borderBottom: "1px solid rgba(249, 115, 22, 0.25)",
+          padding: "12px 24px",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           position: "sticky",
           top: 0,
           zIndex: 200,
-          boxShadow: "0 2px 40px rgba(249, 115, 22, 0.15)",
+          boxShadow: "0 4px 30px rgba(0, 0, 0, 0.35)",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           <div
             style={{
-              width: 42,
-              height: 42,
-              borderRadius: 10,
-              background: "linear-gradient(135deg, #f97316, #c2410c)",
+              width: 44,
+              height: 44,
+              borderRadius: 12,
+              background: "linear-gradient(135deg, #f97316, #ea580c)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               fontSize: 22,
-              boxShadow: "0 0 20px rgba(249, 115, 22, 0.25)",
+              boxShadow: "0 0 20px rgba(249, 115, 22, 0.35)",
               flexShrink: 0,
             }}
           >
@@ -62,46 +64,74 @@ export function Navbar({
             <div
               style={{
                 fontFamily: "Chakra Petch, sans-serif",
-                fontSize: 17,
+                fontSize: 18,
                 fontWeight: 700,
                 color: "#f97316",
+                letterSpacing: "0.3px",
               }}
             >
               ร้านครูตอม — Dashboard
             </div>
-            <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 1 }}>
-              Next.js 16 App Router · Connected to Supabase
+            <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>
+              ระบบรายงานการเงินและวิเคราะห์ธุรกิจ · LINE Automation
             </div>
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <Link
+            href="/entry"
+            target="_blank"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "7px 14px",
+              borderRadius: 8,
+              fontSize: 12,
+              fontWeight: 600,
+              textDecoration: "none",
+              border: "1px solid rgba(59, 130, 246, 0.4)",
+              background: "rgba(59, 130, 246, 0.15)",
+              color: "#60a5fa",
+              transition: "all 0.2s",
+            }}
+            title="เปิดตารางบันทึกรายได้-รายจ่าย (Mobile & Web Entry Form)"
+          >
+            <span>📝</span> ตารางกรอกยอด
+          </Link>
+
           <button
             onClick={onExportCsv}
             style={{
-              padding: "7px 14px",
-              borderRadius: 7,
+              padding: "7px 13px",
+              borderRadius: 8,
               fontSize: 12,
               fontWeight: 600,
               cursor: "pointer",
               border: "1px solid #374151",
-              background: "transparent",
+              background: "rgba(28, 33, 40, 0.8)",
               color: "#94a3b8",
+              transition: "all 0.2s",
             }}
+            title="ส่งออกข้อมูลเป็น CSV"
           >
             📥 CSV
           </button>
+
           <button
             onClick={onOpenAddModal}
             style={{
-              padding: "7px 14px",
-              borderRadius: 7,
+              padding: "7px 15px",
+              borderRadius: 8,
               fontSize: 12,
               fontWeight: 600,
               cursor: "pointer",
               border: "none",
               background: "linear-gradient(135deg, #f97316, #c2410c)",
               color: "#fff",
+              boxShadow: "0 2px 12px rgba(249, 115, 22, 0.4)",
+              transition: "all 0.2s",
             }}
           >
             ＋ เพิ่มข้อมูล

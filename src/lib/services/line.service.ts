@@ -115,14 +115,6 @@ export async function replyMessage(
 
   logger.info("Sending reply", { replyToken });
 
-  // Attach quick replies to the last message if not already specified
-  if (messages.length > 0) {
-    const lastMsg = messages[messages.length - 1];
-    if (!lastMsg.quickReply) {
-      lastMsg.quickReply = buildQuickReplyPayload();
-    }
-  }
-
   await withRetry(() =>
     lineRequest("/message/reply", {
       method: "POST",
@@ -133,6 +125,13 @@ export async function replyMessage(
 
 export async function replyText(replyToken: string, text: string): Promise<void> {
   await replyMessage(replyToken, [{ type: "text", text }]);
+}
+
+export async function replyFlex(
+  replyToken: string,
+  flexMessage: Record<string, any>
+): Promise<void> {
+  await replyMessage(replyToken, [flexMessage]);
 }
 
 export async function replyTextWithQuickReplies(
@@ -154,13 +153,6 @@ export async function pushMessage(
   }
 
   logger.info("Sending push message", { to });
-
-  if (messages.length > 0) {
-    const lastMsg = messages[messages.length - 1];
-    if (!lastMsg.quickReply) {
-      lastMsg.quickReply = buildQuickReplyPayload();
-    }
-  }
 
   await withRetry(() =>
     lineRequest("/message/push", {

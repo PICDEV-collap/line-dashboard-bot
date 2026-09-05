@@ -359,6 +359,66 @@ async function getCarriedDefaults(shopId: string, beforeDate: string) {
   };
 }
 
+/** Fetch latest pork prices and standard expenses for quick pre-filling */
+export async function getLatestBranchDefaults(shopId: string, targetDate: string) {
+  try {
+    const db = getSupabaseClient();
+
+    // 1. Existing record for this shop on targetDate
+    const { data: existingData } = await db
+      .from("financial_records")
+      .select("*")
+      .eq("shop_id", shopId)
+      .eq("date", targetDate)
+      .maybeSingle();
+
+    // 2. Fetch recent prior records
+    const { data: priorRows } = await db
+      .from("financial_records")
+      .select("*")
+      .eq("shop_id", shopId)
+      .lt("date", targetDate)
+      .order("date", { ascending: false })
+      .limit(10);
+
+    const carriedPork = await getCarriedPorkPrices(shopId, targetDate).catch(() => ({
+      redPrice: 130,
+      mincedPrice: 120,
+      fatPrice: 80,
+    }));
+
+    const mostRecent = (priorRows ?? [])[0] as Record<string, unknown> | undefined;
+
+    return {
+      existing: existingData ? rowToRecord(existingData as Record<string, unknown>) : null,
+      latestPorkPrices: {
+        redPrice: carriedPork.redPrice || 130,
+        mincedPrice: carriedPork.mincedPrice || 120,
+        fatPrice: carriedPork.fatPrice || 80,
+      },
+      latestExpenses: {
+        materials: Number(mostRecent?.materials ?? 0),
+        labor: Number(mostRecent?.labor ?? DEFAULT_EXPENSES.labor),
+        gas: Number(mostRecent?.gas ?? DEFAULT_EXPENSES.gas),
+        ice: Number(mostRecent?.ice ?? DEFAULT_EXPENSES.ice),
+        extraExpenses: Array.isArray(mostRecent?.extra_expenses) ? mostRecent.extra_expenses : [],
+      },
+    };
+  } catch (err) {
+    return {
+      existing: null,
+      latestPorkPrices: { redPrice: 130, mincedPrice: 120, fatPrice: 80 },
+      latestExpenses: {
+        materials: 0,
+        labor: DEFAULT_EXPENSES.labor,
+        gas: DEFAULT_EXPENSES.gas,
+        ice: DEFAULT_EXPENSES.ice,
+        extraExpenses: [],
+      },
+    };
+  }
+}
+
 export type { CarriedDefaultsNotice };
 
 function finalizePorkBreakdown(pb: PorkBreakdown): PorkBreakdown {

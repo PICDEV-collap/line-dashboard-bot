@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -16,6 +16,7 @@ import {
 } from "chart.js";
 import { Line, Doughnut, Bar } from "react-chartjs-2";
 import type { FinancialRecord, ExtraExpense } from "@/lib/types/financial.types";
+import { groupRecordsByWeek, groupRecordsByMonth } from "@/lib/utils/analytics-aggregator";
 
 ChartJS.register(
   CategoryScale,
@@ -35,20 +36,60 @@ interface FinancialChartsProps {
 }
 
 export function FinancialCharts({ records }: FinancialChartsProps) {
-  // Sort records chronologically
+  const [period, setPeriod] = useState<"daily" | "weekly" | "monthly">("daily");
+
+  // Daily records sorted
   const sortedRecords = [...records].sort((a, b) => a.date.localeCompare(b.date));
 
-  const labels = sortedRecords.map((r) => {
-    const parts = r.date.split("-");
-    if (parts.length === 3) {
-      return `${parseInt(parts[2])}/${parseInt(parts[1])}`;
-    }
-    return r.date;
-  });
+  // Weekly & Monthly aggregations
+  const weeklySummaries = groupRecordsByWeek(records);
+  const monthlySummaries = groupRecordsByMonth(records);
 
-  const revenues = sortedRecords.map((r) => r.revenue || 0);
-  const expenses = sortedRecords.map((r) => r.expense || 0);
-  const profits = sortedRecords.map((r) => r.profit ?? ((r.revenue || 0) - (r.expense || 0)));
+  // Determine active dataset according to selected period
+  let labels: string[] = [];
+  let revenues: number[] = [];
+  let expenses: number[] = [];
+  let profits: number[] = [];
+  let chartMainTitle = "รายรับ / ค่าใช้จ่าย / กำไรรายวัน";
+  let barMainTitle = "กำไรสุทธิรายวัน";
+
+  if (period === "weekly") {
+    labels = weeklySummaries.map((w) => w.label);
+    revenues = weeklySummaries.map((w) => w.revenue);
+    expenses = weeklySummaries.map((w) => w.expense);
+    profits = weeklySummaries.map((w) => w.profit);
+    chartMainTitle = `แนวโน้มรายสัปดาห์ (${weeklySummaries.length} สัปดาห์)`;
+    barMainTitle = "กำไรสุทธิรายสัปดาห์";
+  } else if (period === "monthly") {
+    labels = monthlySummaries.map((m) => m.label);
+    revenues = monthlySummaries.map((m) => m.revenue);
+    expenses = monthlySummaries.map((m) => m.expense);
+    profits = monthlySummaries.map((m) => m.profit);
+    chartMainTitle = `แนวโน้มรายเดือน (${monthlySummaries.length} เดือน)`;
+    barMainTitle = "กำไรสุทธิรายเดือน";
+  } else {
+    labels = sortedRecords.map((r) => {
+      const parts = r.date.split("-");
+      if (parts.length === 3) {
+        return `${parseInt(parts[2])}/${parseInt(parts[1])}`;
+      }
+      return r.date;
+    });
+    revenues = sortedRecords.map((r) => r.revenue || 0);
+    expenses = sortedRecords.map((r) => r.expense || 0);
+    profits = sortedRecords.map((r) => r.profit ?? ((r.revenue || 0) - (r.expense || 0)));
+    chartMainTitle = `แนวโน้มรายวัน (${sortedRecords.length} วัน)`;
+    barMainTitle = "กำไรสุทธิรายวัน";
+  }
+
+  // Summary calculations for period
+  const totalRevPeriod = revenues.reduce((s, v) => s + v, 0);
+  const totalExpPeriod = expenses.reduce((s, v) => s + v, 0);
+  const totalProfitPeriod = profits.reduce((s, v) => s + v, 0);
+  const avgProfitPeriod = profits.length > 0 ? Math.round(totalProfitPeriod / profits.length) : 0;
+  const maxProfitIndex = profits.length > 0 ? profits.indexOf(Math.max(...profits)) : -1;
+  const bestPeriodLabel = maxProfitIndex >= 0 ? labels[maxProfitIndex] : "-";
+  const bestProfitVal = maxProfitIndex >= 0 ? profits[maxProfitIndex] : 0;
 
   const lineData = {
     labels,
@@ -57,7 +98,7 @@ export function FinancialCharts({ records }: FinancialChartsProps) {
         label: "รายรับ (฿)",
         data: revenues,
         borderColor: "#3b82f6",
-        backgroundColor: "rgba(59, 130, 246, 0.1)",
+        backgroundColor: "rgba(59, 130, 246, 0.12)",
         fill: true,
         tension: 0.3,
       },
@@ -65,7 +106,7 @@ export function FinancialCharts({ records }: FinancialChartsProps) {
         label: "ค่าใช้จ่าย (฿)",
         data: expenses,
         borderColor: "#ef4444",
-        backgroundColor: "rgba(239, 68, 68, 0.05)",
+        backgroundColor: "rgba(239, 68, 68, 0.06)",
         fill: true,
         tension: 0.3,
       },
@@ -104,6 +145,38 @@ export function FinancialCharts({ records }: FinancialChartsProps) {
     },
   };
 
+  // Profit Bar Data
+  const profitBarColors = profits.map((p) => (p >= 0 ? "rgba(34, 197, 94, 0.75)" : "rgba(239, 68, 68, 0.75)"));
+  const barData = {
+    labels,
+    datasets: [
+      {
+        label: `${barMainTitle} (฿)`,
+        data: profits,
+        backgroundColor: profitBarColors,
+        borderRadius: 4,
+      },
+    ],
+  };
+
+  const barOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+    },
+    scales: {
+      x: {
+        ticks: { color: "#64748b", font: { family: "Chakra Petch", size: 10 } },
+        grid: { display: false },
+      },
+      y: {
+        ticks: { color: "#64748b", font: { family: "Chakra Petch", size: 10 } },
+        grid: { color: "#2a3140" },
+      },
+    },
+  };
+
   // Payment channel totals
   const totalTransfer = records.reduce((sum, r) => sum + (r.transfer || 0), 0);
   const totalCash = records.reduce((sum, r) => sum + (r.cash || 0), 0);
@@ -128,38 +201,6 @@ export function FinancialCharts({ records }: FinancialChartsProps) {
       legend: {
         position: "bottom" as const,
         labels: { color: "#94a3b8", font: { family: "Sarabun", size: 11 } },
-      },
-    },
-  };
-
-  // Profit Bar Data
-  const profitBarColors = profits.map((p) => (p >= 0 ? "rgba(34, 197, 94, 0.7)" : "rgba(239, 68, 68, 0.7)"));
-  const barData = {
-    labels,
-    datasets: [
-      {
-        label: "กำไรสุทธิรายวัน (฿)",
-        data: profits,
-        backgroundColor: profitBarColors,
-        borderRadius: 4,
-      },
-    ],
-  };
-
-  const barOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { display: false },
-    },
-    scales: {
-      x: {
-        ticks: { color: "#64748b", font: { family: "Chakra Petch", size: 10 } },
-        grid: { display: false },
-      },
-      y: {
-        ticks: { color: "#64748b", font: { family: "Chakra Petch", size: 10 } },
-        grid: { color: "#2a3140" },
       },
     },
   };
@@ -199,7 +240,7 @@ export function FinancialCharts({ records }: FinancialChartsProps) {
           marginBottom: 18,
         }}
       >
-        {/* Main Line Chart */}
+        {/* Main Line Chart with Period Selector */}
         <div
           style={{
             background: "#161b22",
@@ -211,27 +252,139 @@ export function FinancialCharts({ records }: FinancialChartsProps) {
         >
           <div
             style={{
-              fontFamily: "Chakra Petch, sans-serif",
-              fontSize: 13,
-              fontWeight: 600,
-              color: "#e2e8f0",
-              marginBottom: 14,
               display: "flex",
+              justifyContent: "space-between",
               alignItems: "center",
-              gap: 7,
+              flexWrap: "wrap",
+              gap: 10,
+              marginBottom: 14,
             }}
           >
-            <span
+            <div
               style={{
-                width: 6,
-                height: 6,
-                borderRadius: "50%",
-                background: "#f97316",
-                boxShadow: "0 0 6px #f97316",
+                fontFamily: "Chakra Petch, sans-serif",
+                fontSize: 14,
+                fontWeight: 600,
+                color: "#e2e8f0",
+                display: "flex",
+                alignItems: "center",
+                gap: 7,
               }}
-            />
-            รายรับ / ค่าใช้จ่าย / กำไรรายวัน
+            >
+              <span
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  background: "#f97316",
+                  boxShadow: "0 0 8px #f97316",
+                }}
+              />
+              {chartMainTitle}
+            </div>
+
+            {/* Period Selector Toggle */}
+            <div
+              style={{
+                display: "flex",
+                background: "#0d1117",
+                padding: 3,
+                borderRadius: 8,
+                border: "1px solid #2a3140",
+                gap: 4,
+              }}
+            >
+              <button
+                onClick={() => setPeriod("daily")}
+                style={{
+                  padding: "5px 12px",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  border: "none",
+                  borderRadius: 6,
+                  transition: "all 0.2s ease",
+                  background: period === "daily" ? "#f97316" : "transparent",
+                  color: period === "daily" ? "#ffffff" : "#94a3b8",
+                  boxShadow: period === "daily" ? "0 0 10px rgba(249,115,22,0.4)" : "none",
+                }}
+              >
+                📊 รายวัน
+              </button>
+              <button
+                onClick={() => setPeriod("weekly")}
+                style={{
+                  padding: "5px 12px",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  border: "none",
+                  borderRadius: 6,
+                  transition: "all 0.2s ease",
+                  background: period === "weekly" ? "#f97316" : "transparent",
+                  color: period === "weekly" ? "#ffffff" : "#94a3b8",
+                  boxShadow: period === "weekly" ? "0 0 10px rgba(249,115,22,0.4)" : "none",
+                }}
+              >
+                📅 รายสัปดาห์
+              </button>
+              <button
+                onClick={() => setPeriod("monthly")}
+                style={{
+                  padding: "5px 12px",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  border: "none",
+                  borderRadius: 6,
+                  transition: "all 0.2s ease",
+                  background: period === "monthly" ? "#f97316" : "transparent",
+                  color: period === "monthly" ? "#ffffff" : "#94a3b8",
+                  boxShadow: period === "monthly" ? "0 0 10px rgba(249,115,22,0.4)" : "none",
+                }}
+              >
+                📆 รายเดือน
+              </button>
+            </div>
           </div>
+
+          {/* Quick Metrics Bar for the Period */}
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 12,
+              marginBottom: 16,
+              padding: "8px 12px",
+              background: "rgba(13, 17, 23, 0.6)",
+              borderRadius: 8,
+              border: "1px solid rgba(42, 49, 64, 0.6)",
+              fontSize: 11,
+              color: "#94a3b8",
+            }}
+          >
+            <div>
+              ช่วงเวลาที่เลือก:{" "}
+              <span style={{ color: "#e2e8f0", fontWeight: 600, fontFamily: "Chakra Petch" }}>
+                {labels.length} ช่วง
+              </span>
+            </div>
+            <div style={{ color: "#374151" }}>|</div>
+            <div>
+              กำไรเฉลี่ย:{" "}
+              <span style={{ color: avgProfitPeriod >= 0 ? "#4ade80" : "#f87171", fontWeight: 600, fontFamily: "Chakra Petch" }}>
+                ฿{fmt(avgProfitPeriod)} / {period === "daily" ? "วัน" : period === "weekly" ? "สัปดาห์" : "เดือน"}
+              </span>
+            </div>
+            <div style={{ color: "#374151" }}>|</div>
+            <div>
+              ช่วงที่กำไรสูงสุด:{" "}
+              <span style={{ color: "#fbbf24", fontWeight: 600 }}>
+                {bestPeriodLabel} (฿{fmt(bestProfitVal)})
+              </span>
+            </div>
+          </div>
+
           <div style={{ height: 260, position: "relative" }}>
             <Line data={lineData} options={lineOptions} />
           </div>
@@ -397,7 +550,7 @@ export function FinancialCharts({ records }: FinancialChartsProps) {
                 boxShadow: "0 0 6px #f97316",
               }}
             />
-            กำไรสุทธิรายวัน
+            {barMainTitle}
           </div>
           <div style={{ height: 200, position: "relative" }}>
             <Bar data={barData} options={barOptions} />

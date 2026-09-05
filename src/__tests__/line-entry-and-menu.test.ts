@@ -1,0 +1,87 @@
+import { getRichMenuDefinition } from "@/lib/services/line-richmenu.service";
+import {
+  buildDataEntryFlexCard,
+  buildMainMenuFlexCard,
+} from "@/lib/services/line-entry-form.service";
+import { routeLineMessage } from "@/lib/services/thai-intent-router.service";
+
+describe("LINE Menu Redesign & Easy Data Entry (TDD)", () => {
+  describe("1. Rich Menu Definition", () => {
+    it("provides standard 6-grid tiles with proper labels and actions", () => {
+      const menu = getRichMenuDefinition();
+      expect(menu.size).toEqual({ width: 2500, height: 1686 });
+      expect(menu.areas.length).toBe(6);
+
+      // Tile 1: กรอกรายรับ-รายจ่าย
+      expect(menu.areas[0].action.label).toContain("กรอก");
+      // Tile 2: สรุปวันนี้
+      expect(menu.areas[1].action.label).toContain("สรุป");
+      // Tile 3: เช็คหมู
+      expect(menu.areas[2].action.label).toContain("หมู");
+      // Tile 4: ตลาดญี่ปุ่น
+      expect(menu.areas[3].action.label).toContain("ตลาดญี่ปุ่น");
+      // Tile 5: สายหนองปิง
+      expect(menu.areas[4].action.label).toContain("หนองปิง");
+      // Tile 6: ช่วยเหลือ / รายงาน
+      expect(menu.areas[5].action.label).toBeDefined();
+    });
+  });
+
+  describe("2. Interactive Flex Cards", () => {
+    it("generates Data Entry Flex Card with web form link and prefill actions", () => {
+      const baseUrl = "https://line-dashboard-bot.vercel.app";
+      const flex = buildDataEntryFlexCard(baseUrl);
+
+      expect(flex.type).toBe("flex");
+      expect(flex.altText).toContain("ตารางบันทึกรายรับ - รายจ่าย");
+      expect(flex.contents.type).toBe("bubble");
+
+      // Verify it includes a direct action or link to /entry
+      const jsonStr = JSON.stringify(flex);
+      expect(jsonStr).toContain("/entry");
+      expect(jsonStr).toContain("ตลาดญี่ปุ่น");
+      expect(jsonStr).toContain("สายหนองปิง");
+    });
+
+    it("generates Main Menu Flex Card with 6 primary navigation tiles", () => {
+      const baseUrl = "https://line-dashboard-bot.vercel.app";
+      const flex = buildMainMenuFlexCard(baseUrl);
+
+      expect(flex.type).toBe("flex");
+      expect(flex.altText).toContain("เมนูหลัก");
+      expect(flex.contents.type).toBe("bubble");
+
+      const jsonStr = JSON.stringify(flex);
+      expect(jsonStr).toContain("สรุปวันนี้");
+      expect(jsonStr).toContain("เช็คยอดหมู");
+    });
+  });
+
+  describe("3. Thai Intent Routing for Menu and Entry Form", () => {
+    const today = "2026-09-05";
+
+    it("routes entry form keywords to ENTRY_FORM intent", () => {
+      const phrases = [
+        "กรอกข้อมูล",
+        "กรอกรายรับ",
+        "กรอกรายจ่าย",
+        "บันทึกยอด",
+        "ลงยอด",
+        "ลงรายจ่าย",
+        "ฟอร์ม",
+      ];
+      for (const phrase of phrases) {
+        const res = routeLineMessage(phrase, today);
+        expect(res.kind).toBe("ENTRY_FORM");
+      }
+    });
+
+    it("routes menu keywords to MENU intent", () => {
+      const phrases = ["เมนู", "menu", "Menu", "แถบเมนู"];
+      for (const phrase of phrases) {
+        const res = routeLineMessage(phrase, today);
+        expect(res.kind).toBe("MENU");
+      }
+    });
+  });
+});

@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import type { FinancialRecord } from "@/lib/types/financial.types";
 import type { RecordFilterState } from "./types";
+import { exportRecordsToCsv, exportRecordsToExcel } from "@/lib/utils/export-records";
 
 interface RecordsTableProps {
   records: FinancialRecord[];
@@ -185,7 +186,45 @@ export function RecordsTable({
           </select>
         </div>
 
-        <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
+        <div style={{ display: "flex", gap: 8, marginLeft: "auto", flexWrap: "wrap" }}>
+          <button
+            onClick={() => exportRecordsToExcel(filteredRecords)}
+            disabled={filteredRecords.length === 0}
+            style={{
+              padding: "7px 13px",
+              borderRadius: 7,
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: filteredRecords.length === 0 ? "not-allowed" : "pointer",
+              border: "1px solid rgba(34, 197, 94, 0.4)",
+              background: "rgba(34, 197, 94, 0.15)",
+              color: "#4ade80",
+              opacity: filteredRecords.length === 0 ? 0.5 : 1,
+              transition: "all 0.2s",
+            }}
+            title="ส่งออกรายการที่กรองเป็นไฟล์ Excel (.xls)"
+          >
+            📥 ส่งออก Excel
+          </button>
+          <button
+            onClick={() => exportRecordsToCsv(filteredRecords)}
+            disabled={filteredRecords.length === 0}
+            style={{
+              padding: "7px 13px",
+              borderRadius: 7,
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: filteredRecords.length === 0 ? "not-allowed" : "pointer",
+              border: "1px solid #374151",
+              background: "#1c2128",
+              color: "#94a3b8",
+              opacity: filteredRecords.length === 0 ? 0.5 : 1,
+              transition: "all 0.2s",
+            }}
+            title="ส่งออกรายการที่กรองเป็นไฟล์ CSV (UTF-8 BOM รองรับภาษาไทย)"
+          >
+            📄 ส่งออก CSV
+          </button>
           <button
             onClick={onOpenAddModal}
             style={{
@@ -197,6 +236,7 @@ export function RecordsTable({
               border: "none",
               background: "#f97316",
               color: "#fff",
+              boxShadow: "0 0 10px rgba(249, 115, 22, 0.3)",
             }}
           >
             ＋ เพิ่ม
