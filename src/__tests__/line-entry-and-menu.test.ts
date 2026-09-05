@@ -9,7 +9,7 @@ describe("LINE Menu Redesign & Easy Data Entry (TDD)", () => {
   describe("1. Rich Menu Definition", () => {
     it("provides standard 6-grid tiles with proper labels and actions", () => {
       const menu = getRichMenuDefinition();
-      expect(menu.size).toEqual({ width: 2500, height: 1686 });
+      expect(menu.size).toEqual({ width: 2500, height: 843 });
       expect(menu.areas.length).toBe(6);
 
       // Tile 1: กรอกรายรับ-รายจ่าย

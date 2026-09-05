@@ -12,39 +12,39 @@ const logger = createLogger("LineRichMenuService");
  */
 export function getRichMenuDefinition() {
   return {
-    size: { width: 2500, height: 1686 },
+    size: { width: 2500, height: 843 },
     selected: true,
-    name: "ร้านครูตอม Main Menu v3",
+    name: "ร้านครูตอม Main Menu v4 (Compact)",
     chatBarText: "📌 เมนูร้านครูตอม",
     areas: [
-      // Tile 1: 📝 กรอกรายรับ-รายจ่าย (Top Left)
+      // Tile 1: 📝 กรอกรายรับ-รายจ่าย (Row 1, Left)
       {
-        bounds: { x: 0, y: 0, width: 833, height: 843 },
+        bounds: { x: 0, y: 0, width: 833, height: 421 },
         action: { type: "message", label: "กรอกรายรับ-รายจ่าย", text: "กรอกข้อมูล" },
       },
-      // Tile 2: 📊 สรุปวันนี้ (Top Middle)
+      // Tile 2: 📊 สรุปวันนี้ (Row 1, Middle)
       {
-        bounds: { x: 833, y: 0, width: 834, height: 843 },
+        bounds: { x: 833, y: 0, width: 834, height: 421 },
         action: { type: "message", label: "สรุปวันนี้", text: "สรุป" },
       },
-      // Tile 3: 🥩 เช็คหมู (Top Right)
+      // Tile 3: 🥩 เช็คหมู (Row 1, Right)
       {
-        bounds: { x: 1667, y: 0, width: 833, height: 843 },
+        bounds: { x: 1667, y: 0, width: 833, height: 421 },
         action: { type: "message", label: "เช็คหมู", text: "สรุปหมู" },
       },
-      // Tile 4: 🏪 สรุป ตลาดญี่ปุ่น (Bottom Left)
+      // Tile 4: 🏪 สรุป ตลาดญี่ปุ่น (Row 2, Left)
       {
-        bounds: { x: 0, y: 843, width: 833, height: 843 },
+        bounds: { x: 0, y: 421, width: 833, height: 422 },
         action: { type: "message", label: "สรุป ตลาดญี่ปุ่น", text: "สรุป ตลาดญี่ปุ่น" },
       },
-      // Tile 5: 🏪 สรุป สายหนองปิง (Bottom Middle)
+      // Tile 5: 🏪 สรุป สายหนองปิง (Row 2, Middle)
       {
-        bounds: { x: 833, y: 843, width: 834, height: 843 },
+        bounds: { x: 833, y: 421, width: 834, height: 422 },
         action: { type: "message", label: "สรุป สายหนองปิง", text: "สรุป สายหนองปิง" },
       },
-      // Tile 6: ❓ ช่วยเหลือ (Bottom Right)
+      // Tile 6: ❓ ช่วยเหลือ (Row 2, Right)
       {
-        bounds: { x: 1667, y: 843, width: 833, height: 843 },
+        bounds: { x: 1667, y: 421, width: 833, height: 422 },
         action: { type: "message", label: "ช่วยเหลือ", text: "ช่วย" },
       },
     ],
