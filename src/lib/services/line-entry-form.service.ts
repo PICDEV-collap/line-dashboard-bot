@@ -291,3 +291,140 @@ export function buildMainMenuFlexCard(baseUrl: string = "") {
     },
   };
 }
+
+/**
+ * Interactive Flex Card to let user select a branch when requesting a summary.
+ */
+export function buildSummaryBranchSelectorCard(date: string = "") {
+  return {
+    type: "flex" as const,
+    altText: "📊 เลือกดูสรุปยอดขายตามสาขา",
+    contents: {
+      type: "bubble",
+      size: "mega",
+      header: {
+        type: "box",
+        layout: "vertical",
+        backgroundColor: "#1E3A8A",
+        paddingAll: "16px",
+        contents: [
+          {
+            type: "text",
+            text: "📊 สรุปยอดขาย ร้านครูตอม",
+            weight: "bold",
+            color: "#FFFFFF",
+            size: "lg",
+          },
+          {
+            type: "text",
+            text: date ? `ประจำวันที่ ${date} • เลือกสาขาที่ต้องการดู` : "เลือกสาขาที่ต้องการดูสรุปยอดขาย",
+            color: "#BFDBFE",
+            size: "xs",
+            margin: "xs",
+          },
+        ],
+      },
+      body: {
+        type: "box",
+        layout: "vertical",
+        spacing: "md",
+        paddingAll: "16px",
+        contents: [
+          // Option 1: รวมทุกสาขา
+          {
+            type: "box",
+            layout: "vertical",
+            backgroundColor: "#EFF6FF",
+            cornerRadius: "md",
+            paddingAll: "12px",
+            borderWidth: "1px",
+            borderColor: "#BFDBFE",
+            action: {
+              type: "message",
+              label: "รวมทุกสาขา",
+              text: date ? `สรุป ทั้งหมด ${date}` : "สรุป ทั้งหมด",
+            },
+            contents: [
+              {
+                type: "text",
+                text: "🌐 สรุป รวมทุกสาขา",
+                weight: "bold",
+                size: "sm",
+                color: "#1E40AF",
+              },
+              {
+                type: "text",
+                text: "ดูภาพรวมยอดขาย กำไร และต้นทุนทุกสาขารวมกัน",
+                size: "xxs",
+                color: "#64748B",
+                margin: "xs",
+              },
+            ],
+          },
+          // Option 2: สาขา ตลาดญี่ปุ่น
+          {
+            type: "box",
+            layout: "vertical",
+            backgroundColor: "#F0FDFA",
+            cornerRadius: "md",
+            paddingAll: "12px",
+            borderWidth: "1px",
+            borderColor: "#99F6E4",
+            action: {
+              type: "message",
+              label: "ตลาดญี่ปุ่น",
+              text: date ? `สรุป ตลาดญี่ปุ่น ${date}` : "สรุป ตลาดญี่ปุ่น",
+            },
+            contents: [
+              {
+                type: "text",
+                text: "🏪 สาขา ตลาดญี่ปุ่น",
+                weight: "bold",
+                size: "sm",
+                color: "#0F766E",
+              },
+              {
+                type: "text",
+                text: "ดูยอดโอน เงินสด ยอดหมู และกำไรสาขาตลาดญี่ปุ่น",
+                size: "xxs",
+                color: "#64748B",
+                margin: "xs",
+              },
+            ],
+          },
+          // Option 3: สาขา สายหนองปิง
+          {
+            type: "box",
+            layout: "vertical",
+            backgroundColor: "#FAF5FF",
+            cornerRadius: "md",
+            paddingAll: "12px",
+            borderWidth: "1px",
+            borderColor: "#E9D5FF",
+            action: {
+              type: "message",
+              label: "สายหนองปิง",
+              text: date ? `สรุป สายหนองปิง ${date}` : "สรุป สายหนองปิง",
+            },
+            contents: [
+              {
+                type: "text",
+                text: "🏪 สาขา สายหนองปิง",
+                weight: "bold",
+                size: "sm",
+                color: "#6B21A8",
+              },
+              {
+                type: "text",
+                text: "ดูยอดโอน เงินสด ยอดหมู และกำไรสาขาสายหนองปิง",
+                size: "xxs",
+                color: "#64748B",
+                margin: "xs",
+              },
+            ],
+          },
+        ],
+      },
+    },
+  };
+}

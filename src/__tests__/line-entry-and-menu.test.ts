@@ -2,28 +2,25 @@ import { getRichMenuDefinition } from "@/lib/services/line-richmenu.service";
 import {
   buildDataEntryFlexCard,
   buildMainMenuFlexCard,
+  buildSummaryBranchSelectorCard,
 } from "@/lib/services/line-entry-form.service";
 import { routeLineMessage } from "@/lib/services/thai-intent-router.service";
 
 describe("LINE Menu Redesign & Easy Data Entry (TDD)", () => {
   describe("1. Rich Menu Definition", () => {
-    it("provides standard 6-grid tiles with proper labels and actions", () => {
+    it("provides standard 4-grid tiles with proper labels and actions", () => {
       const menu = getRichMenuDefinition();
       expect(menu.size).toEqual({ width: 2500, height: 843 });
-      expect(menu.areas.length).toBe(6);
+      expect(menu.areas.length).toBe(4);
 
-      // Tile 1: กรอกรายรับ-รายจ่าย
+      // Tile 1: กรอกรายรับ-รายจ่าย (Top-Left)
       expect(menu.areas[0].action.label).toContain("กรอก");
-      // Tile 2: สรุปวันนี้
+      // Tile 2: สรุปวันนี้ (Top-Right)
       expect(menu.areas[1].action.label).toContain("สรุป");
-      // Tile 3: เช็คหมู
+      // Tile 3: เช็คหมู (Bottom-Left)
       expect(menu.areas[2].action.label).toContain("หมู");
-      // Tile 4: ตลาดญี่ปุ่น
-      expect(menu.areas[3].action.label).toContain("ตลาดญี่ปุ่น");
-      // Tile 5: สายหนองปิง
-      expect(menu.areas[4].action.label).toContain("หนองปิง");
-      // Tile 6: ช่วยเหลือ / รายงาน
-      expect(menu.areas[5].action.label).toBeDefined();
+      // Tile 4: ช่วยเหลือ (Bottom-Right)
+      expect(menu.areas[3].action.label).toContain("ช่วย");
     });
   });
 
@@ -54,6 +51,21 @@ describe("LINE Menu Redesign & Easy Data Entry (TDD)", () => {
       const jsonStr = JSON.stringify(flex);
       expect(jsonStr).toContain("สรุปวันนี้");
       expect(jsonStr).toContain("เช็คยอดหมู");
+    });
+
+    it("generates Summary Branch Selector Flex Card with branch options", () => {
+      const card = buildSummaryBranchSelectorCard();
+      expect(card.type).toBe("flex");
+      expect(card.altText).toContain("สรุปยอดขาย");
+      expect(card.contents.type).toBe("bubble");
+
+      const jsonStr = JSON.stringify(card);
+      expect(jsonStr).toContain("รวมทุกสาขา");
+      expect(jsonStr).toContain("ตลาดญี่ปุ่น");
+      expect(jsonStr).toContain("สายหนองปิง");
+      expect(jsonStr).toContain("สรุป ทั้งหมด");
+      expect(jsonStr).toContain("สรุป ตลาดญี่ปุ่น");
+      expect(jsonStr).toContain("สรุป สายหนองปิง");
     });
   });
 

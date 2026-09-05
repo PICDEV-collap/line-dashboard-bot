@@ -38,10 +38,10 @@ describe("LINE Advanced Experience (Features 1-4)", () => {
   };
 
   describe("Feature 1: LINE Rich Menu Definition", () => {
-    it("returns valid Rich Menu JSON with 6 grid areas", () => {
+    it("returns valid Rich Menu JSON with 4 grid areas", () => {
       const menu = getRichMenuDefinition();
       expect(menu.size).toEqual({ width: 2500, height: 843 });
-      expect(menu.areas.length).toBe(6);
+      expect(menu.areas.length).toBe(4);
       expect(menu.name).toContain("ร้านครูตอม");
     });
   });

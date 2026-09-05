@@ -11,7 +11,11 @@ import {
   pushText,
   buildSuccessReply,
 } from "@/lib/services/line.service";
-import { buildDataEntryFlexCard, buildMainMenuFlexCard } from "@/lib/services/line-entry-form.service";
+import {
+  buildDataEntryFlexCard,
+  buildMainMenuFlexCard,
+  buildSummaryBranchSelectorCard,
+} from "@/lib/services/line-entry-form.service";
 import { syncRichMenuToLine } from "@/lib/services/line-richmenu.service";
 import { appendMessage, appendOcrResult, updateDailyStats } from "@/lib/services/messages.service";
 import { uploadImage, uploadPdf } from "@/lib/services/storage.service";
@@ -181,7 +185,7 @@ async function processEvent(event: LineEvent, baseUrl = ""): Promise<void> {
       const flexCard = (processed as any).flexCard;
       const missingPrompt = (processed as any).missingPrompt;
       if (flexCard) {
-        await replyFlex(event.replyToken, flexCard).catch((err) =>
+        await replyFlex(event.replyToken, flexCard).catch((err: unknown) =>
           logger.warn("Reply flex failed", err)
         );
       } else if (missingPrompt?.quickReplies) {
@@ -189,9 +193,9 @@ async function processEvent(event: LineEvent, baseUrl = ""): Promise<void> {
           event.replyToken,
           replyMsg,
           missingPrompt.quickReplies
-        ).catch((err) => logger.warn("Reply with quick replies failed", err));
+        ).catch((err: unknown) => logger.warn("Reply with quick replies failed", err));
       } else {
-        await replyText(event.replyToken, replyMsg).catch((err) =>
+        await replyText(event.replyToken, replyMsg).catch((err: unknown) =>
           logger.warn("Reply failed (non-critical)", err)
         );
       }
@@ -446,6 +450,18 @@ async function handleIntent(
         return {
           processed: { ...msg, content: "[SUMMARY] all branches", status: "completed" },
           replyMsg: await geminiReply(text, template, "all_branches_summary"),
+        };
+      }
+
+      if (summaryIntent.type === "default_shop") {
+        return {
+          processed: {
+            ...msg,
+            content: "[SUMMARY_BRANCH_SELECTOR]",
+            status: "completed",
+            flexCard: buildSummaryBranchSelectorCard(summaryIntent.date),
+          } as any,
+          replyMsg: "📊 กรุณาเลือกสาขาที่ต้องการดูสรุปยอดขายครับ",
         };
       }
 
