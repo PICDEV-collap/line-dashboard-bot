@@ -12,6 +12,7 @@ import {
   buildSuccessReply,
 } from "@/lib/services/line.service";
 import { buildDataEntryFlexCard, buildMainMenuFlexCard } from "@/lib/services/line-entry-form.service";
+import { syncRichMenuToLine } from "@/lib/services/line-richmenu.service";
 import { appendMessage, appendOcrResult, updateDailyStats } from "@/lib/services/messages.service";
 import { uploadImage, uploadPdf } from "@/lib/services/storage.service";
 import { extractTextFromImage, transcribeAudioMessage } from "@/lib/services/gemini.service";
@@ -130,6 +131,9 @@ async function processEvent(event: LineEvent, baseUrl = ""): Promise<void> {
   try {
     switch (messageType) {
       case "text": {
+        if (userId) {
+          syncRichMenuToLine(userId).catch(() => {});
+        }
         const result = await processTextMessage(processed, event, baseUrl);
         processed = result.processed;
         replyMsg = result.replyMsg;
