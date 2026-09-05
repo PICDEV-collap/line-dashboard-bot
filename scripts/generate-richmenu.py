@@ -60,43 +60,68 @@ def generate_rich_menu_image(output_path='public/richmenu.png'):
         }
     ]
 
-    font_path_bold = 'C:/Windows/Fonts/tahomabd.ttf'
-    font_path_reg = 'C:/Windows/Fonts/tahoma.ttf'
+    # Use Leelawadee UI Bold for beautiful Thai typography, fallback to Tahoma Bold
+    font_path_bold = 'C:/Windows/Fonts/LeelaUIb.ttf'
+    if not os.path.exists(font_path_bold):
+        font_path_bold = 'C:/Windows/Fonts/tahomabd.ttf'
 
-    font_badge = ImageFont.truetype(font_path_bold, 36) if os.path.exists(font_path_bold) else ImageFont.load_default()
-    font_bold = ImageFont.truetype(font_path_bold, 66) if os.path.exists(font_path_bold) else ImageFont.load_default()
-    font_sub = ImageFont.truetype(font_path_reg, 40) if os.path.exists(font_path_reg) else ImageFont.load_default()
+    font_path_reg = 'C:/Windows/Fonts/LeelawUI.ttf'
+    if not os.path.exists(font_path_reg):
+        font_path_reg = 'C:/Windows/Fonts/tahoma.ttf'
+
+    # Enlarged badge & subtitle fonts
+    font_badge = ImageFont.truetype(font_path_bold, 52)
+    font_sub = ImageFont.truetype(font_path_bold, 56)
 
     for t in tiles:
-        # Tile background
-        draw.rectangle([t['x1'], t['y1'], t['x2'], t['y2']], fill=t['bg_grad'], outline='#1e293b', width=6)
-        # Accent top bar
-        draw.rectangle([t['x1'], t['y1'], t['x2'], t['y1'] + 14], fill=t['accent'])
-        
+        tile_w = t['x2'] - t['x1']
+        tile_h = t['y2'] - t['y1']
         cx = (t['x1'] + t['x2']) // 2
         cy = (t['y1'] + t['y2']) // 2
+
+        # Tile background
+        draw.rectangle([t['x1'], t['y1'], t['x2'], t['y2']], fill=t['bg_grad'], outline='#0f172a', width=6)
         
-        # Badge
+        # Accent top bar (thicker)
+        draw.rectangle([t['x1'], t['y1'], t['x2'], t['y1'] + 20], fill=t['accent'])
+        
+        # 1. Badge (Larger and prominent)
         badge_text = t['badge']
         bbox_b = draw.textbbox((0, 0), badge_text, font=font_badge)
         bw = bbox_b[2] - bbox_b[0]
         bh = bbox_b[3] - bbox_b[1]
-        bx1 = cx - bw // 2 - 20
-        by1 = cy - 150
-        bx2 = cx + bw // 2 + 20
-        by2 = by1 + bh + 16
-        draw.rounded_rectangle([bx1, by1, bx2, by2], radius=12, fill='#0b0f19', outline=t['accent'], width=3)
-        draw.text((cx - bw // 2, by1 + 6), badge_text, fill=t['accent'], font=font_badge)
+        bx1 = cx - bw // 2 - 28
+        by1 = cy - 210
+        bx2 = cx + bw // 2 + 28
+        by2 = by1 + bh + 20
+        draw.rounded_rectangle([bx1, by1, bx2, by2], radius=16, fill='#0b0f19', outline=t['accent'], width=4)
+        draw.text((cx - bw // 2, by1 + 8), badge_text, fill=t['accent'], font=font_badge)
 
-        # Title
-        bbox_t = draw.textbbox((0, 0), t['title'], font=font_bold)
+        # 2. Title (Dynamically maximized to be as big as possible)
+        target_size = 96
+        title_font = ImageFont.truetype(font_path_bold, target_size)
+        bbox_t = draw.textbbox((0, 0), t['title'], font=title_font)
         tw = bbox_t[2] - bbox_t[0]
-        draw.text((cx - tw // 2, cy - 20), t['title'], fill='#ffffff', font=font_bold)
+
+        # Auto shrink slightly if title is too wide for the tile margin
+        while tw > (tile_w - 70) and target_size > 76:
+            target_size -= 2
+            title_font = ImageFont.truetype(font_path_bold, target_size)
+            bbox_t = draw.textbbox((0, 0), t['title'], font=title_font)
+            tw = bbox_t[2] - bbox_t[0]
+
+        th = bbox_t[3] - bbox_t[1]
+        title_y = cy - 35
+        # Draw subtle drop-shadow for crisp readability
+        draw.text((cx - tw // 2 + 2, title_y + 2), t['title'], fill='#000000', font=title_font)
+        draw.text((cx - tw // 2, title_y), t['title'], fill='#FFFFFF', font=title_font)
         
-        # Subtitle
+        # 3. Subtitle (Larger, high-contrast off-white)
         bbox_s = draw.textbbox((0, 0), t['sub'], font=font_sub)
         sw = bbox_s[2] - bbox_s[0]
-        draw.text((cx - sw // 2, cy + 75), t['sub'], fill='#cbd5e1', font=font_sub)
+        sub_y = cy + 105
+        draw.text((cx - sw // 2 + 1, sub_y + 1), t['sub'], fill='#000000', font=font_sub)
+        draw.text((cx - sw // 2, sub_y), t['sub'], fill='#F8FAFC', font=font_sub)
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     img.save(output_path, 'PNG', optimize=True)
