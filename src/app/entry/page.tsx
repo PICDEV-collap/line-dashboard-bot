@@ -7,6 +7,14 @@ interface ExtraItem {
   amount: number;
 }
 
+function isDeliveryChannelName(name: string): boolean {
+  const n = name.trim();
+  return (
+    /^(?:line\s*man|lineman|ไลน์\s*แมน|grab|แกร็บ|robinhood|โรบินฮู้ด|shopee\s*food|shopeefood|ช้อปปี้ฟู้ด|foodpanda|ฟู้ดแพนด้า|delivery|เดลิเวอรี่|เดลิเวอรี)$/i.test(n) ||
+    /^(?:ได้|รับ|รายรับ)?\s*(?:line\s*man|lineman|ไลน์\s*แมน|grab|แกร็บ|robinhood|โรบินฮู้ด|shopee\s*food|shopeefood|ช้อปปี้ฟู้ด|foodpanda|ฟู้ดแพนด้า|delivery|เดลิเวอรี่|เดลิเวอรี)$/i.test(n)
+  );
+}
+
 const DELIVERY_PRESETS = ["LINE MAN", "คนละครึ่ง", "Robinhood", "Grab", "Delivery"];
 
 export default function EntryPage() {
@@ -83,7 +91,9 @@ export default function EntryPage() {
           setGas(existing.gas ? String(existing.gas) : "");
           setIce(existing.ice ? String(existing.ice) : "");
           if (existing.extraExpenses?.length) setExtraExpenses(existing.extraExpenses);
-          if (existing.extraIncome?.length) setExtraIncome(existing.extraIncome);
+          if (existing.extraIncome?.length) {
+            setExtraIncome(existing.extraIncome.filter((item: ExtraItem) => !isDeliveryChannelName(item.name)));
+          }
           if (existing.porkBreakdown) {
             setRedQty(existing.porkBreakdown.redQty ? String(existing.porkBreakdown.redQty) : "");
             setMincedQty(existing.porkBreakdown.mincedQty ? String(existing.porkBreakdown.mincedQty) : "");
@@ -176,10 +186,7 @@ export default function EntryPage() {
     setStatusMessage(null);
 
     const deliveryAmount = parseFloat(delivery) || 0;
-    const combinedExtraIncome = [...extraIncome];
-    if (deliveryTitle && deliveryTitle !== "Delivery" && deliveryAmount > 0) {
-      combinedExtraIncome.push({ name: deliveryTitle, amount: deliveryAmount });
-    }
+    const combinedExtraIncome = extraIncome.filter((item) => !isDeliveryChannelName(item.name));
 
     const payload = {
       shopId,

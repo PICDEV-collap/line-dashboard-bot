@@ -282,6 +282,15 @@ export function isIncomeLikeName(name: string): boolean {
   return false;
 }
 
+/** ตรวจสอบว่าชื่อรายการคือช่องทาง Delivery หรือไม่ (LINE MAN, Grab, Robinhood, ฯลฯ) */
+export function isDeliveryChannelName(name: string): boolean {
+  const n = name.trim();
+  return (
+    /^(?:line\s*man|lineman|ไลน์\s*แมน|grab|แกร็บ|robinhood|โรบินฮู้ด|shopee\s*food|shopeefood|ช้อปปี้ฟู้ด|foodpanda|ฟู้ดแพนด้า|delivery|เดลิเวอรี่|เดลิเวอรี)$/i.test(n) ||
+    /^(?:ได้|รับ|รายรับ)?\s*(?:line\s*man|lineman|ไลน์\s*แมน|grab|แกร็บ|robinhood|โรบินฮู้ด|shopee\s*food|shopeefood|ช้อปปี้ฟู้ด|foodpanda|ฟู้ดแพนด้า|delivery|เดลิเวอรี่|เดลิเวอรี)$/i.test(n)
+  );
+}
+
 function expenseToIncome(e: ExtraExpense): ExtraIncome {
   let name = e.name.trim().replace(/^(?:ได้|รับ|รายรับ|รายได้|\+)\s*/, "").trim();
   if (/คนละครึ่ง/i.test(e.name)) name = "คนละครึ่ง";
@@ -290,7 +299,7 @@ function expenseToIncome(e: ExtraExpense): ExtraIncome {
   return { name, amount: e.amount };
 }
 
-/** ย้ายรายการที่ Gemini/DB จัดผิด (ได้/รับ → รายจ่าย) กลับเป็นรายรับ */
+/** ย้ายรายการที่ Gemini/DB จัดผิด (ได้/รับ → รายจ่าย) กลับเป็นรายรับ และคัดแยก Delivery ออกไม่ให้บวกซ้ำ */
 export function sanitizeExtraLedger(
   extraIncome: ExtraIncome[],
   extraExpenses: ExtraExpense[]
@@ -301,17 +310,31 @@ export function sanitizeExtraLedger(
     if (isIncomeLikeName(e.name)) promoted.push(expenseToIncome(e));
     else kept.push(e);
   }
+  const mergedIncome = mergeExtraItems(extraIncome, promoted);
+  // คัดแยกรายการ Delivery ออกจาก extraIncome เพื่อรวมไว้ในฟิลด์ delivery อย่างเดียว ไม่บวกซ้ำ
+  const cleanedIncome = mergedIncome.filter((e) => !isDeliveryChannelName(e.name));
+
   return {
-    extraIncome: mergeExtraItems(extraIncome, promoted),
+    extraIncome: cleanedIncome,
     extraExpenses: kept,
   };
 }
 
 /** Line-item extras from message text — authoritative over Gemini (LLM mislabels ได้/จ่าย). */
 function applyDeterministicIncomeRules(parsed: ParsedFinancialInput, text: string): void {
-  parsed.extraIncome = extractExtraIncome(text);
+  const extractedIncome = extractExtraIncome(text);
   parsed.extraExpenses = extractExtraExpenses(text);
-  const sanitized = sanitizeExtraLedger(parsed.extraIncome, parsed.extraExpenses);
+
+  // ถ้าระบุ Delivery channel (เช่น ได้ไลน์แมน 450) แต่ใน parsed.delivery ยังเป็น 0 ให้ดึงยอดเข้า parsed.delivery
+  const deliveryItems = extractedIncome.filter((e) => isDeliveryChannelName(e.name));
+  if (deliveryItems.length > 0) {
+    const deliverySum = deliveryItems.reduce((sum, e) => sum + e.amount, 0);
+    if (!parsed.delivery || parsed.delivery === 0) {
+      parsed.delivery = deliverySum;
+    }
+  }
+
+  const sanitized = sanitizeExtraLedger(extractedIncome, parsed.extraExpenses);
   parsed.extraIncome = sanitized.extraIncome;
   parsed.extraExpenses = sanitized.extraExpenses;
 }
@@ -532,7 +555,7 @@ export function parseFinancialMessageWithRegex(text: string): ParsedFinancialInp
   const cash = num((text.match(/(?:เงินสด|สด)\s*([\d,]+)/) ?? [])[1] ?? "0");
   const delivery = num(
     (text.match(
-      /(?:delivery|เดลิเวอรี่?|ไลน์แมน|lineman|แกร็บ|grab|ฟู้ดแพนด้า|foodpanda|โรบินฮู้ด|robinhood|shopeefood|ส่ง|ครึ่ง|คนละครึ่ง)\s*([\d,]+)/i
+      /(?:delivery|เดลิเวอรี่?|ไลน์แมน|lineman|แกร็บ|grab|ฟู้ดแพนด้า|foodpanda|โรบินฮู้ด|robinhood|shopeefood|ส่ง|(?<!คนละ)ครึ่ง)\s*([\d,]+)/i
     ) ?? [])[1] ?? "0"
   );
 

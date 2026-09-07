@@ -2,7 +2,7 @@ import { getSupabaseClient } from "@/lib/services/supabase.service";
 import { createLogger } from "@/lib/middleware/logger";
 import { generateId, getCurrentTimestamp } from "@/lib/utils/helpers";
 import { DEFAULT_EXPENSES } from "@/config/constants";
-import { sanitizeExtraLedger } from "@/lib/services/financial-parser.service";
+import { sanitizeExtraLedger, isDeliveryChannelName } from "@/lib/services/financial-parser.service";
 import {
   applyCorrectionActions,
   parseCorrectionMessage,
@@ -486,6 +486,8 @@ function recomputeRecordTotals(
   pork: number;
   porkBreakdown: PorkBreakdown;
   status: RecordStatus;
+  delivery: number;
+  extraIncome: ExtraIncome[];
 } {
   const pb = finalizePorkBreakdown({ ...(fields.porkBreakdown ?? {
     redQty: 0, redPrice: 0, redTotal: 0,
@@ -494,9 +496,16 @@ function recomputeRecordTotals(
     total: 0,
   }) });
 
-  const extraIncomeTotal = (fields.extraIncome ?? []).reduce((s, e) => s + e.amount, 0);
+  let effectiveDelivery = fields.delivery ?? 0;
+  const deliveryItems = (fields.extraIncome ?? []).filter((e) => isDeliveryChannelName(e.name));
+  if (deliveryItems.length > 0 && effectiveDelivery === 0) {
+    effectiveDelivery = deliveryItems.reduce((sum, e) => sum + e.amount, 0);
+  }
+  const cleanExtraIncome = (fields.extraIncome ?? []).filter((e) => !isDeliveryChannelName(e.name));
+
+  const extraIncomeTotal = cleanExtraIncome.reduce((s, e) => s + e.amount, 0);
   const extraExpenseTotal = (fields.extraExpenses ?? []).reduce((s, e) => s + e.amount, 0);
-  const revenue = fields.transfer + fields.cash + fields.delivery + extraIncomeTotal;
+  const revenue = fields.transfer + fields.cash + effectiveDelivery + extraIncomeTotal;
   const pork = pb.total;
   const expense =
     pork + fields.materials + fields.supplies + fields.gas + fields.labor + fields.ice + extraExpenseTotal;
@@ -508,7 +517,7 @@ function recomputeRecordTotals(
     (pb.fatQty > 0 && pb.fatPrice === 0);
   const status: RecordStatus = revenue === 0 || porkNeedsPrice ? "pending" : "complete";
 
-  return { revenue, expense, profit, pork, porkBreakdown: pb, status };
+  return { revenue, expense, profit, pork, porkBreakdown: pb, status, delivery: effectiveDelivery, extraIncome: cleanExtraIncome };
 }
 
 // Append new line-items, skipping exact (name+amount) duplicates.
@@ -618,7 +627,7 @@ export async function upsertParsedRecord(input: {
     shopId: input.shopId,
     shopName: input.shopName,
     revenue: totals.revenue,
-    transfer, cash, delivery,
+    transfer, cash, delivery: totals.delivery,
     expense: totals.expense,
     pork: totals.pork,
     porkBreakdown: totals.porkBreakdown,
@@ -626,7 +635,7 @@ export async function upsertParsedRecord(input: {
     gas: gasPick.value,
     labor: laborPick.value,
     ice: icePick.value,
-    extraExpenses, extraIncome,
+    extraExpenses, extraIncome: totals.extraIncome,
     profit: totals.profit,
     note,
     status: totals.status,

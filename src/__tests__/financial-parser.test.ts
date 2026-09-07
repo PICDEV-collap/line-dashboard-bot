@@ -188,12 +188,8 @@ describe("parseFinancialMessageWithRegex", () => {
 
     expect(parsed.transfer).toBe(3385);
     expect(parsed.cash).toBe(1000);
-    expect(parsed.extraIncome).toEqual(
-      expect.arrayContaining([
-        { name: "คนละครึ่ง", amount: 1265 },
-        { name: "ไลน์แมน", amount: 450 },
-      ])
-    );
+    expect(parsed.delivery).toBe(450);
+    expect(parsed.extraIncome).toEqual([{ name: "คนละครึ่ง", amount: 1265 }]);
     expect(parsed.extraExpenses).toEqual(
       expect.arrayContaining([
         { name: "ต่อล", amount: 670 },
@@ -218,12 +214,8 @@ describe("parseFinancialMessageWithRegex", () => {
 
     const parsed = parseFinancialMessageWithRegex(text);
 
-    expect(parsed.extraIncome).toEqual(
-      expect.arrayContaining([
-        { name: "คนละครึ่ง", amount: 1265 },
-        { name: "ไลน์แมน", amount: 450 },
-      ])
-    );
+    expect(parsed.delivery).toBe(450);
+    expect(parsed.extraIncome).toEqual([{ name: "คนละครึ่ง", amount: 1265 }]);
     expect(parsed.extraExpenses).toEqual(
       expect.arrayContaining([
         { name: "ต่อ", amount: 670 },
@@ -265,12 +257,7 @@ describe("sanitizeExtraLedger", () => {
       { name: "ได้ไลน์แมน", amount: 450 },
       { name: "แม็คโคร", amount: 3800 },
     ]);
-    expect(result.extraIncome).toEqual(
-      expect.arrayContaining([
-        { name: "คนละครึ่ง", amount: 1265 },
-        { name: "ไลน์แมน", amount: 450 },
-      ])
-    );
+    expect(result.extraIncome).toEqual([{ name: "คนละครึ่ง", amount: 1265 }]);
     expect(result.extraExpenses).toEqual([{ name: "แม็คโคร", amount: 3800 }]);
   });
 });
@@ -371,5 +358,14 @@ describe("extractShoppingListFromText", () => {
 
   it("detects shopping list as financial data", () => {
     expect(looksLikeFinancialData(sampleList)).toBe(true);
+  });
+});
+
+describe("Delivery Deduplication", () => {
+  it("prevents double-counting LINE MAN in both delivery and extraIncome", () => {
+    const text = "โอน 2500\nสด 3420\nDelivery 907\nLINE MAN 907";
+    const parsed = parseFinancialMessageWithRegex(text);
+    expect(parsed.delivery).toBe(907);
+    expect(parsed.extraIncome).toEqual([]);
   });
 });
