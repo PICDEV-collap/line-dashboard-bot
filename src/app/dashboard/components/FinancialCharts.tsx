@@ -71,7 +71,7 @@ export function FinancialCharts({ records }: FinancialChartsProps) {
     labels = sortedRecords.map((r) => {
       const parts = r.date.split("-");
       if (parts.length === 3) {
-        return `${parseInt(parts[2])}/${parseInt(parts[1])}`;
+        return `${parseInt(parts[2], 10)}/${parseInt(parts[1], 10)}`;
       }
       return r.date;
     });
@@ -83,8 +83,6 @@ export function FinancialCharts({ records }: FinancialChartsProps) {
   }
 
   // Summary calculations for period
-  const totalRevPeriod = revenues.reduce((s, v) => s + v, 0);
-  const totalExpPeriod = expenses.reduce((s, v) => s + v, 0);
   const totalProfitPeriod = profits.reduce((s, v) => s + v, 0);
   const avgProfitPeriod = profits.length > 0 ? Math.round(totalProfitPeriod / profits.length) : 0;
   const maxProfitIndex = profits.length > 0 ? profits.indexOf(Math.max(...profits)) : -1;
@@ -97,8 +95,8 @@ export function FinancialCharts({ records }: FinancialChartsProps) {
       {
         label: "รายรับ (฿)",
         data: revenues,
-        borderColor: "#3b82f6",
-        backgroundColor: "rgba(59, 130, 246, 0.12)",
+        borderColor: "#06c755",
+        backgroundColor: "rgba(6, 199, 85, 0.12)",
         fill: true,
         tension: 0.3,
       },
@@ -113,7 +111,7 @@ export function FinancialCharts({ records }: FinancialChartsProps) {
       {
         label: "กำไรสุทธิ (฿)",
         data: profits,
-        borderColor: "#22c55e",
+        borderColor: "#10b981",
         backgroundColor: "transparent",
         borderDash: [4, 4],
         tension: 0.3,
@@ -126,7 +124,10 @@ export function FinancialCharts({ records }: FinancialChartsProps) {
     maintainAspectRatio: false,
     plugins: {
       legend: {
-        labels: { color: "#94a3b8", font: { family: "Sarabun" } },
+        labels: {
+          color: "#8e99b0",
+          font: { family: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" },
+        },
       },
       tooltip: {
         mode: "index" as const,
@@ -135,18 +136,26 @@ export function FinancialCharts({ records }: FinancialChartsProps) {
     },
     scales: {
       x: {
-        ticks: { color: "#64748b", font: { family: "Chakra Petch", size: 11 } },
-        grid: { color: "#2a3140" },
+        ticks: {
+          color: "#8e99b0",
+          font: { family: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", size: 11 },
+        },
+        grid: { color: "rgba(43, 50, 72, 0.6)" },
       },
       y: {
-        ticks: { color: "#64748b", font: { family: "Chakra Petch", size: 11 } },
-        grid: { color: "#2a3140" },
+        ticks: {
+          color: "#8e99b0",
+          font: { family: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", size: 11 },
+        },
+        grid: { color: "rgba(43, 50, 72, 0.6)" },
       },
     },
   };
 
   // Profit Bar Data
-  const profitBarColors = profits.map((p) => (p >= 0 ? "rgba(34, 197, 94, 0.75)" : "rgba(239, 68, 68, 0.75)"));
+  const profitBarColors = profits.map((p) =>
+    p >= 0 ? "rgba(6, 199, 85, 0.85)" : "rgba(239, 68, 68, 0.85)"
+  );
   const barData = {
     labels,
     datasets: [
@@ -167,12 +176,18 @@ export function FinancialCharts({ records }: FinancialChartsProps) {
     },
     scales: {
       x: {
-        ticks: { color: "#64748b", font: { family: "Chakra Petch", size: 10 } },
+        ticks: {
+          color: "#8e99b0",
+          font: { family: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", size: 10 },
+        },
         grid: { display: false },
       },
       y: {
-        ticks: { color: "#64748b", font: { family: "Chakra Petch", size: 10 } },
-        grid: { color: "#2a3140" },
+        ticks: {
+          color: "#8e99b0",
+          font: { family: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", size: 10 },
+        },
+        grid: { color: "rgba(43, 50, 72, 0.6)" },
       },
     },
   };
@@ -187,8 +202,8 @@ export function FinancialCharts({ records }: FinancialChartsProps) {
     datasets: [
       {
         data: [totalTransfer, totalCash, totalDelivery],
-        backgroundColor: ["#3b82f6", "#22c55e", "#f97316"],
-        borderColor: "#161b22",
+        backgroundColor: ["#38bdf8", "#06c755", "#8c44db"],
+        borderColor: "var(--surface)",
         borderWidth: 2,
       },
     ],
@@ -200,7 +215,10 @@ export function FinancialCharts({ records }: FinancialChartsProps) {
     plugins: {
       legend: {
         position: "bottom" as const,
-        labels: { color: "#94a3b8", font: { family: "Sarabun", size: 11 } },
+        labels: {
+          color: "#8e99b0",
+          font: { family: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", size: 11 },
+        },
       },
     },
   };
@@ -220,11 +238,11 @@ export function FinancialCharts({ records }: FinancialChartsProps) {
   const grandExpense = totalPork + totalMaterials + totalLabor + totalGas + totalOther;
 
   const expenseItems = [
-    { label: "🥩 ค่าหมูรวม", amount: totalPork, color: "#f87171" },
-    { label: "🥬 วัตถุดิบ", amount: totalMaterials, color: "#fb923c" },
-    { label: "👥 ค่าแรงพนักงาน", amount: totalLabor, color: "#a855f7" },
-    { label: "🔥 ค่าแก๊ส", amount: totalGas, color: "#eab308" },
-    { label: "📦 สิ้นเปลือง/น้ำแข็ง/อื่นๆ", amount: totalOther, color: "#38bdf8" },
+    { label: "🥩 ค่าหมูรวม", amount: totalPork, color: "var(--danger)" },
+    { label: "🥬 วัตถุดิบ", amount: totalMaterials, color: "var(--warning)" },
+    { label: "👥 ค่าแรงพนักงาน", amount: totalLabor, color: "var(--delivery-robinhood)" },
+    { label: "🔥 ค่าแก๊ส", amount: totalGas, color: "var(--warning)" },
+    { label: "📦 สิ้นเปลือง/น้ำแข็ง/อื่นๆ", amount: totalOther, color: "var(--info)" },
   ];
 
   const fmt = (n: number) => n.toLocaleString("th-TH");
@@ -243,11 +261,12 @@ export function FinancialCharts({ records }: FinancialChartsProps) {
         {/* Main Line Chart with Period Selector */}
         <div
           style={{
-            background: "#161b22",
-            border: "1px solid #2a3140",
-            borderRadius: 12,
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-lg)",
             padding: 18,
             gridColumn: "span 2",
+            boxShadow: "0 4px 16px rgba(0, 0, 0, 0.12)",
           }}
         >
           <div
@@ -262,22 +281,20 @@ export function FinancialCharts({ records }: FinancialChartsProps) {
           >
             <div
               style={{
-                fontFamily: "Chakra Petch, sans-serif",
-                fontSize: 14,
-                fontWeight: 600,
-                color: "#e2e8f0",
+                fontSize: "0.95rem",
+                fontWeight: 700,
+                color: "var(--text-primary)",
                 display: "flex",
                 alignItems: "center",
-                gap: 7,
+                gap: 8,
               }}
             >
               <span
                 style={{
                   width: 8,
                   height: 8,
-                  borderRadius: "50%",
-                  background: "#f97316",
-                  boxShadow: "0 0 8px #f97316",
+                  borderRadius: "var(--radius-pill)",
+                  background: "var(--primary)",
                 }}
               />
               {chartMainTitle}
@@ -287,60 +304,60 @@ export function FinancialCharts({ records }: FinancialChartsProps) {
             <div
               style={{
                 display: "flex",
-                background: "#0d1117",
+                background: "var(--surface-raised)",
                 padding: 3,
-                borderRadius: 8,
-                border: "1px solid #2a3140",
+                borderRadius: "var(--radius-sm)",
+                border: "1px solid var(--border)",
                 gap: 4,
               }}
             >
               <button
+                type="button"
                 onClick={() => setPeriod("daily")}
                 style={{
-                  padding: "5px 12px",
-                  fontSize: 12,
+                  padding: "6px 14px",
+                  fontSize: "0.8rem",
                   fontWeight: 600,
                   cursor: "pointer",
                   border: "none",
-                  borderRadius: 6,
-                  transition: "all 0.2s ease",
-                  background: period === "daily" ? "#f97316" : "transparent",
-                  color: period === "daily" ? "#ffffff" : "#94a3b8",
-                  boxShadow: period === "daily" ? "0 0 10px rgba(249,115,22,0.4)" : "none",
+                  borderRadius: "var(--radius-sm)",
+                  transition: "all 0.15s ease",
+                  background: period === "daily" ? "var(--primary)" : "transparent",
+                  color: period === "daily" ? "#FFFFFF" : "var(--text-secondary)",
                 }}
               >
                 📊 รายวัน
               </button>
               <button
+                type="button"
                 onClick={() => setPeriod("weekly")}
                 style={{
-                  padding: "5px 12px",
-                  fontSize: 12,
+                  padding: "6px 14px",
+                  fontSize: "0.8rem",
                   fontWeight: 600,
                   cursor: "pointer",
                   border: "none",
-                  borderRadius: 6,
-                  transition: "all 0.2s ease",
-                  background: period === "weekly" ? "#f97316" : "transparent",
-                  color: period === "weekly" ? "#ffffff" : "#94a3b8",
-                  boxShadow: period === "weekly" ? "0 0 10px rgba(249,115,22,0.4)" : "none",
+                  borderRadius: "var(--radius-sm)",
+                  transition: "all 0.15s ease",
+                  background: period === "weekly" ? "var(--primary)" : "transparent",
+                  color: period === "weekly" ? "#FFFFFF" : "var(--text-secondary)",
                 }}
               >
                 📅 รายสัปดาห์
               </button>
               <button
+                type="button"
                 onClick={() => setPeriod("monthly")}
                 style={{
-                  padding: "5px 12px",
-                  fontSize: 12,
+                  padding: "6px 14px",
+                  fontSize: "0.8rem",
                   fontWeight: 600,
                   cursor: "pointer",
                   border: "none",
-                  borderRadius: 6,
-                  transition: "all 0.2s ease",
-                  background: period === "monthly" ? "#f97316" : "transparent",
-                  color: period === "monthly" ? "#ffffff" : "#94a3b8",
-                  boxShadow: period === "monthly" ? "0 0 10px rgba(249,115,22,0.4)" : "none",
+                  borderRadius: "var(--radius-sm)",
+                  transition: "all 0.15s ease",
+                  background: period === "monthly" ? "var(--primary)" : "transparent",
+                  color: period === "monthly" ? "#FFFFFF" : "var(--text-secondary)",
                 }}
               >
                 📆 รายเดือน
@@ -355,31 +372,37 @@ export function FinancialCharts({ records }: FinancialChartsProps) {
               flexWrap: "wrap",
               gap: 12,
               marginBottom: 16,
-              padding: "8px 12px",
-              background: "rgba(13, 17, 23, 0.6)",
-              borderRadius: 8,
-              border: "1px solid rgba(42, 49, 64, 0.6)",
-              fontSize: 11,
-              color: "#94a3b8",
+              padding: "10px 14px",
+              background: "var(--surface-raised)",
+              borderRadius: "var(--radius-sm)",
+              border: "1px solid var(--border)",
+              fontSize: "0.8rem",
+              color: "var(--text-secondary)",
             }}
           >
             <div>
               ช่วงเวลาที่เลือก:{" "}
-              <span style={{ color: "#e2e8f0", fontWeight: 600, fontFamily: "Chakra Petch" }}>
+              <span className="tabular-nums" style={{ color: "var(--text-primary)", fontWeight: 700 }}>
                 {labels.length} ช่วง
               </span>
             </div>
-            <div style={{ color: "#374151" }}>|</div>
+            <div style={{ color: "var(--border)" }}>|</div>
             <div>
               กำไรเฉลี่ย:{" "}
-              <span style={{ color: avgProfitPeriod >= 0 ? "#4ade80" : "#f87171", fontWeight: 600, fontFamily: "Chakra Petch" }}>
+              <span
+                className="tabular-nums"
+                style={{
+                  color: avgProfitPeriod >= 0 ? "var(--primary)" : "var(--danger)",
+                  fontWeight: 700,
+                }}
+              >
                 ฿{fmt(avgProfitPeriod)} / {period === "daily" ? "วัน" : period === "weekly" ? "สัปดาห์" : "เดือน"}
               </span>
             </div>
-            <div style={{ color: "#374151" }}>|</div>
+            <div style={{ color: "var(--border)" }}>|</div>
             <div>
               ช่วงที่กำไรสูงสุด:{" "}
-              <span style={{ color: "#fbbf24", fontWeight: 600 }}>
+              <span className="tabular-nums" style={{ color: "var(--warning)", fontWeight: 700 }}>
                 {bestPeriodLabel} (฿{fmt(bestProfitVal)})
               </span>
             </div>
@@ -393,34 +416,33 @@ export function FinancialCharts({ records }: FinancialChartsProps) {
         {/* Payment Channels Donut Chart */}
         <div
           style={{
-            background: "#161b22",
-            border: "1px solid #2a3140",
-            borderRadius: 12,
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-lg)",
             padding: 18,
+            boxShadow: "0 4px 16px rgba(0, 0, 0, 0.12)",
           }}
         >
           <div
             style={{
-              fontFamily: "Chakra Petch, sans-serif",
-              fontSize: 13,
-              fontWeight: 600,
-              color: "#e2e8f0",
+              fontSize: "0.9rem",
+              fontWeight: 700,
+              color: "var(--text-primary)",
               marginBottom: 14,
               display: "flex",
               alignItems: "center",
-              gap: 7,
+              gap: 8,
             }}
           >
             <span
               style={{
                 width: 6,
                 height: 6,
-                borderRadius: "50%",
-                background: "#f97316",
-                boxShadow: "0 0 6px #f97316",
+                borderRadius: "var(--radius-pill)",
+                background: "var(--info)",
               }}
             />
-            ช่องทางรับเงิน
+            สัดส่วนช่องทางรับเงิน
           </div>
           <div style={{ height: 160, position: "relative" }}>
             <Doughnut data={donutData} options={donutOptions} />
@@ -430,81 +452,86 @@ export function FinancialCharts({ records }: FinancialChartsProps) {
               display: "grid",
               gridTemplateColumns: "repeat(3, 1fr)",
               gap: 8,
-              marginTop: 10,
+              marginTop: 12,
             }}
           >
             <div
               style={{
-                background: "#1c2128",
-                border: "1px solid #2a3140",
-                borderRadius: 8,
-                padding: 8,
+                background: "var(--surface-raised)",
+                border: "1px solid var(--border)",
+                borderRadius: "var(--radius-sm)",
+                padding: "8px 6px",
                 textAlign: "center",
               }}
             >
               <div style={{ fontSize: 16 }}>💳</div>
-              <div style={{ fontSize: 10, color: "#94a3b8" }}>โอนเงิน</div>
+              <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 2 }}>โอนเงิน</div>
               <div
+                className="tabular-nums"
                 style={{
-                  fontFamily: "Chakra Petch, sans-serif",
-                  fontSize: 12,
+                  fontSize: "0.85rem",
                   fontWeight: 700,
-                  color: "#60a5fa",
+                  color: "var(--info)",
+                  marginTop: 2,
                 }}
               >
                 ฿{fmt(totalTransfer)}
               </div>
-              <div style={{ fontSize: 9, color: "#fb923c", marginTop: 2 }}>
+              <div className="tabular-nums" style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 2 }}>
                 {pct(totalTransfer)}%
               </div>
             </div>
+
             <div
               style={{
-                background: "#1c2128",
-                border: "1px solid #2a3140",
-                borderRadius: 8,
-                padding: 8,
+                background: "var(--surface-raised)",
+                border: "1px solid var(--border)",
+                borderRadius: "var(--radius-sm)",
+                padding: "8px 6px",
                 textAlign: "center",
               }}
             >
               <div style={{ fontSize: 16 }}>💵</div>
-              <div style={{ fontSize: 10, color: "#94a3b8" }}>เงินสด</div>
+              <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 2 }}>เงินสด</div>
               <div
+                className="tabular-nums"
                 style={{
-                  fontFamily: "Chakra Petch, sans-serif",
-                  fontSize: 12,
+                  fontSize: "0.85rem",
                   fontWeight: 700,
-                  color: "#4ade80",
+                  color: "var(--primary)",
+                  marginTop: 2,
                 }}
               >
                 ฿{fmt(totalCash)}
               </div>
-              <div style={{ fontSize: 9, color: "#fb923c", marginTop: 2 }}>
+              <div className="tabular-nums" style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 2 }}>
                 {pct(totalCash)}%
               </div>
             </div>
+
             <div
               style={{
-                background: "#1c2128",
-                border: "1px solid #2a3140",
-                borderRadius: 8,
-                padding: 8,
+                background: "var(--surface-raised)",
+                border: "1px solid var(--border)",
+                borderRadius: "var(--radius-sm)",
+                padding: "8px 6px",
                 textAlign: "center",
               }}
             >
               <div style={{ fontSize: 16 }}>🛵</div>
-              <div style={{ fontSize: 10, color: "#94a3b8" }}>Delivery</div>
+              <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 2 }}>Delivery</div>
               <div
+                className="tabular-nums"
                 style={{
-                  fontFamily: "Chakra Petch, sans-serif",
-                  fontSize: 12,
+                  fontSize: "0.85rem",
                   fontWeight: 700,
-                  color: "#fb923c",
+                  color: "var(--delivery-robinhood)",
+                  marginTop: 2,
                 }}
               >
                 ฿{fmt(totalDelivery)}
               </div>
-              <div style={{ fontSize: 9, color: "#fb923c", marginTop: 2 }}>
+              <div className="tabular-nums" style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 2 }}>
                 {pct(totalDelivery)}%
               </div>
             </div>
@@ -523,31 +550,30 @@ export function FinancialCharts({ records }: FinancialChartsProps) {
         {/* Profit Bar Chart */}
         <div
           style={{
-            background: "#161b22",
-            border: "1px solid #2a3140",
-            borderRadius: 12,
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-lg)",
             padding: 18,
+            boxShadow: "0 4px 16px rgba(0, 0, 0, 0.12)",
           }}
         >
           <div
             style={{
-              fontFamily: "Chakra Petch, sans-serif",
-              fontSize: 13,
-              fontWeight: 600,
-              color: "#e2e8f0",
+              fontSize: "0.9rem",
+              fontWeight: 700,
+              color: "var(--text-primary)",
               marginBottom: 14,
               display: "flex",
               alignItems: "center",
-              gap: 7,
+              gap: 8,
             }}
           >
             <span
               style={{
                 width: 6,
                 height: 6,
-                borderRadius: "50%",
-                background: "#f97316",
-                boxShadow: "0 0 6px #f97316",
+                borderRadius: "var(--radius-pill)",
+                background: "var(--primary)",
               }}
             />
             {barMainTitle}
@@ -560,34 +586,33 @@ export function FinancialCharts({ records }: FinancialChartsProps) {
         {/* Expense Distribution Progress Bars */}
         <div
           style={{
-            background: "#161b22",
-            border: "1px solid #2a3140",
-            borderRadius: 12,
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-lg)",
             padding: 18,
+            boxShadow: "0 4px 16px rgba(0, 0, 0, 0.12)",
           }}
         >
           <div
             style={{
-              fontFamily: "Chakra Petch, sans-serif",
-              fontSize: 13,
-              fontWeight: 600,
-              color: "#e2e8f0",
+              fontSize: "0.9rem",
+              fontWeight: 700,
+              color: "var(--text-primary)",
               marginBottom: 14,
               display: "flex",
               alignItems: "center",
-              gap: 7,
+              gap: 8,
             }}
           >
             <span
               style={{
                 width: 6,
                 height: 6,
-                borderRadius: "50%",
-                background: "#f97316",
-                boxShadow: "0 0 6px #f97316",
+                borderRadius: "var(--radius-pill)",
+                background: "var(--danger)",
               }}
             />
-            สัดส่วนค่าใช้จ่าย (รวม ฿{fmt(grandExpense)})
+            สัดส่วนค่าใช้จ่าย (รวม <span className="tabular-nums">฿{fmt(grandExpense)}</span>)
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {expenseItems.map((item, idx) => {
@@ -598,20 +623,20 @@ export function FinancialCharts({ records }: FinancialChartsProps) {
                     style={{
                       display: "flex",
                       justifyContent: "space-between",
-                      fontSize: 12,
-                      marginBottom: 4,
+                      fontSize: "0.85rem",
+                      marginBottom: 6,
                     }}
                   >
-                    <span style={{ color: "#e2e8f0" }}>{item.label}</span>
-                    <span style={{ color: "#94a3b8", fontFamily: "Chakra Petch" }}>
+                    <span style={{ color: "var(--text-primary)" }}>{item.label}</span>
+                    <span className="tabular-nums" style={{ color: "var(--text-secondary)", fontWeight: 600 }}>
                       ฿{fmt(item.amount)} ({itemPct}%)
                     </span>
                   </div>
                   <div
                     style={{
                       height: 6,
-                      background: "#1c2128",
-                      borderRadius: 3,
+                      background: "var(--surface-raised)",
+                      borderRadius: "var(--radius-pill)",
                       overflow: "hidden",
                     }}
                   >
@@ -620,8 +645,7 @@ export function FinancialCharts({ records }: FinancialChartsProps) {
                         height: "100%",
                         width: `${itemPct}%`,
                         background: item.color,
-                        borderRadius: 3,
-                        transition: "width 0.8s ease",
+                        borderRadius: "var(--radius-pill)",
                       }}
                     />
                   </div>

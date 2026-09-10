@@ -79,22 +79,23 @@ export function RecordsTable({
   });
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {/* Filter bar for records */}
       <div
         style={{
-          background: "#161b22",
-          border: "1px solid #2a3140",
-          borderRadius: 12,
-          padding: "14px 18px",
+          background: "var(--surface)",
+          border: "1px solid var(--border)",
+          borderRadius: "var(--radius-lg)",
+          padding: "16px 20px",
           display: "flex",
           flexWrap: "wrap",
-          gap: 10,
+          gap: 12,
           alignItems: "flex-end",
+          boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
         }}
       >
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <label style={{ fontSize: 10, color: "#94a3b8", fontWeight: 700 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <label style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 700 }}>
             ค้นหา
           </label>
           <input
@@ -103,33 +104,34 @@ export function RecordsTable({
             value={filter.search}
             onChange={(e) => setFilter((p) => ({ ...p, search: e.target.value }))}
             style={{
-              background: "#1c2128",
-              border: "1px solid #374151",
-              borderRadius: 7,
-              padding: "7px 11px",
-              fontSize: 13,
-              color: "#e2e8f0",
+              background: "var(--surface-raised)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius-sm)",
+              padding: "8px 12px",
+              fontSize: "0.85rem",
+              color: "var(--text-primary)",
               outline: "none",
               minWidth: 180,
             }}
           />
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <label style={{ fontSize: 10, color: "#94a3b8", fontWeight: 700 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <label style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 700 }}>
             สาขา
           </label>
           <select
             value={filter.shop}
             onChange={(e) => setFilter((p) => ({ ...p, shop: e.target.value }))}
             style={{
-              background: "#1c2128",
-              border: "1px solid #374151",
-              borderRadius: 7,
-              padding: "7px 11px",
-              fontSize: 13,
-              color: "#e2e8f0",
+              background: "var(--surface-raised)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius-sm)",
+              padding: "8px 12px",
+              fontSize: "0.85rem",
+              color: "var(--text-primary)",
               outline: "none",
+              cursor: "pointer",
             }}
           >
             <option value="all">ทั้งหมด</option>
@@ -138,21 +140,22 @@ export function RecordsTable({
           </select>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <label style={{ fontSize: 10, color: "#94a3b8", fontWeight: 700 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <label style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 700 }}>
             สถานะ
           </label>
           <select
             value={filter.status}
             onChange={(e) => setFilter((p) => ({ ...p, status: e.target.value }))}
             style={{
-              background: "#1c2128",
-              border: "1px solid #374151",
-              borderRadius: 7,
-              padding: "7px 11px",
-              fontSize: 13,
-              color: "#e2e8f0",
+              background: "var(--surface-raised)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius-sm)",
+              padding: "8px 12px",
+              fontSize: "0.85rem",
+              color: "var(--text-primary)",
               outline: "none",
+              cursor: "pointer",
             }}
           >
             <option value="all">ทั้งหมด</option>
@@ -162,21 +165,22 @@ export function RecordsTable({
           </select>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <label style={{ fontSize: 10, color: "#94a3b8", fontWeight: 700 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <label style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 700 }}>
             เรียงโดย
           </label>
           <select
             value={filter.sort}
             onChange={(e) => setFilter((p) => ({ ...p, sort: e.target.value }))}
             style={{
-              background: "#1c2128",
-              border: "1px solid #374151",
-              borderRadius: 7,
-              padding: "7px 11px",
-              fontSize: 13,
-              color: "#e2e8f0",
+              background: "var(--surface-raised)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius-sm)",
+              padding: "8px 12px",
+              fontSize: "0.85rem",
+              color: "var(--text-primary)",
               outline: "none",
+              cursor: "pointer",
             }}
           >
             <option value="date-desc">วันที่ (ใหม่→เก่า)</option>
@@ -188,55 +192,59 @@ export function RecordsTable({
 
         <div style={{ display: "flex", gap: 8, marginLeft: "auto", flexWrap: "wrap" }}>
           <button
+            type="button"
             onClick={() => exportRecordsToExcel(filteredRecords)}
             disabled={filteredRecords.length === 0}
             style={{
-              padding: "7px 13px",
-              borderRadius: 7,
-              fontSize: 12,
+              padding: "8px 14px",
+              borderRadius: "var(--radius-sm)",
+              fontSize: "0.85rem",
               fontWeight: 600,
               cursor: filteredRecords.length === 0 ? "not-allowed" : "pointer",
-              border: "1px solid rgba(34, 197, 94, 0.4)",
-              background: "rgba(34, 197, 94, 0.15)",
-              color: "#4ade80",
+              border: "1px solid rgba(6, 199, 85, 0.3)",
+              background: "var(--primary-tint)",
+              color: "var(--primary)",
               opacity: filteredRecords.length === 0 ? 0.5 : 1,
-              transition: "all 0.2s",
+              transition: "all 0.15s ease",
             }}
             title="ส่งออกรายการที่กรองเป็นไฟล์ Excel (.xls)"
           >
             📥 ส่งออก Excel
           </button>
           <button
+            type="button"
             onClick={() => exportRecordsToCsv(filteredRecords)}
             disabled={filteredRecords.length === 0}
             style={{
-              padding: "7px 13px",
-              borderRadius: 7,
-              fontSize: 12,
+              padding: "8px 14px",
+              borderRadius: "var(--radius-sm)",
+              fontSize: "0.85rem",
               fontWeight: 600,
               cursor: filteredRecords.length === 0 ? "not-allowed" : "pointer",
-              border: "1px solid #374151",
-              background: "#1c2128",
-              color: "#94a3b8",
+              border: "1px solid var(--border)",
+              background: "var(--surface-raised)",
+              color: "var(--text-secondary)",
               opacity: filteredRecords.length === 0 ? 0.5 : 1,
-              transition: "all 0.2s",
+              transition: "all 0.15s ease",
             }}
             title="ส่งออกรายการที่กรองเป็นไฟล์ CSV (UTF-8 BOM รองรับภาษาไทย)"
           >
             📄 ส่งออก CSV
           </button>
           <button
+            type="button"
             onClick={onOpenAddModal}
             style={{
-              padding: "7px 14px",
-              borderRadius: 7,
-              fontSize: 12,
-              fontWeight: 600,
+              padding: "8px 16px",
+              borderRadius: "var(--radius-sm)",
+              fontSize: "0.85rem",
+              fontWeight: 700,
               cursor: "pointer",
               border: "none",
-              background: "#f97316",
-              color: "#fff",
-              boxShadow: "0 0 10px rgba(249, 115, 22, 0.3)",
+              background: "var(--primary)",
+              color: "#FFFFFF",
+              boxShadow: "0 2px 10px var(--primary-glow)",
+              transition: "all 0.15s ease",
             }}
           >
             ＋ เพิ่ม
@@ -247,43 +255,43 @@ export function RecordsTable({
       {/* Main Table Card */}
       <div
         style={{
-          background: "#161b22",
-          border: "1px solid #2a3140",
-          borderRadius: 12,
+          background: "var(--surface)",
+          border: "1px solid var(--border)",
+          borderRadius: "var(--radius-lg)",
           padding: 18,
+          boxShadow: "0 4px 16px rgba(0, 0, 0, 0.12)",
         }}
       >
         <div
           style={{
-            fontFamily: "Chakra Petch, sans-serif",
-            fontSize: 13,
-            fontWeight: 600,
-            color: "#e2e8f0",
+            fontSize: "0.95rem",
+            fontWeight: 700,
+            color: "var(--text-primary)",
             marginBottom: 14,
             display: "flex",
             alignItems: "center",
-            gap: 7,
+            gap: 8,
           }}
         >
           <span
             style={{
-              width: 6,
-              height: 6,
-              borderRadius: "50%",
-              background: "#f97316",
-              boxShadow: "0 0 6px #f97316",
+              width: 8,
+              height: 8,
+              borderRadius: "var(--radius-pill)",
+              background: "var(--primary)",
             }}
           />
           ข้อมูลรายวัน ({filteredRecords.length} รายการ)
           <button
+            type="button"
             onClick={onRefresh}
             style={{
               marginLeft: "auto",
               background: "none",
               border: "none",
-              color: "#94a3b8",
+              color: "var(--text-secondary)",
               cursor: "pointer",
-              fontSize: 16,
+              fontSize: "1rem",
             }}
             title="รีเฟรช"
           >
@@ -291,47 +299,47 @@ export function RecordsTable({
           </button>
         </div>
 
-        <div style={{ overflowX: "auto", maxHeight: 500 }}>
+        <div style={{ overflowX: "auto", maxHeight: 520 }}>
           <table
             style={{
               width: "100%",
               borderCollapse: "collapse",
-              fontSize: 12,
+              fontSize: "0.85rem",
             }}
           >
             <thead>
-              <tr style={{ background: "#1c2128", borderBottom: "1px solid #2a3140" }}>
-                <th style={{ padding: "9px 11px", textAlign: "left", color: "#94a3b8" }}>
+              <tr style={{ background: "var(--surface-raised)", borderBottom: "1px solid var(--border)" }}>
+                <th style={{ padding: "10px 12px", textAlign: "left", color: "var(--text-secondary)" }}>
                   วันที่
                 </th>
-                <th style={{ padding: "9px 11px", textAlign: "left", color: "#94a3b8" }}>
+                <th style={{ padding: "10px 12px", textAlign: "left", color: "var(--text-secondary)" }}>
                   สาขา
                 </th>
-                <th style={{ padding: "9px 11px", textAlign: "right", color: "#94a3b8" }}>
+                <th style={{ padding: "10px 12px", textAlign: "right", color: "var(--text-secondary)" }}>
                   รายรับ (฿)
                 </th>
-                <th style={{ padding: "9px 11px", textAlign: "right", color: "#94a3b8" }}>
+                <th style={{ padding: "10px 12px", textAlign: "right", color: "var(--text-secondary)" }}>
                   ค่าใช้จ่าย (฿)
                 </th>
-                <th style={{ padding: "9px 11px", textAlign: "right", color: "#94a3b8" }}>
+                <th style={{ padding: "10px 12px", textAlign: "right", color: "var(--text-secondary)" }}>
                   กำไร (฿)
                 </th>
-                <th style={{ padding: "9px 11px", textAlign: "right", color: "#94a3b8" }}>
+                <th style={{ padding: "10px 12px", textAlign: "right", color: "var(--text-secondary)" }}>
                   %กำไร
                 </th>
-                <th style={{ padding: "9px 11px", textAlign: "right", color: "#94a3b8" }}>
+                <th style={{ padding: "10px 12px", textAlign: "right", color: "var(--text-secondary)" }}>
                   โอน
                 </th>
-                <th style={{ padding: "9px 11px", textAlign: "right", color: "#94a3b8" }}>
+                <th style={{ padding: "10px 12px", textAlign: "right", color: "var(--text-secondary)" }}>
                   สด
                 </th>
-                <th style={{ padding: "9px 11px", textAlign: "right", color: "#94a3b8" }}>
+                <th style={{ padding: "10px 12px", textAlign: "right", color: "var(--text-secondary)" }}>
                   Delivery
                 </th>
-                <th style={{ padding: "9px 11px", textAlign: "center", color: "#94a3b8" }}>
+                <th style={{ padding: "10px 12px", textAlign: "center", color: "var(--text-secondary)" }}>
                   สถานะ
                 </th>
-                <th style={{ padding: "9px 11px", textAlign: "center", color: "#94a3b8" }}>
+                <th style={{ padding: "10px 12px", textAlign: "center", color: "var(--text-secondary)" }}>
                   จัดการ
                 </th>
               </tr>
@@ -341,7 +349,7 @@ export function RecordsTable({
                 <tr>
                   <td
                     colSpan={11}
-                    style={{ textAlign: "center", padding: 30, color: "#64748b" }}
+                    style={{ textAlign: "center", padding: 32, color: "var(--text-muted)" }}
                   >
                     ไม่พบข้อมูลที่ตรงตามเงื่อนไข
                   </td>
@@ -363,112 +371,120 @@ export function RecordsTable({
                     <tr
                       key={r.id}
                       style={{
-                        borderBottom: "1px solid rgba(42, 49, 64, 0.5)",
+                        borderBottom: "1px solid var(--border)",
                       }}
                     >
-                      <td style={{ padding: "8px 11px" }}>{fmtDate(r.date)}</td>
-                      <td style={{ padding: "8px 11px" }}>{shopLabel}</td>
+                      <td style={{ padding: "10px 12px", color: "var(--text-primary)" }}>{fmtDate(r.date)}</td>
+                      <td style={{ padding: "10px 12px", color: "var(--text-secondary)" }}>{shopLabel}</td>
                       <td
+                        className="tabular-nums"
                         style={{
-                          padding: "8px 11px",
+                          padding: "10px 12px",
                           textAlign: "right",
-                          fontFamily: "Chakra Petch",
-                          color: "#60a5fa",
+                          color: "var(--primary)",
+                          fontWeight: 600,
                         }}
                       >
                         ฿{fmt(rev)}
                       </td>
                       <td
+                        className="tabular-nums"
                         style={{
-                          padding: "8px 11px",
+                          padding: "10px 12px",
                           textAlign: "right",
-                          fontFamily: "Chakra Petch",
-                          color: "#f87171",
+                          color: "var(--danger)",
+                          fontWeight: 600,
                         }}
                       >
                         ฿{fmt(exp)}
                       </td>
                       <td
+                        className="tabular-nums"
                         style={{
-                          padding: "8px 11px",
+                          padding: "10px 12px",
                           textAlign: "right",
-                          fontFamily: "Chakra Petch",
-                          fontWeight: 600,
-                          color: profit >= 0 ? "#4ade80" : "#f87171",
+                          fontWeight: 700,
+                          color: profit >= 0 ? "var(--primary)" : "var(--danger)",
                         }}
                       >
                         ฿{fmt(profit)}
                       </td>
                       <td
+                        className="tabular-nums"
                         style={{
-                          padding: "8px 11px",
+                          padding: "10px 12px",
                           textAlign: "right",
-                          fontFamily: "Chakra Petch",
-                          color: "#fbbf24",
+                          color: "var(--warning)",
+                          fontWeight: 600,
                         }}
                       >
                         {pct}%
                       </td>
-                      <td style={{ padding: "8px 11px", textAlign: "right", fontFamily: "Chakra Petch" }}>
+                      <td className="tabular-nums" style={{ padding: "10px 12px", textAlign: "right", color: "var(--text-secondary)" }}>
                         {fmt(r.transfer)}
                       </td>
-                      <td style={{ padding: "8px 11px", textAlign: "right", fontFamily: "Chakra Petch" }}>
+                      <td className="tabular-nums" style={{ padding: "10px 12px", textAlign: "right", color: "var(--text-secondary)" }}>
                         {fmt(r.cash)}
                       </td>
-                      <td style={{ padding: "8px 11px", textAlign: "right", fontFamily: "Chakra Petch" }}>
+                      <td className="tabular-nums" style={{ padding: "10px 12px", textAlign: "right", color: "var(--text-secondary)" }}>
                         {fmt(r.delivery)}
                       </td>
-                      <td style={{ padding: "8px 11px", textAlign: "center" }}>
+                      <td style={{ padding: "10px 12px", textAlign: "center" }}>
                         <span
                           style={{
                             display: "inline-block",
-                            padding: "2px 7px",
-                            borderRadius: 9,
-                            fontSize: 10,
+                            padding: "3px 8px",
+                            borderRadius: "var(--radius-pill)",
+                            fontSize: "0.75rem",
                             fontWeight: 600,
                             background:
                               r.status === "complete"
-                                ? "rgba(34, 197, 94, 0.15)"
-                                : "rgba(234, 179, 8, 0.15)",
-                            color: r.status === "complete" ? "#4ade80" : "#fbbf24",
-                            border:
+                                ? "var(--primary-tint)"
+                                : "var(--warning-tint)",
+                            color: r.status === "complete" ? "var(--primary)" : "var(--warning)",
+                            border: `1px solid ${
                               r.status === "complete"
-                                ? "1px solid rgba(34, 197, 94, 0.3)"
-                                : "1px solid rgba(234, 179, 8, 0.3)",
+                                ? "rgba(6, 199, 85, 0.3)"
+                                : "rgba(245, 158, 11, 0.3)"
+                            }`,
                           }}
                         >
                           {r.status === "complete" ? "✅ สมบูรณ์" : "⌛ รอข้อมูล"}
                         </span>
                       </td>
-                      <td style={{ padding: "8px 11px", textAlign: "center" }}>
+                      <td style={{ padding: "10px 12px", textAlign: "center" }}>
                         <button
+                          type="button"
                           onClick={() => onEditRecord(r)}
                           style={{
-                            padding: "3px 9px",
-                            borderRadius: 5,
-                            fontSize: 10,
+                            padding: "4px 10px",
+                            borderRadius: "var(--radius-sm)",
+                            fontSize: "0.75rem",
                             cursor: "pointer",
-                            border: "1px solid rgba(59, 130, 246, 0.3)",
-                            background: "rgba(59, 130, 246, 0.2)",
-                            color: "#60a5fa",
-                            marginRight: 4,
+                            border: "1px solid rgba(6, 199, 85, 0.3)",
+                            background: "var(--primary-tint)",
+                            color: "var(--primary)",
+                            marginRight: 6,
+                            fontWeight: 600,
                           }}
                         >
-                          ✏️ แก้ไข
+                          แก้ไข
                         </button>
                         <button
+                          type="button"
                           onClick={() => onDeleteRecord(r.id)}
                           style={{
-                            padding: "3px 9px",
-                            borderRadius: 5,
-                            fontSize: 10,
+                            padding: "4px 10px",
+                            borderRadius: "var(--radius-sm)",
+                            fontSize: "0.75rem",
                             cursor: "pointer",
                             border: "1px solid rgba(239, 68, 68, 0.3)",
-                            background: "rgba(239, 68, 68, 0.2)",
-                            color: "#f87171",
+                            background: "var(--danger-tint)",
+                            color: "var(--danger)",
+                            fontWeight: 600,
                           }}
                         >
-                          🗑️ ลบ
+                          ลบ
                         </button>
                       </td>
                     </tr>

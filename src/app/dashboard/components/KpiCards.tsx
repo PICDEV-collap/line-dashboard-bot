@@ -20,41 +20,41 @@ export function KpiCards({ records }: KpiCardsProps) {
     {
       title: "รายรับรวม",
       value: `฿${fmt(totalRevenue)}`,
-      sub: `${count} รายการ`,
-      color: "#60a5fa",
-      accentGradient: "linear-gradient(90deg, #3b82f6, #6366f1)",
+      sub: `${count} รายการในระบบ`,
+      color: "var(--primary)",
+      tint: "var(--primary-tint)",
       icon: "💰",
     },
     {
       title: "ค่าใช้จ่ายรวม",
       value: `฿${fmt(totalExpenses)}`,
-      sub: `${count > 0 ? fmt(Math.round(totalExpenses / count)) : 0} ฿/วัน`,
-      color: "#f87171",
-      accentGradient: "linear-gradient(90deg, #ef4444, #f97316)",
+      sub: `${count > 0 ? fmt(Math.round(totalExpenses / count)) : 0} ฿/วัน โดยเฉลี่ย`,
+      color: "var(--danger)",
+      tint: "var(--danger-tint)",
       icon: "💸",
     },
     {
       title: "กำไรสุทธิ",
       value: `฿${fmt(netProfit)}`,
       sub: netProfit >= 0 ? "กำไรสุทธิสะสม" : "ขาดทุนสะสม",
-      color: netProfit >= 0 ? "#4ade80" : "#f87171",
-      accentGradient: "linear-gradient(90deg, #22c55e, #10b981)",
+      color: netProfit >= 0 ? "var(--primary)" : "var(--danger)",
+      tint: netProfit >= 0 ? "var(--primary-tint)" : "var(--danger-tint)",
       icon: "📈",
     },
     {
       title: "% อัตรากำไร",
       value: `${marginPct.toFixed(1)}%`,
-      sub: "Net Margin",
-      color: "#fbbf24",
-      accentGradient: "linear-gradient(90deg, #eab308, #f97316)",
+      sub: "Net Profit Margin",
+      color: "var(--warning)",
+      tint: "var(--warning-tint)",
       icon: "📊",
     },
     {
       title: "จำนวนวันบันทึก",
       value: `${count} วัน`,
-      sub: "มีข้อมูลในระบบ",
-      color: "#c084fc",
-      accentGradient: "linear-gradient(90deg, #a855f7, #6366f1)",
+      sub: "ข้อมูลบันทึกทั้งหมด",
+      color: "var(--info)",
+      tint: "var(--info-tint)",
       icon: "📅",
     },
   ];
@@ -63,7 +63,7 @@ export function KpiCards({ records }: KpiCardsProps) {
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+        gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
         gap: 14,
         marginBottom: 20,
       }}
@@ -72,44 +72,36 @@ export function KpiCards({ records }: KpiCardsProps) {
         <div
           key={idx}
           style={{
-            background: "linear-gradient(145deg, #181e28, #11151c)",
-            border: "1px solid rgba(42, 49, 64, 0.8)",
-            borderRadius: 14,
-            padding: "16px 18px",
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-lg)",
+            padding: "18px 20px",
             position: "relative",
             overflow: "hidden",
-            boxShadow: "0 4px 20px rgba(0, 0, 0, 0.25)",
-            transition: "all 0.2s ease",
+            boxShadow: "0 4px 16px rgba(0, 0, 0, 0.12)",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
+            gap: 12,
           }}
         >
           <div
             style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              height: 3,
-              background: card.accentGradient,
-            }}
-          />
-          <div
-            style={{
               display: "flex",
               justifyContent: "space-between",
-              alignItems: "flex-start",
-              marginBottom: 10,
+              alignItems: "center",
             }}
           >
-            <div style={{ fontSize: 12, color: "#94a3b8", fontWeight: 500 }}>
+            <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 600 }}>
               {card.title}
             </div>
             <div
               style={{
-                width: 32,
-                height: 32,
-                borderRadius: 8,
-                background: "rgba(255, 255, 255, 0.04)",
-                border: "1px solid rgba(255, 255, 255, 0.06)",
+                width: 34,
+                height: 34,
+                borderRadius: "var(--radius-sm)",
+                background: card.tint,
+                border: "1px solid var(--border)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -119,29 +111,28 @@ export function KpiCards({ records }: KpiCardsProps) {
               {card.icon}
             </div>
           </div>
-          <div
-            style={{
-              fontFamily: "Chakra Petch, sans-serif",
-              fontSize: 24,
-              fontWeight: 700,
-              lineHeight: 1.1,
-              color: card.color,
-              letterSpacing: "0.2px",
-            }}
-          >
-            {card.value}
-          </div>
-          <div
-            style={{
-              fontSize: 11,
-              color: "#64748b",
-              marginTop: 6,
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
-            }}
-          >
-            {card.sub}
+
+          <div>
+            <div
+              className="tabular-nums"
+              style={{
+                fontSize: "1.5rem",
+                fontWeight: 800,
+                lineHeight: 1.2,
+                color: card.color,
+              }}
+            >
+              {card.value}
+            </div>
+            <div
+              style={{
+                fontSize: "0.75rem",
+                color: "var(--text-muted)",
+                marginTop: 6,
+              }}
+            >
+              {card.sub}
+            </div>
           </div>
         </div>
       ))}

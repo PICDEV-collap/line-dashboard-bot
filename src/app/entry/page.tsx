@@ -15,7 +15,20 @@ function isDeliveryChannelName(name: string): boolean {
   );
 }
 
-const DELIVERY_PRESETS = ["LINE MAN", "คนละครึ่ง", "Robinhood", "Grab", "Delivery"];
+interface DeliveryPresetConfig {
+  name: string;
+  color: string;
+  borderColor: string;
+}
+
+const DELIVERY_PRESETS: DeliveryPresetConfig[] = [
+  { name: "LINE MAN", color: "var(--delivery-lineman)", borderColor: "rgba(6, 199, 85, 0.3)" },
+  { name: "Grab", color: "var(--delivery-grab)", borderColor: "rgba(0, 177, 79, 0.3)" },
+  { name: "Robinhood", color: "var(--delivery-robinhood)", borderColor: "rgba(140, 68, 219, 0.3)" },
+  { name: "ShopeeFood", color: "var(--delivery-shopee)", borderColor: "rgba(238, 77, 45, 0.3)" },
+  { name: "คนละครึ่ง", color: "var(--info)", borderColor: "var(--info-tint)" },
+  { name: "Delivery", color: "var(--text-secondary)", borderColor: "var(--border)" },
+];
 
 export default function EntryPage() {
   const todayStr = new Date().toISOString().split("T")[0];
@@ -82,7 +95,6 @@ export default function EntryPage() {
 
         // 2. Existing record on this date or prior expenses
         if (existing) {
-          // If record already exists today, load today's saved numbers
           setTransfer(existing.transfer ? String(existing.transfer) : "");
           setCash(existing.cash ? String(existing.cash) : "");
           setDelivery(existing.delivery ? String(existing.delivery) : "");
@@ -101,7 +113,6 @@ export default function EntryPage() {
           }
           setHasCarriedNotice(false);
         } else if (latestExpenses) {
-          // Carry-forward prior expenses
           if (latestExpenses.labor) setLabor(String(latestExpenses.labor));
           if (latestExpenses.gas) setGas(String(latestExpenses.gas));
           if (latestExpenses.ice) setIce(String(latestExpenses.ice));
@@ -234,7 +245,7 @@ export default function EntryPage() {
 
       setStatusMessage({
         type: "success",
-        text: `✅ บันทึกยอดเรียบร้อย! สาขา${payload.shopName} ประจำวันที่ ${date}`,
+        text: `บันทึกยอดเรียบร้อย! สาขา${payload.shopName} ประจำวันที่ ${date}`,
       });
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err) {
@@ -248,40 +259,119 @@ export default function EntryPage() {
   };
 
   return (
-    <div style={{ minHeight: "100vh", backgroundColor: "#0F172A", color: "#F8FAFC", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", overflowX: "hidden" }}>
+    <div
+      style={{
+        minHeight: "100vh",
+        backgroundColor: "var(--bg)",
+        color: "var(--text-primary)",
+        paddingBottom: "48px",
+      }}
+    >
       {/* Top Header */}
-      <div
+      <header
         style={{
-          background: "linear-gradient(135deg, #059669 0%, #10B981 100%)",
-          padding: "24px 16px",
-          textAlign: "center",
-          boxShadow: "0 4px 20px rgba(16, 185, 129, 0.2)",
+          backgroundColor: "var(--surface)",
+          borderBottom: "1px solid var(--border)",
+          padding: "20px 16px",
+          position: "sticky",
+          top: 0,
+          zIndex: 20,
+          backdropFilter: "blur(12px)",
         }}
       >
-        <h1 style={{ fontSize: "1.45rem", fontWeight: "bold", margin: 0, color: "#FFFFFF" }}>
-          📝 ตารางบันทึกรายรับ - รายจ่าย
-        </h1>
-        <p style={{ margin: "4px 0 0", fontSize: "0.85rem", color: "#D1FAE5" }}>
-          ระบบลงบัญชีรายวัน ร้านครูตอม
-        </p>
-      </div>
+        <div
+          style={{
+            maxWidth: "600px",
+            margin: "0 auto",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <div>
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                fontSize: "0.75rem",
+                fontWeight: 600,
+                color: "var(--primary)",
+                backgroundColor: "var(--primary-tint)",
+                padding: "4px 10px",
+                borderRadius: "var(--radius-pill)",
+                marginBottom: "6px",
+              }}
+            >
+              <span style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "var(--primary)" }} />
+              ระบบบันทึกรายวัน
+            </div>
+            <h1
+              style={{
+                fontSize: "1.25rem",
+                fontWeight: 700,
+                color: "var(--text-primary)",
+                margin: 0,
+                lineHeight: 1.2,
+              }}
+            >
+              บันทึกรายรับ - รายจ่าย
+            </h1>
+          </div>
 
-      <div style={{ maxWidth: "560px", width: "100%", margin: "0 auto", padding: "16px", boxSizing: "border-box" }}>
-        {/* Status Toast */}
-        {statusMessage && (
           <div
             style={{
-              padding: "12px 16px",
-              borderRadius: "10px",
-              marginBottom: "16px",
-              backgroundColor: statusMessage.type === "success" ? "#064E3B" : "#7F1D1D",
-              color: statusMessage.type === "success" ? "#A7F3D0" : "#FECACA",
-              border: `1px solid ${statusMessage.type === "success" ? "#059669" : "#DC2626"}`,
-              fontSize: "0.9rem",
-              fontWeight: 500,
+              textAlign: "right",
+              fontSize: "0.8rem",
+              color: "var(--text-secondary)",
             }}
           >
-            {statusMessage.text}
+            <span
+              style={{
+                display: "inline-block",
+                padding: "4px 10px",
+                borderRadius: "var(--radius-sm)",
+                backgroundColor: "var(--surface-raised)",
+                border: "1px solid var(--border)",
+                color: "var(--text-primary)",
+                fontWeight: 600,
+              }}
+            >
+              {shopId === "shop1" ? "ตลาดญี่ปุ่น" : "สายหนองปิง"}
+            </span>
+          </div>
+        </div>
+      </header>
+
+      <main
+        style={{
+          maxWidth: "600px",
+          width: "100%",
+          margin: "0 auto",
+          padding: "16px",
+          boxSizing: "border-box",
+        }}
+      >
+        {/* Status Toast Notification */}
+        {statusMessage && (
+          <div
+            role="alert"
+            style={{
+              padding: "14px 16px",
+              borderRadius: "var(--radius-md)",
+              marginBottom: "16px",
+              backgroundColor: statusMessage.type === "success" ? "var(--success-tint)" : "var(--danger-tint)",
+              color: statusMessage.type === "success" ? "var(--success)" : "var(--danger)",
+              border: `1px solid ${statusMessage.type === "success" ? "rgba(16, 185, 129, 0.3)" : "rgba(239, 68, 68, 0.3)"}`,
+              fontSize: "0.9rem",
+              fontWeight: 600,
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+            }}
+          >
+            <span style={{ fontSize: "1.25rem" }}>{statusMessage.type === "success" ? "✓" : "⚠"}</span>
+            <span>{statusMessage.text}</span>
           </div>
         )}
 
@@ -289,200 +379,329 @@ export default function EntryPage() {
         {hasCarriedNotice && (
           <div
             style={{
-              padding: "8px 12px",
-              borderRadius: "8px",
-              marginBottom: "12px",
-              backgroundColor: "#1E3A8A",
-              color: "#BFDBFE",
-              fontSize: "0.8rem",
+              padding: "10px 14px",
+              borderRadius: "var(--radius-md)",
+              marginBottom: "16px",
+              backgroundColor: "var(--info-tint)",
+              border: "1px solid var(--border)",
+              color: "var(--info)",
+              fontSize: "0.85rem",
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
             }}
           >
-            <span>📋 ดึงราคาหมูและรายจ่ายประจำจากยอดล่าสุดให้อัตโนมัติ</span>
+            <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <span>ℹ</span>
+              ดึงราคาหมูและรายจ่ายประจำจากยอดล่าสุดให้อัตโนมัติ
+            </span>
             <span style={{ fontSize: "0.75rem", opacity: 0.8 }}>(แก้ไขได้)</span>
           </div>
         )}
 
-        {/* Live Summary Bar */}
-        <div
+        {/* Live Summary KPI Metric Bar */}
+        <section
+          aria-label="สรุปยอดสด"
           style={{
             display: "grid",
-            gridTemplateColumns: "1fr 1fr 1fr",
-            gap: "8px",
-            backgroundColor: "#1E293B",
-            borderRadius: "12px",
-            padding: "12px",
-            marginBottom: "16px",
-            border: "1px solid #334155",
-            textAlign: "center",
+            gridTemplateColumns: "1fr 1fr 1.1fr",
+            gap: "10px",
+            backgroundColor: "var(--surface)",
+            borderRadius: "var(--radius-lg)",
+            padding: "16px",
+            marginBottom: "20px",
+            border: "1px solid var(--border)",
+            boxShadow: "0 4px 16px rgba(0, 0, 0, 0.15)",
           }}
         >
-          <div>
-            <div style={{ fontSize: "0.75rem", color: "#94A3B8" }}>💰 รายรับรวม</div>
-            <div style={{ fontSize: "1.1rem", fontWeight: "bold", color: "#34D399" }}>
-              ฿{revenueTotal.toLocaleString()}
-            </div>
-          </div>
-          <div>
-            <div style={{ fontSize: "0.75rem", color: "#94A3B8" }}>💸 รายจ่ายรวม</div>
-            <div style={{ fontSize: "1.1rem", fontWeight: "bold", color: "#F87171" }}>
-              ฿{expensesTotal.toLocaleString()}
-            </div>
-          </div>
-          <div>
-            <div style={{ fontSize: "0.75rem", color: "#94A3B8" }}>📈 กำไรสุทธิ</div>
-            <div
+          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+            <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 500 }}>
+              รายรับรวม
+            </span>
+            <span
+              className="tabular-nums"
               style={{
-                fontSize: "1.1rem",
-                fontWeight: "bold",
-                color: netProfit >= 0 ? "#60A5FA" : "#F87171",
+                fontSize: "clamp(1.1rem, 3.5vw, 1.25rem)",
+                fontWeight: 700,
+                color: "var(--primary)",
+                lineHeight: 1.2,
+              }}
+            >
+              ฿{revenueTotal.toLocaleString()}
+            </span>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+            <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 500 }}>
+              รายจ่ายรวม
+            </span>
+            <span
+              className="tabular-nums"
+              style={{
+                fontSize: "clamp(1.1rem, 3.5vw, 1.25rem)",
+                fontWeight: 700,
+                color: "var(--danger)",
+                lineHeight: 1.2,
+              }}
+            >
+              ฿{expensesTotal.toLocaleString()}
+            </span>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "4px",
+              paddingLeft: "8px",
+              borderLeft: "1px solid var(--border)",
+            }}
+          >
+            <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 500 }}>
+              กำไรสุทธิ
+            </span>
+            <span
+              className="tabular-nums"
+              style={{
+                fontSize: "clamp(1.1rem, 3.8vw, 1.25rem)",
+                fontWeight: 800,
+                color: netProfit >= 0 ? "var(--primary)" : "var(--danger)",
+                lineHeight: 1.2,
               }}
             >
               ฿{netProfit.toLocaleString()}
-            </div>
+            </span>
           </div>
-        </div>
+        </section>
 
-        <form onSubmit={handleSubmit}>
-          {/* Branch & Date Selection */}
-          <div style={{ backgroundColor: "#1E293B", borderRadius: "12px", padding: "16px", marginBottom: "16px", border: "1px solid #334155" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-              <label style={{ fontSize: "0.85rem", fontWeight: "bold", color: "#94A3B8" }}>
-                🏪 เลือกสาขา
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+          {/* Card 1: Branch & Date Selection */}
+          <div
+            style={{
+              backgroundColor: "var(--surface)",
+              borderRadius: "var(--radius-lg)",
+              padding: "18px",
+              border: "1px solid var(--border)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+              <label style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--text-primary)" }}>
+                เลือกสาขา
               </label>
-              {loadingDefaults && <span style={{ fontSize: "0.75rem", color: "#38BDF8" }}>กำลังโหลดข้อมูล...</span>}
+              {loadingDefaults && (
+                <span style={{ fontSize: "0.75rem", color: "var(--info)", fontWeight: 500 }}>
+                  กำลังโหลดข้อมูล...
+                </span>
+              )}
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "16px" }}>
+
+            {/* 48px Branch Buttons */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "16px" }}>
               <button
                 type="button"
+                className="touch-target"
                 onClick={() => setShopId("shop1")}
                 style={{
-                  padding: "10px",
-                  borderRadius: "8px",
-                  border: "none",
-                  fontWeight: "bold",
+                  padding: "12px",
+                  borderRadius: "var(--radius-md)",
+                  border: shopId === "shop1" ? "2px solid var(--primary)" : "1px solid var(--border)",
+                  fontWeight: 700,
+                  fontSize: "0.95rem",
                   cursor: "pointer",
-                  backgroundColor: shopId === "shop1" ? "#10B981" : "#334155",
-                  color: shopId === "shop1" ? "#FFFFFF" : "#CBD5E1",
+                  backgroundColor: shopId === "shop1" ? "var(--primary-tint)" : "var(--surface-raised)",
+                  color: shopId === "shop1" ? "var(--primary)" : "var(--text-secondary)",
+                  transition: "all 0.15s ease",
                 }}
               >
                 ตลาดญี่ปุ่น
               </button>
               <button
                 type="button"
+                className="touch-target"
                 onClick={() => setShopId("shop2")}
                 style={{
-                  padding: "10px",
-                  borderRadius: "8px",
-                  border: "none",
-                  fontWeight: "bold",
+                  padding: "12px",
+                  borderRadius: "var(--radius-md)",
+                  border: shopId === "shop2" ? "2px solid var(--primary)" : "1px solid var(--border)",
+                  fontWeight: 700,
+                  fontSize: "0.95rem",
                   cursor: "pointer",
-                  backgroundColor: shopId === "shop2" ? "#10B981" : "#334155",
-                  color: shopId === "shop2" ? "#FFFFFF" : "#CBD5E1",
+                  backgroundColor: shopId === "shop2" ? "var(--primary-tint)" : "var(--surface-raised)",
+                  color: shopId === "shop2" ? "var(--primary)" : "var(--text-secondary)",
+                  transition: "all 0.15s ease",
                 }}
               >
                 สายหนองปิง
               </button>
             </div>
 
-            <label style={{ display: "block", fontSize: "0.85rem", fontWeight: "bold", marginBottom: "8px", color: "#94A3B8" }}>
-              📅 วันที่บันทึก
+            <label
+              htmlFor="entry-date"
+              style={{
+                display: "block",
+                fontSize: "0.85rem",
+                fontWeight: 700,
+                marginBottom: "8px",
+                color: "var(--text-primary)",
+              }}
+            >
+              วันที่บันทึก
             </label>
             <input
+              id="entry-date"
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
+              className="touch-target tabular-nums"
               style={{
                 width: "100%",
-                padding: "10px",
-                borderRadius: "8px",
-                backgroundColor: "#0F172A",
-                color: "#FFFFFF",
-                border: "1px solid #475569",
+                padding: "12px 14px",
+                borderRadius: "var(--radius-md)",
+                backgroundColor: "var(--surface-raised)",
+                color: "var(--text-primary)",
+                border: "1px solid var(--border)",
                 fontSize: "1rem",
                 boxSizing: "border-box",
+                outline: "none",
               }}
             />
           </div>
 
-          {/* Section 1: Income / Revenue */}
-          <div style={{ backgroundColor: "#1E293B", borderRadius: "12px", padding: "16px", marginBottom: "16px", border: "1px solid #334155" }}>
-            <h2 style={{ fontSize: "1.05rem", fontWeight: "bold", color: "#34D399", margin: "0 0 12px 0" }}>
-              💰 รายรับประจำวัน
-            </h2>
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              {/* Transfer & Cash */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+          {/* Card 2: Revenue Section */}
+          <div
+            style={{
+              backgroundColor: "var(--surface)",
+              borderRadius: "var(--radius-lg)",
+              padding: "18px",
+              border: "1px solid var(--border)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
+              <h2 style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--primary)", margin: 0 }}>
+                รายรับประจำวัน
+              </h2>
+              <span className="tabular-nums" style={{ fontSize: "0.9rem", color: "var(--text-secondary)", fontWeight: 600 }}>
+                รวม ฿{revenueTotal.toLocaleString()}
+              </span>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+              {/* Transfer & Cash Grid */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
                 <div>
-                  <label style={{ display: "block", fontSize: "0.8rem", color: "#94A3B8", marginBottom: "4px" }}>💳 ยอดโอน (บาท)</label>
+                  <label
+                    htmlFor="input-transfer"
+                    style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "6px", fontWeight: 600 }}
+                  >
+                    ยอดโอน (บาท)
+                  </label>
                   <input
+                    id="input-transfer"
                     type="number"
                     placeholder="0"
                     value={transfer}
                     onChange={(e) => setTransfer(e.target.value)}
-                    style={{ width: "100%", padding: "10px", borderRadius: "8px", backgroundColor: "#0F172A", color: "#FFF", border: "1px solid #475569", boxSizing: "border-box", fontSize: "1rem" }}
+                    className="touch-target tabular-nums"
+                    style={{
+                      width: "100%",
+                      padding: "12px 14px",
+                      borderRadius: "var(--radius-md)",
+                      backgroundColor: "var(--surface-raised)",
+                      color: "var(--text-primary)",
+                      border: "1px solid var(--border)",
+                      boxSizing: "border-box",
+                      fontSize: "1rem",
+                      outline: "none",
+                    }}
                   />
                 </div>
                 <div>
-                  <label style={{ display: "block", fontSize: "0.8rem", color: "#94A3B8", marginBottom: "4px" }}>💵 เงินสด (บาท)</label>
+                  <label
+                    htmlFor="input-cash"
+                    style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "6px", fontWeight: 600 }}
+                  >
+                    เงินสด (บาท)
+                  </label>
                   <input
+                    id="input-cash"
                     type="number"
                     placeholder="0"
                     value={cash}
                     onChange={(e) => setCash(e.target.value)}
-                    style={{ width: "100%", padding: "10px", borderRadius: "8px", backgroundColor: "#0F172A", color: "#FFF", border: "1px solid #475569", boxSizing: "border-box", fontSize: "1rem" }}
+                    className="touch-target tabular-nums"
+                    style={{
+                      width: "100%",
+                      padding: "12px 14px",
+                      borderRadius: "var(--radius-md)",
+                      backgroundColor: "var(--surface-raised)",
+                      color: "var(--text-primary)",
+                      border: "1px solid var(--border)",
+                      boxSizing: "border-box",
+                      fontSize: "1rem",
+                      outline: "none",
+                    }}
                   />
                 </div>
               </div>
 
-              {/* Delivery with customizable title */}
-              <div style={{ backgroundColor: "#0F172A", borderRadius: "8px", padding: "10px", border: "1px solid #334155" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-                  <label style={{ fontSize: "0.8rem", color: "#38BDF8", fontWeight: "bold" }}>
-                    🛵 รายรับเสริม / Delivery (พิมพ์หัวข้อได้)
-                  </label>
+              {/* Delivery Section */}
+              <div
+                style={{
+                  backgroundColor: "var(--surface-raised)",
+                  borderRadius: "var(--radius-md)",
+                  padding: "14px",
+                  border: "1px solid var(--border)",
+                }}
+              >
+                <label style={{ display: "block", fontSize: "0.85rem", color: "var(--text-primary)", fontWeight: 700, marginBottom: "8px" }}>
+                  รายรับ Delivery / เสริม
+                </label>
+
+                {/* Delivery Presets Chips */}
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "10px" }}>
+                  {DELIVERY_PRESETS.map((preset) => {
+                    const isSelected = deliveryTitle.includes(preset.name);
+                    return (
+                      <button
+                        key={preset.name}
+                        type="button"
+                        onClick={() => setDeliveryTitle(`ยอด ${preset.name}`)}
+                        style={{
+                          minHeight: "36px",
+                          padding: "6px 12px",
+                          borderRadius: "var(--radius-pill)",
+                          fontSize: "0.8rem",
+                          fontWeight: 600,
+                          backgroundColor: isSelected ? preset.color : "var(--surface)",
+                          color: isSelected ? "#FFFFFF" : "var(--text-secondary)",
+                          border: `1px solid ${isSelected ? preset.color : "var(--border)"}`,
+                          cursor: "pointer",
+                          transition: "all 0.15s ease",
+                        }}
+                      >
+                        {preset.name}
+                      </button>
+                    );
+                  })}
                 </div>
 
-                {/* Quick Presets */}
-                <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "8px" }}>
-                  {DELIVERY_PRESETS.map((preset) => (
-                    <button
-                      key={preset}
-                      type="button"
-                      onClick={() => setDeliveryTitle(`ยอด ${preset}`)}
-                      style={{
-                        padding: "4px 8px",
-                        borderRadius: "6px",
-                        fontSize: "0.75rem",
-                        backgroundColor: deliveryTitle.includes(preset) ? "#0284C7" : "#334155",
-                        color: "#FFFFFF",
-                        border: "none",
-                        cursor: "pointer",
-                      }}
-                    >
-                      {preset}
-                    </button>
-                  ))}
-                </div>
-
-                <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: "8px", width: "100%", boxSizing: "border-box" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: "10px" }}>
                   <input
                     type="text"
                     placeholder="ชื่อหัวข้อ (เช่น ยอด LINE MAN)"
                     value={deliveryTitle}
                     onChange={(e) => setDeliveryTitle(e.target.value)}
+                    className="touch-target"
                     style={{
                       width: "100%",
-                      minWidth: 0,
+                      padding: "12px 14px",
+                      borderRadius: "var(--radius-md)",
+                      backgroundColor: "var(--surface)",
+                      color: "var(--text-primary)",
+                      border: "1px solid var(--border)",
+                      fontSize: "0.95rem",
                       boxSizing: "border-box",
-                      padding: "10px 12px",
-                      borderRadius: "8px",
-                      backgroundColor: "#1E293B",
-                      color: "#FFF",
-                      border: "1px solid #475569",
-                      fontSize: "0.9rem",
+                      outline: "none",
                     }}
                   />
                   <input
@@ -490,24 +709,25 @@ export default function EntryPage() {
                     placeholder="จำนวนเงิน (฿)"
                     value={delivery}
                     onChange={(e) => setDelivery(e.target.value)}
+                    className="touch-target tabular-nums"
                     style={{
                       width: "100%",
-                      minWidth: 0,
+                      padding: "12px 14px",
+                      borderRadius: "var(--radius-md)",
+                      backgroundColor: "var(--surface)",
+                      color: "var(--text-primary)",
+                      border: "1px solid var(--border)",
+                      fontSize: "0.95rem",
                       boxSizing: "border-box",
-                      padding: "10px 12px",
-                      borderRadius: "8px",
-                      backgroundColor: "#1E293B",
-                      color: "#FFF",
-                      border: "1px solid #475569",
-                      fontSize: "0.9rem",
+                      outline: "none",
                     }}
                   />
                 </div>
               </div>
 
-              {/* Extra Income Rows */}
+              {/* Extra Income List */}
               {extraIncome.length > 0 && (
-                <div style={{ display: "flex", flexDirection: "column", gap: "6px", width: "100%", boxSizing: "border-box" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                   {extraIncome.map((item, idx) => (
                     <div
                       key={idx}
@@ -515,71 +735,65 @@ export default function EntryPage() {
                         display: "flex",
                         justifyContent: "space-between",
                         alignItems: "center",
-                        backgroundColor: "#0F172A",
-                        padding: "8px 12px",
-                        borderRadius: "8px",
-                        fontSize: "0.85rem",
-                        border: "1px solid #334155",
-                        boxSizing: "border-box",
-                        width: "100%",
-                        minWidth: 0,
+                        backgroundColor: "var(--surface-raised)",
+                        padding: "10px 14px",
+                        borderRadius: "var(--radius-md)",
+                        border: "1px solid var(--border)",
                       }}
                     >
-                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginRight: "8px" }}>
-                        💵 {item.name}: ฿{item.amount.toLocaleString()}
+                      <span style={{ fontSize: "0.9rem", color: "var(--text-primary)", fontWeight: 500 }}>
+                        {item.name}: <span className="tabular-nums" style={{ fontWeight: 700, color: "var(--primary)" }}>฿{item.amount.toLocaleString()}</span>
                       </span>
                       <button
                         type="button"
                         onClick={() => handleRemoveExtraIncome(idx)}
                         style={{
-                          color: "#EF4444",
-                          backgroundColor: "rgba(239, 68, 68, 0.12)",
+                          color: "var(--danger)",
+                          backgroundColor: "var(--danger-tint)",
                           border: "1px solid rgba(239, 68, 68, 0.25)",
-                          borderRadius: "6px",
-                          padding: "4px 8px",
+                          borderRadius: "var(--radius-sm)",
+                          padding: "6px 12px",
                           cursor: "pointer",
-                          fontWeight: "bold",
-                          fontSize: "0.75rem",
-                          flexShrink: 0,
+                          fontWeight: 600,
+                          fontSize: "0.8rem",
                         }}
                       >
-                        ✕ ลบ
+                        ลบ
                       </button>
                     </div>
                   ))}
                 </div>
               )}
 
-              {/* Add More Extra Income */}
+              {/* Add Extra Income Block */}
               <div
                 style={{
-                  backgroundColor: "#0F172A",
-                  padding: "12px",
-                  borderRadius: "10px",
-                  border: "1px dashed #334155",
-                  boxSizing: "border-box",
-                  width: "100%",
+                  backgroundColor: "var(--surface-raised)",
+                  padding: "14px",
+                  borderRadius: "var(--radius-md)",
+                  border: "1px dashed var(--border)",
                 }}
               >
-                <div style={{ fontSize: "0.8rem", color: "#94A3B8", marginBottom: "8px", fontWeight: "bold" }}>
-                  ➕ เพิ่มรายรับอื่น
+                <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "10px", fontWeight: 600 }}>
+                  เพิ่มรายรับอื่น
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: "8px", marginBottom: "8px", width: "100%", boxSizing: "border-box" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: "10px", marginBottom: "10px" }}>
                   <input
                     type="text"
-                    placeholder="ชื่อรายรับ (เช่น คนละครึ่ง)"
+                    placeholder="ชื่อรายการ (เช่น ขายของเก่า)"
                     value={newIncomeName}
                     onChange={(e) => setNewIncomeName(e.target.value)}
+                    className="touch-target"
                     style={{
                       width: "100%",
-                      minWidth: 0,
+                      padding: "10px 12px",
+                      borderRadius: "var(--radius-md)",
+                      backgroundColor: "var(--surface)",
+                      color: "var(--text-primary)",
+                      border: "1px solid var(--border)",
+                      fontSize: "0.9rem",
                       boxSizing: "border-box",
-                      padding: "8px 10px",
-                      borderRadius: "8px",
-                      backgroundColor: "#1E293B",
-                      color: "#FFF",
-                      border: "1px solid #475569",
-                      fontSize: "0.85rem",
+                      outline: "none",
                     }}
                   />
                   <input
@@ -587,227 +801,402 @@ export default function EntryPage() {
                     placeholder="จำนวนเงิน (฿)"
                     value={newIncomeAmount}
                     onChange={(e) => setNewIncomeAmount(e.target.value)}
+                    className="touch-target tabular-nums"
                     style={{
                       width: "100%",
-                      minWidth: 0,
+                      padding: "10px 12px",
+                      borderRadius: "var(--radius-md)",
+                      backgroundColor: "var(--surface)",
+                      color: "var(--text-primary)",
+                      border: "1px solid var(--border)",
+                      fontSize: "0.9rem",
                       boxSizing: "border-box",
-                      padding: "8px 10px",
-                      borderRadius: "8px",
-                      backgroundColor: "#1E293B",
-                      color: "#FFF",
-                      border: "1px solid #475569",
-                      fontSize: "0.85rem",
+                      outline: "none",
                     }}
                   />
                 </div>
                 <button
                   type="button"
                   onClick={handleAddExtraIncome}
+                  className="touch-target"
                   style={{
                     width: "100%",
-                    padding: "8px",
-                    backgroundColor: "#059669",
-                    color: "#FFF",
-                    border: "none",
-                    borderRadius: "8px",
-                    fontWeight: "bold",
+                    padding: "10px",
+                    backgroundColor: "var(--primary-tint)",
+                    color: "var(--primary)",
+                    border: "1px solid rgba(6, 199, 85, 0.3)",
+                    borderRadius: "var(--radius-md)",
+                    fontWeight: 700,
                     cursor: "pointer",
-                    fontSize: "0.85rem",
-                    boxSizing: "border-box",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: "6px",
+                    fontSize: "0.9rem",
+                    transition: "all 0.15s ease",
                   }}
                 >
-                  <span>➕</span> เพิ่มรายการรายรับนี้
+                  + เพิ่มรายการรายรับนี้
                 </button>
               </div>
             </div>
           </div>
 
-          {/* Section 2: Pork Breakdown */}
-          <div style={{ backgroundColor: "#1E293B", borderRadius: "12px", padding: "16px", marginBottom: "16px", border: "1px solid #334155" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-              <h2 style={{ fontSize: "1.05rem", fontWeight: "bold", color: "#FBBF24", margin: 0 }}>
-                🥩 ยอดหมูประจำวัน
-              </h2>
+          {/* Card 3: Pork Breakdown Section */}
+          <div
+            style={{
+              backgroundColor: "var(--surface)",
+              borderRadius: "var(--radius-lg)",
+              padding: "18px",
+              border: "1px solid var(--border)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <h2 style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--warning)", margin: 0 }}>
+                  ยอดหมูประจำวัน
+                </h2>
+              </div>
               <button
                 type="button"
                 onClick={() => setIsEditingPorkPrices(!isEditingPorkPrices)}
                 style={{
-                  padding: "4px 10px",
-                  borderRadius: "6px",
-                  backgroundColor: isEditingPorkPrices ? "#10B981" : "#334155",
-                  color: "#FFFFFF",
-                  border: "none",
+                  minHeight: "36px",
+                  padding: "6px 14px",
+                  borderRadius: "var(--radius-pill)",
+                  backgroundColor: isEditingPorkPrices ? "var(--warning)" : "var(--surface-raised)",
+                  color: isEditingPorkPrices ? "var(--bg)" : "var(--text-secondary)",
+                  border: "1px solid var(--border)",
                   cursor: "pointer",
-                  fontSize: "0.75rem",
-                  fontWeight: "bold",
+                  fontSize: "0.8rem",
+                  fontWeight: 700,
+                  transition: "all 0.15s ease",
                 }}
               >
-                {isEditingPorkPrices ? "✔️ บันทึกราคา" : "✏️ แก้ไขราคา"}
+                {isEditingPorkPrices ? "บันทึกราคา" : "แก้ไขราคา"}
               </button>
             </div>
 
-            {/* Price Badge / Notice */}
+            {/* Price reference indicator */}
             {!isEditingPorkPrices && (
-              <div style={{ fontSize: "0.75rem", color: "#94A3B8", marginBottom: "10px", display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                <span>🔴 แดง: ฿{redPrice}/กก.</span>
-                <span>🟠 สับ: ฿{mincedPrice}/กก.</span>
-                <span>🟡 มัน: ฿{fatPrice}/กก.</span>
-                <span style={{ color: "#38BDF8" }}>(ดึงค่าล่าสุดแล้ว)</span>
+              <div
+                style={{
+                  fontSize: "0.8rem",
+                  color: "var(--text-secondary)",
+                  marginBottom: "14px",
+                  display: "flex",
+                  gap: "12px",
+                  flexWrap: "wrap",
+                }}
+              >
+                <span className="tabular-nums">หมูแดง: ฿{redPrice}/กก.</span>
+                <span className="tabular-nums">หมูสับ: ฿{mincedPrice}/กก.</span>
+                <span className="tabular-nums">มันหมู: ฿{fatPrice}/กก.</span>
               </div>
             )}
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              {/* Red Pork */}
-              <div style={{ display: "grid", gridTemplateColumns: isEditingPorkPrices ? "1fr 1fr" : "1fr", gap: "8px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              {/* Red Pork Row */}
+              <div style={{ display: "grid", gridTemplateColumns: isEditingPorkPrices ? "1fr 1fr" : "1fr", gap: "10px" }}>
                 <div>
-                  <label style={{ fontSize: "0.75rem", color: "#F87171", fontWeight: "bold" }}>🔴 หมูแดง (กิโลกรัม)</label>
+                  <label style={{ display: "block", fontSize: "0.8rem", color: "var(--danger)", fontWeight: 700, marginBottom: "4px" }}>
+                    หมูแดง (กิโลกรัม)
+                  </label>
                   <input
                     type="number"
                     step="0.1"
                     placeholder="เช่น 4 หรือ 4.5"
                     value={redQty}
                     onChange={(e) => setRedQty(e.target.value)}
-                    style={{ width: "100%", padding: "10px", borderRadius: "8px", backgroundColor: "#0F172A", color: "#FFF", border: "1px solid #475569", boxSizing: "border-box", fontSize: "1rem" }}
+                    className="touch-target tabular-nums"
+                    style={{
+                      width: "100%",
+                      padding: "12px 14px",
+                      borderRadius: "var(--radius-md)",
+                      backgroundColor: "var(--surface-raised)",
+                      color: "var(--text-primary)",
+                      border: "1px solid var(--border)",
+                      boxSizing: "border-box",
+                      fontSize: "1rem",
+                      outline: "none",
+                    }}
                   />
                 </div>
                 {isEditingPorkPrices && (
                   <div>
-                    <label style={{ fontSize: "0.75rem", color: "#94A3B8" }}>ราคาหมูแดง (บาท/กก.)</label>
+                    <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "4px" }}>
+                      ราคาหมูแดง (บาท/กก.)
+                    </label>
                     <input
                       type="number"
                       value={redPrice}
                       onChange={(e) => setRedPrice(e.target.value)}
-                      style={{ width: "100%", padding: "10px", borderRadius: "8px", backgroundColor: "#0F172A", color: "#FBBF24", border: "1px solid #F59E0B", boxSizing: "border-box", fontSize: "1rem" }}
+                      className="touch-target tabular-nums"
+                      style={{
+                        width: "100%",
+                        padding: "12px 14px",
+                        borderRadius: "var(--radius-md)",
+                        backgroundColor: "var(--surface-raised)",
+                        color: "var(--warning)",
+                        border: "1px solid var(--warning)",
+                        boxSizing: "border-box",
+                        fontSize: "1rem",
+                        outline: "none",
+                      }}
                     />
                   </div>
                 )}
               </div>
 
-              {/* Minced Pork */}
-              <div style={{ display: "grid", gridTemplateColumns: isEditingPorkPrices ? "1fr 1fr" : "1fr", gap: "8px" }}>
+              {/* Minced Pork Row */}
+              <div style={{ display: "grid", gridTemplateColumns: isEditingPorkPrices ? "1fr 1fr" : "1fr", gap: "10px" }}>
                 <div>
-                  <label style={{ fontSize: "0.75rem", color: "#FB923C", fontWeight: "bold" }}>🟠 หมูสับ (กิโลกรัม)</label>
+                  <label style={{ display: "block", fontSize: "0.8rem", color: "var(--warning)", fontWeight: 700, marginBottom: "4px" }}>
+                    หมูสับ (กิโลกรัม)
+                  </label>
                   <input
                     type="number"
                     step="0.1"
                     placeholder="เช่น 3"
                     value={mincedQty}
                     onChange={(e) => setMincedQty(e.target.value)}
-                    style={{ width: "100%", padding: "10px", borderRadius: "8px", backgroundColor: "#0F172A", color: "#FFF", border: "1px solid #475569", boxSizing: "border-box", fontSize: "1rem" }}
+                    className="touch-target tabular-nums"
+                    style={{
+                      width: "100%",
+                      padding: "12px 14px",
+                      borderRadius: "var(--radius-md)",
+                      backgroundColor: "var(--surface-raised)",
+                      color: "var(--text-primary)",
+                      border: "1px solid var(--border)",
+                      boxSizing: "border-box",
+                      fontSize: "1rem",
+                      outline: "none",
+                    }}
                   />
                 </div>
                 {isEditingPorkPrices && (
                   <div>
-                    <label style={{ fontSize: "0.75rem", color: "#94A3B8" }}>ราคาหมูสับ (บาท/กก.)</label>
+                    <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "4px" }}>
+                      ราคาหมูสับ (บาท/กก.)
+                    </label>
                     <input
                       type="number"
                       value={mincedPrice}
                       onChange={(e) => setMincedPrice(e.target.value)}
-                      style={{ width: "100%", padding: "10px", borderRadius: "8px", backgroundColor: "#0F172A", color: "#FBBF24", border: "1px solid #F59E0B", boxSizing: "border-box", fontSize: "1rem" }}
+                      className="touch-target tabular-nums"
+                      style={{
+                        width: "100%",
+                        padding: "12px 14px",
+                        borderRadius: "var(--radius-md)",
+                        backgroundColor: "var(--surface-raised)",
+                        color: "var(--warning)",
+                        border: "1px solid var(--warning)",
+                        boxSizing: "border-box",
+                        fontSize: "1rem",
+                        outline: "none",
+                      }}
                     />
                   </div>
                 )}
               </div>
 
-              {/* Fat Pork */}
-              <div style={{ display: "grid", gridTemplateColumns: isEditingPorkPrices ? "1fr 1fr" : "1fr", gap: "8px" }}>
+              {/* Fat Pork Row */}
+              <div style={{ display: "grid", gridTemplateColumns: isEditingPorkPrices ? "1fr 1fr" : "1fr", gap: "10px" }}>
                 <div>
-                  <label style={{ fontSize: "0.75rem", color: "#FDE047", fontWeight: "bold" }}>🟡 มันหมู (กิโลกรัม)</label>
+                  <label style={{ display: "block", fontSize: "0.8rem", color: "var(--info)", fontWeight: 700, marginBottom: "4px" }}>
+                    มันหมู (กิโลกรัม)
+                  </label>
                   <input
                     type="number"
                     step="0.1"
                     placeholder="เช่น 2 หรือ 8"
                     value={fatQty}
                     onChange={(e) => setFatQty(e.target.value)}
-                    style={{ width: "100%", padding: "10px", borderRadius: "8px", backgroundColor: "#0F172A", color: "#FFF", border: "1px solid #475569", boxSizing: "border-box", fontSize: "1rem" }}
+                    className="touch-target tabular-nums"
+                    style={{
+                      width: "100%",
+                      padding: "12px 14px",
+                      borderRadius: "var(--radius-md)",
+                      backgroundColor: "var(--surface-raised)",
+                      color: "var(--text-primary)",
+                      border: "1px solid var(--border)",
+                      boxSizing: "border-box",
+                      fontSize: "1rem",
+                      outline: "none",
+                    }}
                   />
                 </div>
                 {isEditingPorkPrices && (
                   <div>
-                    <label style={{ fontSize: "0.75rem", color: "#94A3B8" }}>ราคามันหมู (บาท/กก.)</label>
+                    <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "4px" }}>
+                      ราคามันหมู (บาท/กก.)
+                    </label>
                     <input
                       type="number"
                       value={fatPrice}
                       onChange={(e) => setFatPrice(e.target.value)}
-                      style={{ width: "100%", padding: "10px", borderRadius: "8px", backgroundColor: "#0F172A", color: "#FBBF24", border: "1px solid #F59E0B", boxSizing: "border-box", fontSize: "1rem" }}
+                      className="touch-target tabular-nums"
+                      style={{
+                        width: "100%",
+                        padding: "12px 14px",
+                        borderRadius: "var(--radius-md)",
+                        backgroundColor: "var(--surface-raised)",
+                        color: "var(--warning)",
+                        border: "1px solid var(--warning)",
+                        boxSizing: "border-box",
+                        fontSize: "1rem",
+                        outline: "none",
+                      }}
                     />
                   </div>
                 )}
               </div>
 
               {/* Pork Subtotal */}
-              <div style={{ textAlign: "right", fontSize: "0.85rem", color: "#FBBF24", fontWeight: "bold", paddingTop: "4px" }}>
-                รวมค่าหมู: ฿{porkTotal.toLocaleString()}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  paddingTop: "10px",
+                  borderTop: "1px solid var(--border)",
+                }}
+              >
+                <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>รวมค่าหมูตามคำนวณ</span>
+                <span
+                  className="tabular-nums"
+                  style={{
+                    fontSize: "1.05rem",
+                    color: "var(--warning)",
+                    fontWeight: 700,
+                  }}
+                >
+                  ฿{porkTotal.toLocaleString()}
+                </span>
               </div>
             </div>
           </div>
 
-          {/* Section 3: Expenses (Pre-filled from latest) */}
-          <div style={{ backgroundColor: "#1E293B", borderRadius: "12px", padding: "16px", marginBottom: "20px", border: "1px solid #334155" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-              <h2 style={{ fontSize: "1.05rem", fontWeight: "bold", color: "#F87171", margin: 0 }}>
-                💸 รายจ่าย (ดึงค่าล่าสุดให้อัตโนมัติ)
+          {/* Card 4: Operating Expenses Section */}
+          <div
+            style={{
+              backgroundColor: "var(--surface)",
+              borderRadius: "var(--radius-lg)",
+              padding: "18px",
+              border: "1px solid var(--border)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+              <h2 style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--danger)", margin: 0 }}>
+                รายจ่ายประจำวัน
               </h2>
+              <span className="tabular-nums" style={{ fontSize: "0.9rem", color: "var(--text-secondary)", fontWeight: 600 }}>
+                รวม ฿{expensesTotal.toLocaleString()}
+              </span>
             </div>
-            <p style={{ fontSize: "0.75rem", color: "#94A3B8", margin: "0 0 12px 0" }}>
-              ค่าแรง แก๊ส น้ำแข็ง และวัตถุดิบดึงจากวันที่บันทึกล่าสุด สามารถแก้ไขได้ทันที
+            <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", margin: "0 0 14px 0" }}>
+              ค่าแรง แก๊ส น้ำแข็ง และวัตถุดิบ ดึงจากวันที่ล่าสุดให้อัตโนมัติ (แก้ไขได้)
             </p>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "12px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "16px" }}>
               <div>
-                <label style={{ fontSize: "0.75rem", color: "#94A3B8" }}>📦 วัตถุดิบ (บาท)</label>
+                <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "6px", fontWeight: 600 }}>
+                  วัตถุดิบ (บาท)
+                </label>
                 <input
                   type="number"
                   placeholder="0"
                   value={materials}
                   onChange={(e) => setMaterials(e.target.value)}
-                  style={{ width: "100%", padding: "10px", borderRadius: "8px", backgroundColor: "#0F172A", color: "#FFF", border: "1px solid #475569", boxSizing: "border-box", fontSize: "1rem" }}
+                  className="touch-target tabular-nums"
+                  style={{
+                    width: "100%",
+                    padding: "12px 14px",
+                    borderRadius: "var(--radius-md)",
+                    backgroundColor: "var(--surface-raised)",
+                    color: "var(--text-primary)",
+                    border: "1px solid var(--border)",
+                    boxSizing: "border-box",
+                    fontSize: "1rem",
+                    outline: "none",
+                  }}
                 />
               </div>
               <div>
-                <label style={{ fontSize: "0.75rem", color: "#94A3B8" }}>👷 ค่าแรง (บาท)</label>
+                <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "6px", fontWeight: 600 }}>
+                  ค่าแรง (บาท)
+                </label>
                 <input
                   type="number"
                   placeholder="0"
                   value={labor}
                   onChange={(e) => setLabor(e.target.value)}
-                  style={{ width: "100%", padding: "10px", borderRadius: "8px", backgroundColor: "#0F172A", color: "#FFF", border: "1px solid #475569", boxSizing: "border-box", fontSize: "1rem" }}
+                  className="touch-target tabular-nums"
+                  style={{
+                    width: "100%",
+                    padding: "12px 14px",
+                    borderRadius: "var(--radius-md)",
+                    backgroundColor: "var(--surface-raised)",
+                    color: "var(--text-primary)",
+                    border: "1px solid var(--border)",
+                    boxSizing: "border-box",
+                    fontSize: "1rem",
+                    outline: "none",
+                  }}
                 />
               </div>
               <div>
-                <label style={{ fontSize: "0.75rem", color: "#94A3B8" }}>🔥 แก๊ส (บาท)</label>
+                <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "6px", fontWeight: 600 }}>
+                  แก๊ส (บาท)
+                </label>
                 <input
                   type="number"
                   placeholder="0"
                   value={gas}
                   onChange={(e) => setGas(e.target.value)}
-                  style={{ width: "100%", padding: "10px", borderRadius: "8px", backgroundColor: "#0F172A", color: "#FFF", border: "1px solid #475569", boxSizing: "border-box", fontSize: "1rem" }}
+                  className="touch-target tabular-nums"
+                  style={{
+                    width: "100%",
+                    padding: "12px 14px",
+                    borderRadius: "var(--radius-md)",
+                    backgroundColor: "var(--surface-raised)",
+                    color: "var(--text-primary)",
+                    border: "1px solid var(--border)",
+                    boxSizing: "border-box",
+                    fontSize: "1rem",
+                    outline: "none",
+                  }}
                 />
               </div>
               <div>
-                <label style={{ fontSize: "0.75rem", color: "#94A3B8" }}>🧊 น้ำแข็ง (บาท)</label>
+                <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "6px", fontWeight: 600 }}>
+                  น้ำแข็ง (บาท)
+                </label>
                 <input
                   type="number"
                   placeholder="0"
                   value={ice}
                   onChange={(e) => setIce(e.target.value)}
-                  style={{ width: "100%", padding: "10px", borderRadius: "8px", backgroundColor: "#0F172A", color: "#FFF", border: "1px solid #475569", boxSizing: "border-box", fontSize: "1rem" }}
+                  className="touch-target tabular-nums"
+                  style={{
+                    width: "100%",
+                    padding: "12px 14px",
+                    borderRadius: "var(--radius-md)",
+                    backgroundColor: "var(--surface-raised)",
+                    color: "var(--text-primary)",
+                    border: "1px solid var(--border)",
+                    boxSizing: "border-box",
+                    fontSize: "1rem",
+                    outline: "none",
+                  }}
                 />
               </div>
             </div>
 
-            {/* Custom Extra Expenses */}
-            <div style={{ borderTop: "1px solid #334155", paddingTop: "14px", marginTop: "14px", width: "100%", boxSizing: "border-box" }}>
-              <label style={{ display: "block", fontSize: "0.85rem", color: "#CBD5E1", marginBottom: "10px", fontWeight: "bold" }}>
-                ➕ รายจ่ายพิเศษ (ดึงจากล่าสุด / เพิ่มใหม่ได้ เช่น แม็คโคร)
+            {/* Extra Expenses Block */}
+            <div style={{ borderTop: "1px solid var(--border)", paddingTop: "14px" }}>
+              <label style={{ display: "block", fontSize: "0.85rem", color: "var(--text-primary)", marginBottom: "10px", fontWeight: 700 }}>
+                รายจ่ายพิเศษ (เช่น ซื้อของแม็คโคร / ของใช้)
               </label>
 
               {extraExpenses.length > 0 && (
-                <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginBottom: "12px", width: "100%", boxSizing: "border-box" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "12px" }}>
                   {extraExpenses.map((item, idx) => (
                     <div
                       key={idx}
@@ -815,35 +1204,30 @@ export default function EntryPage() {
                         display: "flex",
                         justifyContent: "space-between",
                         alignItems: "center",
-                        backgroundColor: "#0F172A",
-                        padding: "8px 12px",
-                        borderRadius: "8px",
-                        fontSize: "0.85rem",
-                        border: "1px solid #334155",
-                        boxSizing: "border-box",
-                        width: "100%",
-                        minWidth: 0,
+                        backgroundColor: "var(--surface-raised)",
+                        padding: "10px 14px",
+                        borderRadius: "var(--radius-md)",
+                        border: "1px solid var(--border)",
                       }}
                     >
-                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginRight: "8px" }}>
-                        🏷️ {item.name}: ฿{item.amount.toLocaleString()}
+                      <span style={{ fontSize: "0.9rem", color: "var(--text-primary)", fontWeight: 500 }}>
+                        {item.name}: <span className="tabular-nums" style={{ fontWeight: 700, color: "var(--danger)" }}>฿{item.amount.toLocaleString()}</span>
                       </span>
                       <button
                         type="button"
                         onClick={() => handleRemoveExtraExpense(idx)}
                         style={{
-                          color: "#EF4444",
-                          backgroundColor: "rgba(239, 68, 68, 0.12)",
+                          color: "var(--danger)",
+                          backgroundColor: "var(--danger-tint)",
                           border: "1px solid rgba(239, 68, 68, 0.25)",
-                          borderRadius: "6px",
-                          padding: "4px 8px",
+                          borderRadius: "var(--radius-sm)",
+                          padding: "6px 12px",
                           cursor: "pointer",
-                          fontWeight: "bold",
-                          fontSize: "0.75rem",
-                          flexShrink: 0,
+                          fontWeight: 600,
+                          fontSize: "0.8rem",
                         }}
                       >
-                        ✕ ลบ
+                        ลบ
                       </button>
                     </div>
                   ))}
@@ -853,33 +1237,32 @@ export default function EntryPage() {
               {/* Add Extra Expense Form */}
               <div
                 style={{
-                  backgroundColor: "#0F172A",
-                  padding: "12px",
-                  borderRadius: "10px",
-                  border: "1px dashed #475569",
-                  boxSizing: "border-box",
-                  width: "100%",
+                  backgroundColor: "var(--surface-raised)",
+                  padding: "14px",
+                  borderRadius: "var(--radius-md)",
+                  border: "1px dashed var(--border)",
                 }}
               >
-                <div style={{ fontSize: "0.8rem", color: "#94A3B8", marginBottom: "8px", fontWeight: "bold" }}>
-                  ➕ เพิ่มรายการรายจ่ายพิเศษใหม่
+                <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "10px", fontWeight: 600 }}>
+                  เพิ่มรายการรายจ่ายพิเศษ
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: "8px", marginBottom: "8px", width: "100%", boxSizing: "border-box" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: "10px", marginBottom: "10px" }}>
                   <input
                     type="text"
                     placeholder="ชื่อรายการ (เช่น แม็คโคร)"
                     value={newExpenseName}
                     onChange={(e) => setNewExpenseName(e.target.value)}
+                    className="touch-target"
                     style={{
                       width: "100%",
-                      minWidth: 0,
-                      boxSizing: "border-box",
                       padding: "10px 12px",
-                      borderRadius: "8px",
-                      backgroundColor: "#1E293B",
-                      color: "#FFF",
-                      border: "1px solid #475569",
-                      fontSize: "0.85rem",
+                      borderRadius: "var(--radius-md)",
+                      backgroundColor: "var(--surface)",
+                      color: "var(--text-primary)",
+                      border: "1px solid var(--border)",
+                      fontSize: "0.9rem",
+                      boxSizing: "border-box",
+                      outline: "none",
                     }}
                   />
                   <input
@@ -887,67 +1270,67 @@ export default function EntryPage() {
                     placeholder="จำนวนเงิน (฿)"
                     value={newExpenseAmount}
                     onChange={(e) => setNewExpenseAmount(e.target.value)}
+                    className="touch-target tabular-nums"
                     style={{
                       width: "100%",
-                      minWidth: 0,
-                      boxSizing: "border-box",
                       padding: "10px 12px",
-                      borderRadius: "8px",
-                      backgroundColor: "#1E293B",
-                      color: "#FFF",
-                      border: "1px solid #475569",
-                      fontSize: "0.85rem",
+                      borderRadius: "var(--radius-md)",
+                      backgroundColor: "var(--surface)",
+                      color: "var(--text-primary)",
+                      border: "1px solid var(--border)",
+                      fontSize: "0.9rem",
+                      boxSizing: "border-box",
+                      outline: "none",
                     }}
                   />
                 </div>
                 <button
                   type="button"
                   onClick={handleAddExtraExpense}
+                  className="touch-target"
                   style={{
                     width: "100%",
                     padding: "10px",
-                    backgroundColor: "#2563EB",
-                    color: "#FFF",
-                    border: "none",
-                    borderRadius: "8px",
-                    fontWeight: "bold",
+                    backgroundColor: "var(--surface-overlay)",
+                    color: "var(--text-primary)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "var(--radius-md)",
+                    fontWeight: 700,
                     cursor: "pointer",
                     fontSize: "0.9rem",
-                    boxSizing: "border-box",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: "6px",
+                    transition: "all 0.15s ease",
                   }}
                 >
-                  <span>➕</span> เพิ่มรายการรายจ่ายนี้
+                  + เพิ่มรายการรายจ่ายนี้
                 </button>
               </div>
             </div>
           </div>
 
-          {/* Submit Button */}
+          {/* Primary Action / Submit Button */}
           <button
             type="submit"
             disabled={loading}
+            className="touch-target"
             style={{
               width: "100%",
-              padding: "16px",
-              borderRadius: "12px",
-              background: loading ? "#6B7280" : "linear-gradient(135deg, #10B981 0%, #059669 100%)",
-              color: "#FFFFFF",
-              fontSize: "1.1rem",
-              fontWeight: "bold",
+              height: "52px",
+              borderRadius: "var(--radius-md)",
+              backgroundColor: loading ? "var(--surface-raised)" : "var(--primary)",
+              color: loading ? "var(--text-secondary)" : "#FFFFFF",
+              fontSize: "1.05rem",
+              fontWeight: 700,
               border: "none",
               cursor: loading ? "not-allowed" : "pointer",
-              boxShadow: "0 4px 14px rgba(16, 185, 129, 0.4)",
-              transition: "transform 0.1s ease",
+              boxShadow: loading ? "none" : "0 4px 16px var(--primary-glow)",
+              transition: "all 0.15s ease",
+              marginTop: "4px",
             }}
           >
-            {loading ? "⏳ กำลังบันทึก..." : "💾 บันทึกยอดเข้าสู่ระบบ"}
+            {loading ? "กำลังบันทึกข้อมูล..." : "บันทึกยอดเข้าสู่ระบบ"}
           </button>
         </form>
-      </div>
+      </main>
     </div>
   );
 }

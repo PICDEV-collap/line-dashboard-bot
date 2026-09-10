@@ -296,9 +296,8 @@ export default function DashboardPage() {
   return (
     <div
       style={{
-        background: "#0a0d12",
-        color: "#e2e8f0",
-        fontFamily: "'Sarabun', sans-serif",
+        background: "var(--bg)",
+        color: "var(--text-primary)",
         minHeight: "100vh",
       }}
     >
@@ -377,30 +376,32 @@ export default function DashboardPage() {
       {/* Toast Alert */}
       {toast && (
         <div
+          role="status"
           style={{
             position: "fixed",
-            bottom: 20,
-            right: 20,
+            bottom: 24,
+            right: 24,
             zIndex: 999,
-            background: "#161b22",
-            border: "1px solid #374151",
-            borderLeft:
-              toast.type === "success"
-                ? "4px solid #22c55e"
-                : toast.type === "error"
-                ? "4px solid #ef4444"
-                : "4px solid #3b82f6",
-            borderRadius: 8,
-            padding: "10px 18px",
-            fontSize: 13,
+            background: "var(--surface-raised)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-md)",
+            padding: "12px 20px",
+            fontSize: "0.9rem",
             fontWeight: 600,
             boxShadow: "0 8px 30px rgba(0, 0, 0, 0.4)",
             display: "flex",
             alignItems: "center",
-            gap: 8,
+            gap: 10,
+            color:
+              toast.type === "success"
+                ? "var(--success)"
+                : toast.type === "error"
+                ? "var(--danger)"
+                : "var(--info)",
           }}
         >
-          {toast.message}
+          <span>{toast.type === "success" ? "✓" : toast.type === "error" ? "⚠" : "ℹ"}</span>
+          <span style={{ color: "var(--text-primary)" }}>{toast.message}</span>
         </div>
       )}
     </div>

@@ -21,14 +21,14 @@ export function SyncHeader({
   return (
     <div
       style={{
-        background: "#111418",
-        borderBottom: "1px solid #2a3140",
+        background: "var(--surface)",
+        borderBottom: "1px solid var(--border)",
         padding: "8px 24px",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        fontSize: "12px",
-        color: "#94a3b8",
+        fontSize: "0.8rem",
+        color: "var(--text-secondary)",
         gap: "12px",
         flexWrap: "wrap",
       }}
@@ -38,23 +38,23 @@ export function SyncHeader({
           style={{
             width: 8,
             height: 8,
-            borderRadius: "50%",
+            borderRadius: "var(--radius-pill)",
             backgroundColor:
               syncStatus.state === "online"
-                ? "#22c55e"
+                ? "var(--success)"
                 : syncStatus.state === "syncing"
-                ? "#eab308"
-                : "#ef4444",
+                ? "var(--warning)"
+                : "var(--danger)",
             flexShrink: 0,
             boxShadow:
               syncStatus.state === "online"
-                ? "0 0 8px #22c55e"
+                ? "0 0 8px rgba(16, 185, 129, 0.4)"
                 : "none",
           }}
         />
         <span>{syncStatus.message}</span>
         {syncStatus.lastUpdated && (
-          <span style={{ color: "#64748b" }}>· {syncStatus.lastUpdated}</span>
+          <span style={{ color: "var(--text-muted)" }}>· {syncStatus.lastUpdated}</span>
         )}
       </div>
 
@@ -67,12 +67,12 @@ export function SyncHeader({
             setApiConfig((prev) => ({ ...prev, url: e.target.value }))
           }
           style={{
-            background: "#1c2128",
-            border: "1px solid #374151",
-            borderRadius: 6,
-            padding: "4px 10px",
-            fontSize: "12px",
-            color: "#e2e8f0",
+            background: "var(--surface-raised)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-sm)",
+            padding: "6px 10px",
+            fontSize: "0.8rem",
+            color: "var(--text-primary)",
             outline: "none",
             width: 200,
           }}
@@ -85,42 +85,46 @@ export function SyncHeader({
             setApiConfig((prev) => ({ ...prev, key: e.target.value }))
           }
           style={{
-            background: "#1c2128",
-            border: "1px solid #374151",
-            borderRadius: 6,
-            padding: "4px 10px",
-            fontSize: "12px",
-            color: "#e2e8f0",
+            background: "var(--surface-raised)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-sm)",
+            padding: "6px 10px",
+            fontSize: "0.8rem",
+            color: "var(--text-primary)",
             outline: "none",
             width: 140,
           }}
         />
         <button
+          type="button"
           onClick={onConnect}
           style={{
-            padding: "4px 12px",
-            borderRadius: 6,
-            fontSize: "12px",
-            fontWeight: 600,
+            padding: "6px 14px",
+            borderRadius: "var(--radius-sm)",
+            fontSize: "0.8rem",
+            fontWeight: 700,
             cursor: "pointer",
             border: "none",
-            background: "#f97316",
-            color: "#fff",
+            background: "var(--primary)",
+            color: "#FFFFFF",
+            transition: "all 0.15s ease",
           }}
         >
-          🔗 เชื่อมต่อ
+          เชื่อมต่อ
         </button>
         <button
+          type="button"
           onClick={onRefresh}
           style={{
-            padding: "4px 12px",
-            borderRadius: 6,
-            fontSize: "12px",
+            padding: "6px 12px",
+            borderRadius: "var(--radius-sm)",
+            fontSize: "0.8rem",
             fontWeight: 600,
             cursor: "pointer",
-            border: "1px solid #374151",
-            background: "#1c2128",
-            color: "#94a3b8",
+            border: "1px solid var(--border)",
+            background: "var(--surface-raised)",
+            color: "var(--text-secondary)",
+            transition: "all 0.15s ease",
           }}
         >
           ↻ รีเฟรช

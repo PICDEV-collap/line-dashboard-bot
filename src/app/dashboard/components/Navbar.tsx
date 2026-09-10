@@ -29,50 +29,63 @@ export function Navbar({
     <>
       <header
         style={{
-          background:
-            "linear-gradient(135deg, rgba(21, 8, 0, 0.95), rgba(30, 13, 0, 0.9) 60%, rgba(21, 8, 0, 0.95))",
+          background: "var(--surface)",
           backdropFilter: "blur(12px)",
-          borderBottom: "1px solid rgba(249, 115, 22, 0.25)",
-          padding: "12px 24px",
+          borderBottom: "1px solid var(--border)",
+          padding: "14px 24px",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           position: "sticky",
           top: 0,
-          zIndex: 200,
-          boxShadow: "0 4px 30px rgba(0, 0, 0, 0.35)",
+          zIndex: 100,
+          boxShadow: "0 4px 20px rgba(0, 0, 0, 0.15)",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           <div
             style={{
-              width: 44,
-              height: 44,
-              borderRadius: 12,
-              background: "linear-gradient(135deg, #f97316, #ea580c)",
+              width: 42,
+              height: 42,
+              borderRadius: "var(--radius-md)",
+              background: "var(--primary-tint)",
+              border: "1px solid rgba(6, 199, 85, 0.3)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: 22,
-              boxShadow: "0 0 20px rgba(249, 115, 22, 0.35)",
+              fontSize: 20,
               flexShrink: 0,
             }}
           >
-            🍖
+            📊
           </div>
           <div>
             <div
               style={{
-                fontFamily: "Chakra Petch, sans-serif",
-                fontSize: 18,
+                fontSize: "1.1rem",
                 fontWeight: 700,
-                color: "#f97316",
-                letterSpacing: "0.3px",
+                color: "var(--text-primary)",
+                letterSpacing: "0.2px",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
               }}
             >
-              ร้านครูตอม — Dashboard
+              <span>ร้านครูตอม</span>
+              <span
+                style={{
+                  fontSize: "0.75rem",
+                  fontWeight: 600,
+                  color: "var(--primary)",
+                  backgroundColor: "var(--primary-tint)",
+                  padding: "2px 8px",
+                  borderRadius: "var(--radius-pill)",
+                }}
+              >
+                Dashboard
+              </span>
             </div>
-            <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>
+            <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginTop: 2 }}>
               ระบบรายงานการเงินและวิเคราะห์ธุรกิจ · LINE Automation
             </div>
           </div>
@@ -86,15 +99,15 @@ export function Navbar({
               display: "inline-flex",
               alignItems: "center",
               gap: 6,
-              padding: "7px 14px",
-              borderRadius: 8,
-              fontSize: 12,
+              padding: "8px 14px",
+              borderRadius: "var(--radius-md)",
+              fontSize: "0.85rem",
               fontWeight: 600,
               textDecoration: "none",
-              border: "1px solid rgba(59, 130, 246, 0.4)",
-              background: "rgba(59, 130, 246, 0.15)",
-              color: "#60a5fa",
-              transition: "all 0.2s",
+              border: "1px solid rgba(6, 199, 85, 0.3)",
+              background: "var(--primary-tint)",
+              color: "var(--primary)",
+              transition: "all 0.15s ease",
             }}
             title="เปิดตารางบันทึกรายได้-รายจ่าย (Mobile & Web Entry Form)"
           >
@@ -102,17 +115,18 @@ export function Navbar({
           </Link>
 
           <button
+            type="button"
             onClick={onExportCsv}
             style={{
-              padding: "7px 13px",
-              borderRadius: 8,
-              fontSize: 12,
+              padding: "8px 14px",
+              borderRadius: "var(--radius-md)",
+              fontSize: "0.85rem",
               fontWeight: 600,
               cursor: "pointer",
-              border: "1px solid #374151",
-              background: "rgba(28, 33, 40, 0.8)",
-              color: "#94a3b8",
-              transition: "all 0.2s",
+              border: "1px solid var(--border)",
+              background: "var(--surface-raised)",
+              color: "var(--text-secondary)",
+              transition: "all 0.15s ease",
             }}
             title="ส่งออกข้อมูลเป็น CSV"
           >
@@ -120,18 +134,19 @@ export function Navbar({
           </button>
 
           <button
+            type="button"
             onClick={onOpenAddModal}
             style={{
-              padding: "7px 15px",
-              borderRadius: 8,
-              fontSize: 12,
-              fontWeight: 600,
+              padding: "8px 16px",
+              borderRadius: "var(--radius-md)",
+              fontSize: "0.85rem",
+              fontWeight: 700,
               cursor: "pointer",
               border: "none",
-              background: "linear-gradient(135deg, #f97316, #c2410c)",
-              color: "#fff",
-              boxShadow: "0 2px 12px rgba(249, 115, 22, 0.4)",
-              transition: "all 0.2s",
+              background: "var(--primary)",
+              color: "#FFFFFF",
+              boxShadow: "0 2px 10px var(--primary-glow)",
+              transition: "all 0.15s ease",
             }}
           >
             ＋ เพิ่มข้อมูล
@@ -142,10 +157,11 @@ export function Navbar({
       <nav
         style={{
           display: "flex",
-          background: "#111418",
-          borderBottom: "1px solid #2a3140",
+          background: "var(--surface-raised)",
+          borderBottom: "1px solid var(--border)",
           padding: "0 24px",
-          gap: 4,
+          gap: 6,
+          overflowX: "auto",
         }}
       >
         {tabs.map((tab) => {
@@ -153,19 +169,21 @@ export function Navbar({
           return (
             <button
               key={tab.id}
+              type="button"
               onClick={() => setActiveTab(tab.id)}
               style={{
-                padding: "11px 18px",
-                fontSize: 13,
-                fontWeight: 600,
+                padding: "12px 18px",
+                fontSize: "0.9rem",
+                fontWeight: isActive ? 700 : 500,
                 cursor: "pointer",
                 border: "none",
                 background: "transparent",
-                color: isActive ? "#f97316" : "#94a3b8",
+                color: isActive ? "var(--primary)" : "var(--text-secondary)",
                 borderBottom: isActive
-                  ? "2px solid #f97316"
+                  ? "2px solid var(--primary)"
                   : "2px solid transparent",
-                transition: "all 0.2s",
+                transition: "all 0.15s ease",
+                whiteSpace: "nowrap",
               }}
             >
               {tab.icon} {tab.label}
