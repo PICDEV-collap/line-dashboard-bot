@@ -5,6 +5,7 @@ import { createRecord, getLatestBranchDefaults } from "@/lib/services/financial-
 import { CreateRecordSchema, validateWithZod } from "@/lib/types/financial.schema";
 import { errorToApiResponse, getStatusCode, toApiResponse, ValidationError } from "@/lib/utils/error-handler";
 import { ENV } from "@/config/constants";
+import { isDeliveryChannelName } from "@/lib/services/financial-parser.service";
 import type { PorkBreakdown } from "@/lib/types/financial.types";
 
 export const runtime = "nodejs";
@@ -63,8 +64,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const transfer = v.transfer ?? 0;
     const cash = v.cash ?? 0;
-    const delivery = v.delivery ?? 0;
-    const extraIncomeTotal = (v.extraIncome ?? []).reduce((acc, cur) => acc + (cur.amount ?? 0), 0);
+
+    // Separate delivery channels from extra income to avoid double counting
+    const deliveryItems = (v.extraIncome ?? []).filter((e) => isDeliveryChannelName(e.name));
+    let delivery = v.delivery ?? 0;
+    if (delivery === 0 && deliveryItems.length > 0) {
+      delivery = deliveryItems.reduce((acc, cur) => acc + (cur.amount ?? 0), 0);
+    }
+    const cleanExtraIncome = (v.extraIncome ?? []).filter((e) => !isDeliveryChannelName(e.name));
+    const extraIncomeTotal = cleanExtraIncome.reduce((acc, cur) => acc + (cur.amount ?? 0), 0);
     const revenue = transfer + cash + delivery + extraIncomeTotal;
 
     let porkBreakdown: PorkBreakdown | undefined = undefined;
@@ -120,7 +128,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       labor,
       ice,
       extraExpenses: v.extraExpenses ?? [],
-      extraIncome: v.extraIncome ?? [],
+      extraIncome: cleanExtraIncome,
       profit,
       note: v.note ?? "",
       status: v.status ?? "complete",

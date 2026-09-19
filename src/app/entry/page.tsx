@@ -11,7 +11,7 @@ function isDeliveryChannelName(name: string): boolean {
   const n = name.trim();
   return (
     /^(?:line\s*man|lineman|ไลน์\s*แมน|grab|แกร็บ|robinhood|โรบินฮู้ด|shopee\s*food|shopeefood|ช้อปปี้ฟู้ด|foodpanda|ฟู้ดแพนด้า|delivery|เดลิเวอรี่|เดลิเวอรี)$/i.test(n) ||
-    /^(?:ได้|รับ|รายรับ)?\s*(?:line\s*man|lineman|ไลน์\s*แมน|grab|แกร็บ|robinhood|โรบินฮู้ด|shopee\s*food|shopeefood|ช้อปปี้ฟู้ด|foodpanda|ฟู้ดแพนด้า|delivery|เดลิเวอรี่|เดลิเวอรี)$/i.test(n)
+    /^(?:ได้|รับ|รายรับ|ยอด)?\s*(?:line\s*man|lineman|ไลน์\s*แมน|grab|แกร็บ|robinhood|โรบินฮู้ด|shopee\s*food|shopeefood|ช้อปปี้ฟู้ด|foodpanda|ฟู้ดแพนด้า|delivery|เดลิเวอรี่|เดลิเวอรี)$/i.test(n)
   );
 }
 
@@ -19,16 +19,22 @@ interface DeliveryPresetConfig {
   name: string;
   color: string;
   borderColor: string;
+  icon: string;
 }
 
 const DELIVERY_PRESETS: DeliveryPresetConfig[] = [
-  { name: "LINE MAN", color: "var(--delivery-lineman)", borderColor: "rgba(6, 199, 85, 0.3)" },
-  { name: "Grab", color: "var(--delivery-grab)", borderColor: "rgba(0, 177, 79, 0.3)" },
-  { name: "Robinhood", color: "var(--delivery-robinhood)", borderColor: "rgba(140, 68, 219, 0.3)" },
-  { name: "ShopeeFood", color: "var(--delivery-shopee)", borderColor: "rgba(238, 77, 45, 0.3)" },
-  { name: "คนละครึ่ง", color: "var(--info)", borderColor: "var(--info-tint)" },
-  { name: "Delivery", color: "var(--text-secondary)", borderColor: "var(--border)" },
+  { name: "LINE MAN", color: "var(--delivery-lineman)", borderColor: "rgba(6, 199, 85, 0.3)", icon: "🛵" },
+  { name: "Grab", color: "var(--delivery-grab)", borderColor: "rgba(0, 177, 79, 0.3)", icon: "🛵" },
+  { name: "Robinhood", color: "var(--delivery-robinhood)", borderColor: "rgba(140, 68, 219, 0.3)", icon: "🛵" },
+  { name: "ShopeeFood", color: "var(--delivery-shopee)", borderColor: "rgba(238, 77, 45, 0.3)", icon: "🛵" },
+  { name: "คนละครึ่ง", color: "var(--info)", borderColor: "var(--info-tint)", icon: "📱" },
+  { name: "Delivery", color: "var(--text-secondary)", borderColor: "var(--border)", icon: "🛵" },
 ];
+
+function getPresetConfig(name: string): DeliveryPresetConfig | undefined {
+  const clean = name.toLowerCase();
+  return DELIVERY_PRESETS.find((p) => clean.includes(p.name.toLowerCase()));
+}
 
 export default function EntryPage() {
   const todayStr = new Date().toISOString().split("T")[0];
@@ -40,13 +46,12 @@ export default function EntryPage() {
   // Revenue
   const [transfer, setTransfer] = useState<string>("");
   const [cash, setCash] = useState<string>("");
-  const [deliveryTitle, setDeliveryTitle] = useState<string>("LINE MAN");
-  const [delivery, setDelivery] = useState<string>("");
 
-  // Extra Income (e.g. additional channels)
-  const [extraIncome, setExtraIncome] = useState<ExtraItem[]>([]);
-  const [newIncomeName, setNewIncomeName] = useState("");
-  const [newIncomeAmount, setNewIncomeAmount] = useState("");
+  // Delivery & Extra Income Items
+  const [incomeItems, setIncomeItems] = useState<ExtraItem[]>([]);
+  const [activePresetTab, setActivePresetTab] = useState<string>("LINE MAN");
+  const [itemTitle, setItemTitle] = useState<string>("LINE MAN");
+  const [itemAmount, setItemAmount] = useState<string>("");
 
   // Pork Breakdown & Price Lock State
   const [redQty, setRedQty] = useState<string>("");
@@ -97,15 +102,22 @@ export default function EntryPage() {
         if (existing) {
           setTransfer(existing.transfer ? String(existing.transfer) : "");
           setCash(existing.cash ? String(existing.cash) : "");
-          setDelivery(existing.delivery ? String(existing.delivery) : "");
           setMaterials(existing.materials ? String(existing.materials) : "");
           setLabor(existing.labor ? String(existing.labor) : "");
           setGas(existing.gas ? String(existing.gas) : "");
           setIce(existing.ice ? String(existing.ice) : "");
           if (existing.extraExpenses?.length) setExtraExpenses(existing.extraExpenses);
+
+          const loadedItems: ExtraItem[] = [];
           if (existing.extraIncome?.length) {
-            setExtraIncome(existing.extraIncome.filter((item: ExtraItem) => !isDeliveryChannelName(item.name)));
+            loadedItems.push(...existing.extraIncome);
           }
+          const hasDelivery = loadedItems.some((it) => isDeliveryChannelName(it.name));
+          if (existing.delivery && existing.delivery > 0 && !hasDelivery) {
+            loadedItems.unshift({ name: "Delivery", amount: existing.delivery });
+          }
+          setIncomeItems(loadedItems);
+
           if (existing.porkBreakdown) {
             setRedQty(existing.porkBreakdown.redQty ? String(existing.porkBreakdown.redQty) : "");
             setMincedQty(existing.porkBreakdown.mincedQty ? String(existing.porkBreakdown.mincedQty) : "");
@@ -120,6 +132,7 @@ export default function EntryPage() {
           if (latestExpenses.extraExpenses?.length) {
             setExtraExpenses(latestExpenses.extraExpenses);
           }
+          setIncomeItems([]);
           setHasCarriedNotice(true);
         }
       }
@@ -135,16 +148,31 @@ export default function EntryPage() {
   }, [shopId, date, loadBranchDefaults]);
 
   // Calculations
-  const extraIncomeSum = useMemo(() => {
-    return extraIncome.reduce((sum, item) => sum + (item.amount || 0), 0);
-  }, [extraIncome]);
+  const deliveryItems = useMemo(() => {
+    return incomeItems.filter((item) => isDeliveryChannelName(item.name));
+  }, [incomeItems]);
+
+  const deliveryTotal = useMemo(() => {
+    return deliveryItems.reduce((sum, item) => sum + (item.amount || 0), 0);
+  }, [deliveryItems]);
+
+  const otherIncomeItems = useMemo(() => {
+    return incomeItems.filter((item) => !isDeliveryChannelName(item.name));
+  }, [incomeItems]);
+
+  const otherIncomeTotal = useMemo(() => {
+    return otherIncomeItems.reduce((sum, item) => sum + (item.amount || 0), 0);
+  }, [otherIncomeItems]);
+
+  const totalDeliveryAndExtra = useMemo(() => {
+    return deliveryTotal + otherIncomeTotal;
+  }, [deliveryTotal, otherIncomeTotal]);
 
   const revenueTotal = useMemo(() => {
     const t = parseFloat(transfer) || 0;
     const c = parseFloat(cash) || 0;
-    const d = parseFloat(delivery) || 0;
-    return t + c + d + extraIncomeSum;
-  }, [transfer, cash, delivery, extraIncomeSum]);
+    return t + c + totalDeliveryAndExtra;
+  }, [transfer, cash, totalDeliveryAndExtra]);
 
   const porkTotal = useMemo(() => {
     const r = (parseFloat(redQty) || 0) * (parseFloat(redPrice) || 0);
@@ -164,17 +192,28 @@ export default function EntryPage() {
 
   const netProfit = useMemo(() => revenueTotal - expensesTotal, [revenueTotal, expensesTotal]);
 
-  // Extra Income Handlers
-  const handleAddExtraIncome = () => {
-    const amount = parseFloat(newIncomeAmount);
-    if (!newIncomeName.trim() || isNaN(amount) || amount <= 0) return;
-    setExtraIncome([...extraIncome, { name: newIncomeName.trim(), amount }]);
-    setNewIncomeName("");
-    setNewIncomeAmount("");
+  // Delivery & Extra Income Handlers
+  const handleSelectPresetTab = (presetName: string) => {
+    setActivePresetTab(presetName);
+    setItemTitle(presetName);
   };
 
-  const handleRemoveExtraIncome = (index: number) => {
-    setExtraIncome(extraIncome.filter((_, i) => i !== index));
+  const handleSelectCustomTab = () => {
+    setActivePresetTab("custom");
+    setItemTitle("");
+  };
+
+  const handleAddIncomeItem = () => {
+    const amount = parseFloat(itemAmount);
+    const title = itemTitle.trim() || (activePresetTab !== "custom" ? activePresetTab : "");
+    if (!title || isNaN(amount) || amount <= 0) return;
+
+    setIncomeItems((prev) => [...prev, { name: title, amount }]);
+    setItemAmount("");
+  };
+
+  const handleRemoveIncomeItem = (index: number) => {
+    setIncomeItems((prev) => prev.filter((_, i) => i !== index));
   };
 
   // Extra Expense Handlers
@@ -196,8 +235,22 @@ export default function EntryPage() {
     setLoading(true);
     setStatusMessage(null);
 
-    const deliveryAmount = parseFloat(delivery) || 0;
-    const combinedExtraIncome = extraIncome.filter((item) => !isDeliveryChannelName(item.name));
+    let finalItems = [...incomeItems];
+    const pendingAmount = parseFloat(itemAmount);
+    const pendingTitle = itemTitle.trim() || (activePresetTab !== "custom" ? activePresetTab : "");
+    if (pendingTitle && !isNaN(pendingAmount) && pendingAmount > 0) {
+      finalItems.push({ name: pendingTitle, amount: pendingAmount });
+      setIncomeItems(finalItems);
+      setItemAmount("");
+    }
+
+    const deliveryAmount = finalItems
+      .filter((item) => isDeliveryChannelName(item.name))
+      .reduce((sum, item) => sum + item.amount, 0);
+
+    const cleanExtraIncome = finalItems.filter((item) => !isDeliveryChannelName(item.name));
+    const extraIncomeTotal = cleanExtraIncome.reduce((sum, item) => sum + item.amount, 0);
+    const calculatedRevenue = (parseFloat(transfer) || 0) + (parseFloat(cash) || 0) + deliveryAmount + extraIncomeTotal;
 
     const payload = {
       shopId,
@@ -206,8 +259,8 @@ export default function EntryPage() {
       transfer: parseFloat(transfer) || 0,
       cash: parseFloat(cash) || 0,
       delivery: deliveryAmount,
-      extraIncome: combinedExtraIncome,
-      revenue: revenueTotal,
+      extraIncome: cleanExtraIncome,
+      revenue: calculatedRevenue,
       pork: porkTotal,
       porkBreakdown: {
         redQty: parseFloat(redQty) || 0,
@@ -227,7 +280,7 @@ export default function EntryPage() {
       ice: parseFloat(ice) || 0,
       extraExpenses,
       expense: expensesTotal,
-      profit: netProfit,
+      profit: calculatedRevenue - expensesTotal,
       status: "complete",
     };
 
@@ -644,28 +697,51 @@ export default function EntryPage() {
                 </div>
               </div>
 
-              {/* Delivery Section */}
+              {/* Delivery / Extra Income Section */}
               <div
                 style={{
                   backgroundColor: "var(--surface-raised)",
                   borderRadius: "var(--radius-md)",
-                  padding: "14px",
+                  padding: "16px",
                   border: "1px solid var(--border)",
                 }}
               >
-                <label style={{ display: "block", fontSize: "0.85rem", color: "var(--text-primary)", fontWeight: 700, marginBottom: "8px" }}>
-                  รายรับ Delivery / เสริม
-                </label>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                  <label style={{ fontSize: "0.9rem", color: "var(--text-primary)", fontWeight: 700, margin: 0, display: "flex", alignItems: "center", gap: "6px" }}>
+                    <span>🛵</span> รายรับ Delivery / เสริม
+                  </label>
+                  {incomeItems.length > 0 && (
+                    <span
+                      className="tabular-nums"
+                      style={{
+                        fontSize: "0.8rem",
+                        fontWeight: 700,
+                        color: "var(--primary)",
+                        backgroundColor: "var(--primary-tint)",
+                        padding: "3px 8px",
+                        borderRadius: "var(--radius-pill)",
+                        border: "1px solid rgba(6, 199, 85, 0.25)",
+                      }}
+                    >
+                      รวม ฿{totalDeliveryAndExtra.toLocaleString()}
+                    </span>
+                  )}
+                </div>
 
-                {/* Delivery Presets Chips */}
-                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "10px" }}>
+                <div style={{ fontSize: "0.78rem", color: "var(--text-secondary)", marginBottom: "12px" }}>
+                  เลือกแถบรายการ ใส่จำนวนเงิน แล้วกดบันทึกเพื่อเพิ่มรายการแถบอื่นต่อได้
+                </div>
+
+                {/* Preset Chips / Tabs */}
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "12px" }}>
                   {DELIVERY_PRESETS.map((preset) => {
-                    const isSelected = deliveryTitle.includes(preset.name);
+                    const isSelected = activePresetTab === preset.name;
                     return (
                       <button
                         key={preset.name}
                         type="button"
-                        onClick={() => setDeliveryTitle(`ยอด ${preset.name}`)}
+                        onClick={() => handleSelectPresetTab(preset.name)}
+                        className="touch-target"
                         style={{
                           minHeight: "36px",
                           padding: "6px 12px",
@@ -677,163 +753,262 @@ export default function EntryPage() {
                           border: `1px solid ${isSelected ? preset.color : "var(--border)"}`,
                           cursor: "pointer",
                           transition: "all 0.15s ease",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "5px",
+                          boxShadow: isSelected ? `0 2px 8px ${preset.borderColor}` : "none",
                         }}
                       >
-                        {preset.name}
+                        <span>{preset.icon}</span>
+                        <span>{preset.name}</span>
                       </button>
                     );
                   })}
+                  <button
+                    type="button"
+                    onClick={handleSelectCustomTab}
+                    className="touch-target"
+                    style={{
+                      minHeight: "36px",
+                      padding: "6px 12px",
+                      borderRadius: "var(--radius-pill)",
+                      fontSize: "0.8rem",
+                      fontWeight: 600,
+                      backgroundColor: activePresetTab === "custom" ? "var(--primary)" : "var(--surface)",
+                      color: activePresetTab === "custom" ? "#FFFFFF" : "var(--text-secondary)",
+                      border: activePresetTab === "custom" ? "1px solid var(--primary)" : "1px dashed var(--border)",
+                      cursor: "pointer",
+                      transition: "all 0.15s ease",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "5px",
+                    }}
+                  >
+                    <span>💰</span>
+                    <span>+ รายการอื่น</span>
+                  </button>
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: "10px" }}>
-                  <input
-                    type="text"
-                    placeholder="ชื่อหัวข้อ (เช่น ยอด LINE MAN)"
-                    value={deliveryTitle}
-                    onChange={(e) => setDeliveryTitle(e.target.value)}
+                {/* Input Fields & Add Button */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: "10px" }}>
+                    <div>
+                      <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-secondary)", marginBottom: "4px", fontWeight: 600 }}>
+                        ชื่อรายการ
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="ชื่อรายการ (เช่น LINE MAN, คนละครึ่ง)"
+                        value={itemTitle}
+                        onChange={(e) => setItemTitle(e.target.value)}
+                        className="touch-target"
+                        style={{
+                          width: "100%",
+                          padding: "10px 12px",
+                          borderRadius: "var(--radius-md)",
+                          backgroundColor: "var(--surface)",
+                          color: "var(--text-primary)",
+                          border: "1px solid var(--border)",
+                          fontSize: "0.9rem",
+                          boxSizing: "border-box",
+                          outline: "none",
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-secondary)", marginBottom: "4px", fontWeight: 600 }}>
+                        จำนวนเงิน (บาท)
+                      </label>
+                      <input
+                        type="number"
+                        placeholder="0"
+                        value={itemAmount}
+                        onChange={(e) => setItemAmount(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleAddIncomeItem();
+                          }
+                        }}
+                        className="touch-target tabular-nums"
+                        style={{
+                          width: "100%",
+                          padding: "10px 12px",
+                          borderRadius: "var(--radius-md)",
+                          backgroundColor: "var(--surface)",
+                          color: "var(--text-primary)",
+                          border: "1px solid var(--border)",
+                          fontSize: "0.9rem",
+                          boxSizing: "border-box",
+                          outline: "none",
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleAddIncomeItem}
                     className="touch-target"
                     style={{
                       width: "100%",
-                      padding: "12px 14px",
+                      minHeight: "42px",
+                      padding: "10px 14px",
+                      backgroundColor: "var(--primary)",
+                      color: "#FFFFFF",
+                      border: "none",
                       borderRadius: "var(--radius-md)",
-                      backgroundColor: "var(--surface)",
-                      color: "var(--text-primary)",
-                      border: "1px solid var(--border)",
-                      fontSize: "0.95rem",
-                      boxSizing: "border-box",
-                      outline: "none",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      fontSize: "0.9rem",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "6px",
+                      transition: "all 0.15s ease",
+                      boxShadow: "0 2px 6px rgba(6, 199, 85, 0.25)",
                     }}
-                  />
-                  <input
-                    type="number"
-                    placeholder="จำนวนเงิน (฿)"
-                    value={delivery}
-                    onChange={(e) => setDelivery(e.target.value)}
-                    className="touch-target tabular-nums"
-                    style={{
-                      width: "100%",
-                      padding: "12px 14px",
-                      borderRadius: "var(--radius-md)",
-                      backgroundColor: "var(--surface)",
-                      color: "var(--text-primary)",
-                      border: "1px solid var(--border)",
-                      fontSize: "0.95rem",
-                      boxSizing: "border-box",
-                      outline: "none",
-                    }}
-                  />
+                  >
+                    <span>+</span>
+                    <span>บันทึกรายการนี้</span>
+                  </button>
                 </div>
-              </div>
 
-              {/* Extra Income List */}
-              {extraIncome.length > 0 && (
-                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                  {extraIncome.map((item, idx) => (
+                {/* List of Added Income Items */}
+                <div style={{ marginTop: "14px", borderTop: "1px solid var(--border)", paddingTop: "12px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                    <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "var(--text-secondary)" }}>
+                      รายการที่บันทึกแล้ว ({incomeItems.length})
+                    </span>
+                  </div>
+
+                  {incomeItems.length === 0 ? (
                     <div
-                      key={idx}
                       style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        backgroundColor: "var(--surface-raised)",
-                        padding: "10px 14px",
+                        padding: "12px",
+                        textAlign: "center",
+                        backgroundColor: "var(--surface)",
                         borderRadius: "var(--radius-md)",
-                        border: "1px solid var(--border)",
+                        border: "1px dashed var(--border)",
+                        color: "var(--text-secondary)",
+                        fontSize: "0.8rem",
                       }}
                     >
-                      <span style={{ fontSize: "0.9rem", color: "var(--text-primary)", fontWeight: 500 }}>
-                        {item.name}: <span className="tabular-nums" style={{ fontWeight: 700, color: "var(--primary)" }}>฿{item.amount.toLocaleString()}</span>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveExtraIncome(idx)}
+                      ยังไม่มีรายการ — แตะเลือกแถบด้านบน ใส่จำนวนเงิน แล้วกด &quot;+ บันทึกรายการนี้&quot;
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                      {incomeItems.map((item, idx) => {
+                        const preset = getPresetConfig(item.name);
+                        const isDelivery = isDeliveryChannelName(item.name);
+                        const badgeColor = preset ? preset.color : isDelivery ? "var(--delivery-lineman)" : "var(--info)";
+                        const badgeIcon = preset?.icon ?? (isDelivery ? "🛵" : "💰");
+
+                        return (
+                          <div
+                            key={idx}
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              backgroundColor: "var(--surface)",
+                              padding: "10px 12px",
+                              borderRadius: "var(--radius-md)",
+                              border: "1px solid var(--border)",
+                              gap: "8px",
+                            }}
+                          >
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1, minWidth: 0 }}>
+                              <span
+                                style={{
+                                  fontSize: "0.72rem",
+                                  fontWeight: 700,
+                                  color: badgeColor,
+                                  backgroundColor: "var(--surface-raised)",
+                                  padding: "2px 8px",
+                                  borderRadius: "var(--radius-pill)",
+                                  border: `1px solid ${preset ? preset.borderColor : "var(--border)"}`,
+                                  whiteSpace: "nowrap",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "4px",
+                                }}
+                              >
+                                <span>{badgeIcon}</span>
+                                <span>{item.name}</span>
+                              </span>
+                            </div>
+
+                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                              <span
+                                className="tabular-nums"
+                                style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--text-primary)" }}
+                              >
+                                ฿{item.amount.toLocaleString()}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveIncomeItem(idx)}
+                                className="touch-target"
+                                style={{
+                                  color: "var(--danger)",
+                                  backgroundColor: "var(--danger-tint)",
+                                  border: "1px solid rgba(239, 68, 68, 0.25)",
+                                  borderRadius: "var(--radius-sm)",
+                                  padding: "4px 10px",
+                                  cursor: "pointer",
+                                  fontWeight: 600,
+                                  fontSize: "0.75rem",
+                                }}
+                              >
+                                ลบ
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {/* Subtotals Breakdown */}
+                      <div
                         style={{
-                          color: "var(--danger)",
-                          backgroundColor: "var(--danger-tint)",
-                          border: "1px solid rgba(239, 68, 68, 0.25)",
-                          borderRadius: "var(--radius-sm)",
-                          padding: "6px 12px",
-                          cursor: "pointer",
+                          display: "flex",
+                          flexWrap: "wrap",
+                          gap: "8px",
+                          marginTop: "6px",
+                          paddingTop: "6px",
+                          fontSize: "0.75rem",
+                          color: "var(--text-secondary)",
                           fontWeight: 600,
-                          fontSize: "0.8rem",
                         }}
                       >
-                        ลบ
-                      </button>
+                        {deliveryTotal > 0 && (
+                          <span
+                            style={{
+                              backgroundColor: "var(--surface)",
+                              padding: "4px 8px",
+                              borderRadius: "var(--radius-sm)",
+                              border: "1px solid var(--border)",
+                            }}
+                          >
+                            🛵 Delivery: <span className="tabular-nums" style={{ color: "var(--text-primary)", fontWeight: 700 }}>฿{deliveryTotal.toLocaleString()}</span>
+                          </span>
+                        )}
+                        {otherIncomeTotal > 0 && (
+                          <span
+                            style={{
+                              backgroundColor: "var(--surface)",
+                              padding: "4px 8px",
+                              borderRadius: "var(--radius-sm)",
+                              border: "1px solid var(--border)",
+                            }}
+                          >
+                            📱 เสริม: <span className="tabular-nums" style={{ color: "var(--text-primary)", fontWeight: 700 }}>฿{otherIncomeTotal.toLocaleString()}</span>
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  ))}
+                  )}
                 </div>
-              )}
-
-              {/* Add Extra Income Block */}
-              <div
-                style={{
-                  backgroundColor: "var(--surface-raised)",
-                  padding: "14px",
-                  borderRadius: "var(--radius-md)",
-                  border: "1px dashed var(--border)",
-                }}
-              >
-                <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "10px", fontWeight: 600 }}>
-                  เพิ่มรายรับอื่น
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: "10px", marginBottom: "10px" }}>
-                  <input
-                    type="text"
-                    placeholder="ชื่อรายการ (เช่น ขายของเก่า)"
-                    value={newIncomeName}
-                    onChange={(e) => setNewIncomeName(e.target.value)}
-                    className="touch-target"
-                    style={{
-                      width: "100%",
-                      padding: "10px 12px",
-                      borderRadius: "var(--radius-md)",
-                      backgroundColor: "var(--surface)",
-                      color: "var(--text-primary)",
-                      border: "1px solid var(--border)",
-                      fontSize: "0.9rem",
-                      boxSizing: "border-box",
-                      outline: "none",
-                    }}
-                  />
-                  <input
-                    type="number"
-                    placeholder="จำนวนเงิน (฿)"
-                    value={newIncomeAmount}
-                    onChange={(e) => setNewIncomeAmount(e.target.value)}
-                    className="touch-target tabular-nums"
-                    style={{
-                      width: "100%",
-                      padding: "10px 12px",
-                      borderRadius: "var(--radius-md)",
-                      backgroundColor: "var(--surface)",
-                      color: "var(--text-primary)",
-                      border: "1px solid var(--border)",
-                      fontSize: "0.9rem",
-                      boxSizing: "border-box",
-                      outline: "none",
-                    }}
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={handleAddExtraIncome}
-                  className="touch-target"
-                  style={{
-                    width: "100%",
-                    padding: "10px",
-                    backgroundColor: "var(--primary-tint)",
-                    color: "var(--primary)",
-                    border: "1px solid rgba(6, 199, 85, 0.3)",
-                    borderRadius: "var(--radius-md)",
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    fontSize: "0.9rem",
-                    transition: "all 0.15s ease",
-                  }}
-                >
-                  + เพิ่มรายการรายรับนี้
-                </button>
               </div>
             </div>
           </div>

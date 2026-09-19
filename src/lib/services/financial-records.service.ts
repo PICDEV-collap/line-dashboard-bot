@@ -463,7 +463,7 @@ function seedPorkFromCarryForRemoval(
   return { ...record, porkBreakdown: finalizePorkBreakdown(pb) };
 }
 
-function recomputeRecordTotals(
+export function recomputeRecordTotals(
   fields: Pick<
     FinancialRecord,
     | "transfer"
