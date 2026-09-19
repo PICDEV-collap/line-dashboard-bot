@@ -36,7 +36,7 @@ import {
   getAllBranchShops,
 } from "@/lib/services/summary-command.service";
 import { upsertParsedRecord, applyLineCorrection, getRecordByShopDate } from "@/lib/services/financial-records.service";
-import { buildReportUrl, buildReportLinkMessage, getAppBaseUrl } from "@/lib/services/report.service";
+import { buildReportUrl, buildReportLinkMessage, buildReportSelectorFlexCard, getAppBaseUrl } from "@/lib/services/report.service";
 import {
   isLearningEnabled,
   learningKey,
@@ -432,8 +432,14 @@ async function handleIntent(
         };
       }
       const url = buildReportUrl(base, report);
+      const flexCard = buildReportSelectorFlexCard(report, base);
       return {
-        processed: { ...msg, content: `[REPORT] ${text.slice(0, 200)}`, status: "completed" },
+        processed: {
+          ...msg,
+          content: `[REPORT] ${text.slice(0, 200)}`,
+          status: "completed",
+          flexCard,
+        } as any,
         replyMsg: buildReportLinkMessage(report, url),
       };
     }

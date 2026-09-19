@@ -51,7 +51,7 @@ export function describeReportPeriod(intent: ReportSummaryIntent): string {
   return "";
 }
 
-function shopLabel(intent: ReportSummaryIntent): string {
+export function shopLabel(intent: ReportSummaryIntent): string {
   if (intent.shopId === "shop2") return "🏪 สาขาสายหนองปิง";
   if (intent.shopId === "shop1") return "🏪 สาขาตลาดญี่ปุ่น";
   return "🏪 ทุกสาขา";
@@ -68,4 +68,187 @@ export function buildReportLinkMessage(intent: ReportSummaryIntent, url: string)
     "",
     '💡 ในหน้ารายงานกด "📥 ดาวน์โหลด PDF" หรือ "🖨️ พิมพ์/บันทึก PDF"',
   ].join("\n");
+}
+
+/**
+ * Interactive Flex Card that allows selecting Branch, Month, and Year for reports.
+ */
+export function buildReportSelectorFlexCard(intent: ReportSummaryIntent, baseUrl: string) {
+  const url = buildReportUrl(baseUrl, intent);
+  const periodLabel = describeReportPeriod(intent) || "ประจำเดือนนี้";
+  const branchLabel = shopLabel(intent);
+
+  return {
+    type: "flex" as const,
+    altText: `📄 รายงานสรุปผลประกอบการ (${periodLabel} • ${branchLabel})`,
+    contents: {
+      type: "bubble",
+      size: "mega",
+      header: {
+        type: "box",
+        layout: "vertical",
+        backgroundColor: "#312E81",
+        paddingAll: "16px",
+        contents: [
+          {
+            type: "text",
+            text: "📄 รายงานสรุปผลประกอบการ",
+            weight: "bold",
+            color: "#FFFFFF",
+            size: "md",
+          },
+          {
+            type: "text",
+            text: "ร้านครูตอม • เลือกรอบเวลา & สาขา",
+            color: "#C7D2FE",
+            size: "xs",
+            margin: "xs",
+          },
+        ],
+      },
+      body: {
+        type: "box",
+        layout: "vertical",
+        spacing: "md",
+        paddingAll: "16px",
+        contents: [
+          // Active preview card with direct link
+          {
+            type: "box",
+            layout: "vertical",
+            backgroundColor: "#EEF2FF",
+            cornerRadius: "md",
+            paddingAll: "12px",
+            borderWidth: "1px",
+            borderColor: "#C7D2FE",
+            action: {
+              type: "uri",
+              label: "เปิดรายงาน PDF",
+              uri: url,
+            },
+            contents: [
+              {
+                type: "text",
+                text: `📊 ${periodLabel}`,
+                weight: "bold",
+                size: "sm",
+                color: "#1E3A8A",
+              },
+              {
+                type: "text",
+                text: `${branchLabel} • แตะเพื่อเปิดดูรายงานและพิมพ์ PDF`,
+                size: "xs",
+                color: "#4338CA",
+                margin: "xs",
+              },
+            ],
+          },
+          // Section 1: เลือกสาขา
+          {
+            type: "text",
+            text: "🏪 เลือกสาขา (Branch)",
+            weight: "bold",
+            size: "xs",
+            color: "#64748B",
+            margin: "sm",
+          },
+          {
+            type: "box",
+            layout: "horizontal",
+            spacing: "xs",
+            contents: [
+              {
+                type: "button",
+                style: "secondary",
+                height: "sm",
+                action: {
+                  type: "message",
+                  label: "ทุกสาขา",
+                  text: "รายงาน ทั้งหมด เดือนนี้",
+                },
+              },
+              {
+                type: "button",
+                style: "secondary",
+                height: "sm",
+                action: {
+                  type: "message",
+                  label: "ตลาดญี่ปุ่น",
+                  text: "รายงาน ตลาดญี่ปุ่น เดือนนี้",
+                },
+              },
+              {
+                type: "button",
+                style: "secondary",
+                height: "sm",
+                action: {
+                  type: "message",
+                  label: "สายหนองปิง",
+                  text: "รายงาน สายหนองปิง เดือนนี้",
+                },
+              },
+            ],
+          },
+          // Section 2: เลือกรอบเวลา (เดือน / ปี)
+          {
+            type: "text",
+            text: "📅 เลือกรอบเวลา (Period)",
+            weight: "bold",
+            size: "xs",
+            color: "#64748B",
+            margin: "sm",
+          },
+          {
+            type: "box",
+            layout: "horizontal",
+            spacing: "xs",
+            contents: [
+              {
+                type: "button",
+                style: "secondary",
+                height: "sm",
+                action: {
+                  type: "message",
+                  label: "เดือนนี้",
+                  text: "รายงาน เดือนนี้",
+                },
+              },
+              {
+                type: "button",
+                style: "secondary",
+                height: "sm",
+                action: {
+                  type: "message",
+                  label: "เดือนที่แล้ว",
+                  text: "รายงาน เดือนที่แล้ว",
+                },
+              },
+              {
+                type: "button",
+                style: "secondary",
+                height: "sm",
+                action: {
+                  type: "message",
+                  label: "ประจำปีนี้",
+                  text: "รายงาน ปีนี้",
+                },
+              },
+            ],
+          },
+          // Section 3: Interactive Web Selector
+          {
+            type: "button",
+            style: "primary",
+            color: "#4F46E5",
+            margin: "md",
+            action: {
+              type: "uri",
+              label: "⚙️ เลือกเดือน/ปี/สาขาบนเว็บ",
+              uri: url,
+            },
+          },
+        ],
+      },
+    },
+  };
 }

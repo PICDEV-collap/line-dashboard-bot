@@ -8,15 +8,46 @@ interface PdfReportViewProps {
   availableMonths: string[];
 }
 
+const THAI_MONTHS_NAMES = [
+  "", "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
+  "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม",
+];
+
+const selectStyle: React.CSSProperties = {
+  background: "#1c2128",
+  border: "1px solid #374151",
+  borderRadius: 7,
+  padding: "7px 11px",
+  fontSize: 13,
+  color: "#e2e8f0",
+  outline: "none",
+};
+
 export function PdfReportView({ records, availableMonths }: PdfReportViewProps) {
+  const availableYears = Array.from(
+    new Set(records.map((r) => r.date.slice(0, 4)).filter(Boolean))
+  ).sort().reverse();
+  if (availableYears.length === 0) {
+    availableYears.push(String(new Date().getFullYear()));
+  }
+
+  const [reportMode, setReportMode] = useState<"month" | "year" | "all">("month");
+  const [selectedYear, setSelectedYear] = useState<string>(
+    availableYears[0] || String(new Date().getFullYear())
+  );
   const [selectedMonth, setSelectedMonth] = useState<string>(
-    availableMonths[0] || "all"
+    availableMonths[0] ? availableMonths[0].slice(5, 7) : String(new Date().getMonth() + 1).padStart(2, "0")
   );
   const [selectedShop, setSelectedShop] = useState<string>("all");
 
   const filtered = records.filter((r) => {
     if (selectedShop !== "all" && r.shopId !== selectedShop) return false;
-    if (selectedMonth !== "all" && !r.date.startsWith(selectedMonth)) return false;
+    if (reportMode === "year") {
+      if (selectedYear !== "all" && !r.date.startsWith(selectedYear)) return false;
+    } else if (reportMode === "month") {
+      const prefix = `${selectedYear}-${selectedMonth}`;
+      if (!r.date.startsWith(prefix)) return false;
+    }
     return true;
   });
 
@@ -46,32 +77,67 @@ export function PdfReportView({ records, availableMonths }: PdfReportViewProps) 
           alignItems: "flex-end",
         }}
       >
+        {/* เลือกช่วงเวลา */}
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <label style={{ fontSize: 10, color: "#94a3b8", fontWeight: 700 }}>
-            เลือกเดือน
+            ช่วงเวลารายงาน
           </label>
           <select
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            style={{
-              background: "#1c2128",
-              border: "1px solid #374151",
-              borderRadius: 7,
-              padding: "7px 11px",
-              fontSize: 13,
-              color: "#e2e8f0",
-              outline: "none",
-            }}
+            value={reportMode}
+            onChange={(e) => setReportMode(e.target.value as "month" | "year" | "all")}
+            style={selectStyle}
           >
-            <option value="all">ทุกเดือน</option>
-            {availableMonths.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
+            <option value="month">📅 รายเดือน</option>
+            <option value="year">📆 รายปี</option>
+            <option value="all">🌐 ข้อมูลทั้งหมด</option>
           </select>
         </div>
 
+        {/* เลือกปี */}
+        {reportMode !== "all" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <label style={{ fontSize: 10, color: "#94a3b8", fontWeight: 700 }}>
+              เลือกปี
+            </label>
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(e.target.value)}
+              style={selectStyle}
+            >
+              {availableYears.map((y) => (
+                <option key={y} value={y}>
+                  ปี {parseInt(y, 10) + 543} ({y})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* เลือกเดือน */}
+        {reportMode === "month" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <label style={{ fontSize: 10, color: "#94a3b8", fontWeight: 700 }}>
+              เลือกเดือน
+            </label>
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              style={selectStyle}
+            >
+              {Array.from({ length: 12 }, (_, i) => {
+                const mNum = i + 1;
+                const mStr = String(mNum).padStart(2, "0");
+                return (
+                  <option key={mStr} value={mStr}>
+                    {THAI_MONTHS_NAMES[mNum]} ({mStr})
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+        )}
+
+        {/* เลือกสาขา */}
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <label style={{ fontSize: 10, color: "#94a3b8", fontWeight: 700 }}>
             เลือกสาขา
@@ -79,15 +145,7 @@ export function PdfReportView({ records, availableMonths }: PdfReportViewProps) 
           <select
             value={selectedShop}
             onChange={(e) => setSelectedShop(e.target.value)}
-            style={{
-              background: "#1c2128",
-              border: "1px solid #374151",
-              borderRadius: 7,
-              padding: "7px 11px",
-              fontSize: 13,
-              color: "#e2e8f0",
-              outline: "none",
-            }}
+            style={selectStyle}
           >
             <option value="all">ทุกสาขา</option>
             <option value="shop1">ตลาดญี่ปุ่น</option>
@@ -184,7 +242,11 @@ export function PdfReportView({ records, availableMonths }: PdfReportViewProps) 
                 fontWeight: 700,
               }}
             >
-              ประจำเดือน {selectedMonth}
+              {reportMode === "year"
+                ? `ประจำปี ${parseInt(selectedYear, 10) + 543} (${selectedYear})`
+                : reportMode === "month"
+                ? `ประจำเดือน ${THAI_MONTHS_NAMES[parseInt(selectedMonth, 10)] ?? selectedMonth} ${parseInt(selectedYear, 10) + 543}`
+                : "สรุปภาพรวมทั้งหมด"}
             </div>
             <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 3 }}>
               สร้างเมื่อ: {new Date().toLocaleDateString("th-TH")}

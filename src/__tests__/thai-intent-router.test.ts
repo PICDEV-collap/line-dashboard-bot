@@ -60,6 +60,10 @@ describe("report intent routing", () => {
     { input: "รายงานปี 2568", period: "year", year: "2025" },
     { input: "รายงานปีที่แล้ว", period: "year", year: "2025" },
     { input: "รายงานหนองปิงเดือนนี้", period: "month", month: "2026-06", shopId: "shop2" },
+    { input: "รายงาน ทั้งหมด เดือนนี้", period: "month", month: "2026-06" },
+    { input: "รายงาน ตลาดญี่ปุ่น เดือนนี้", period: "month", month: "2026-06", shopId: "shop1" },
+    { input: "รายงาน สายหนองปิง เดือนนี้", period: "month", month: "2026-06", shopId: "shop2" },
+    { input: "รายงาน ตลาดญี่ปุ่น ปี 2568", period: "year", year: "2025", shopId: "shop1" },
   ];
 
   it.each(reportCases)("routes %j to a report intent", ({ input, period, month, year, shopId }) => {

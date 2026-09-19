@@ -61,18 +61,26 @@ table.rpt-table tfoot td.num{text-align:right}
 .rpt-foot{margin-top:22px;padding-top:12px;border-top:1px solid #e5e7eb;font-size:10px;color:#9ca3af;text-align:center}
 .rpt-empty{text-align:center;color:#9ca3af;padding:50px 0;font-size:14px}
 
+.filterbar{max-width:880px;margin:0 auto 14px;background:#151a23;border:1px solid #2a3443;border-radius:10px;padding:10px 14px;display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap}
+.fg{display:flex;flex-direction:column;gap:3px}
+.fg label{font-size:11px;color:#94a3b8;font-weight:700}
+.fg select{background:#1e2634;border:1px solid #374151;color:#f1f5f9;padding:7px 11px;border-radius:7px;font-size:13px;font-family:'Sarabun',sans-serif;outline:none;cursor:pointer}
+.fg select:focus{border-color:#6366f1}
+
 @media(max-width:680px){
   .rpt-kpis{grid-template-columns:repeat(2,1fr)}
   .rpt-cols{grid-template-columns:1fr}
   .rpt-head{flex-direction:column}
   .rpt-title{text-align:left}
   #reportSheet{padding:20px 16px}
+  .filterbar{flex-direction:column;align-items:stretch}
+  .fg select{width:100%}
 }
 
 @media print{
   @page{size:A4;margin:12mm}
   body{background:#fff;padding:0}
-  .topbar,.status{display:none}
+  .topbar,.filterbar,.status{display:none}
   #reportSheet{box-shadow:none;border-radius:0;max-width:100%;padding:0}
   .rpt-kpi,.rpt-box,table.rpt-table tr{break-inside:avoid}
   table.rpt-table thead th{-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -85,6 +93,33 @@ table.rpt-table tfoot td.num{text-align:right}
   <button class="btn btn-accent" id="dlBtn" onclick="downloadReportPDF()">📥 ดาวน์โหลด PDF</button>
   <button class="btn btn-ghost" onclick="window.print()">🖨️ พิมพ์ / บันทึก PDF</button>
 </div>
+
+<div class="filterbar" id="filterBar">
+  <div class="fg">
+    <label for="periodSelect">ช่วงเวลา</label>
+    <select id="periodSelect" onchange="onFilterChange()">
+      <option value="month">📅 รายเดือน</option>
+      <option value="year">📆 รายปี</option>
+    </select>
+  </div>
+  <div class="fg" id="yearGroup">
+    <label for="yearSelect">เลือกปี</label>
+    <select id="yearSelect" onchange="onFilterChange()"></select>
+  </div>
+  <div class="fg" id="monthGroup">
+    <label for="monthSelect">เลือกเดือน</label>
+    <select id="monthSelect" onchange="onFilterChange()"></select>
+  </div>
+  <div class="fg">
+    <label for="shopSelect">เลือกสาขา</label>
+    <select id="shopSelect" onchange="onFilterChange()">
+      <option value="all">🌐 รวมทุกสาขา</option>
+      <option value="shop1">🏪 สาขาตลาดญี่ปุ่น</option>
+      <option value="shop2">🏪 สาขาสายหนองปิง</option>
+    </select>
+  </div>
+</div>
+
 <div class="status" id="status">⌛ กำลังโหลดรายงาน...</div>
 <div id="reportSheet"></div>
 
@@ -230,31 +265,121 @@ async function downloadReportPDF(){
   finally{ btn.disabled=false; btn.textContent=orig; }
 }
 
-async function init(){
-  const period=params.get('period')==='year'?'year':'month';
-  const t=params.get('t');
-  if(!t){ $('status').textContent='❌ ลิงก์ไม่ถูกต้อง (ไม่มี token)'; return; }
-  const qs=new URLSearchParams();
-  qs.set('period',period);
-  if(period==='year') qs.set('year',params.get('year')||'');
-  else qs.set('month',params.get('month')||'');
-  if(params.get('shopId')) qs.set('shopId',params.get('shopId'));
-  qs.set('t',t);
-  try{
-    const res=await fetch('/api/reports/data?'+qs.toString(),{cache:'no-store'});
-    if(!res.ok){
-      const txt=await res.text().catch(()=>'');
-      $('status').textContent = res.status===401 ? '❌ ลิงก์หมดอายุหรือไม่ได้รับอนุญาต' : `❌ โหลดข้อมูลไม่สำเร็จ (${res.status})`;
-      console.error(txt);
+function setupFilters(currentPeriod, currentYear, currentMonth, currentShopId){
+  const pSelect = $('periodSelect');
+  const ySelect = $('yearSelect');
+  const mSelect = $('monthSelect');
+  const sSelect = $('shopSelect');
+
+  pSelect.value = currentPeriod;
+
+  // Populate years: current year + 1 down to current year - 3
+  const nowY = new Date().getFullYear();
+  ySelect.innerHTML = '';
+  for (let y = nowY + 1; y >= nowY - 3; y--) {
+    const opt = document.createElement('option');
+    opt.value = String(y);
+    opt.textContent = `ปี ${y + 543} (${y})`;
+    ySelect.appendChild(opt);
+  }
+  ySelect.value = String(currentYear);
+
+  // Populate months 01 - 12
+  mSelect.innerHTML = '';
+  for (let m = 1; m <= 12; m++) {
+    const opt = document.createElement('option');
+    const mStr = String(m).padStart(2, '0');
+    opt.value = mStr;
+    opt.textContent = `${THAI_MONTHS_FULL[m]} (${mStr})`;
+    mSelect.appendChild(opt);
+  }
+  mSelect.value = String(currentMonth).padStart(2, '0');
+
+  sSelect.value = currentShopId || 'all';
+
+  $('monthGroup').style.display = currentPeriod === 'year' ? 'none' : 'flex';
+}
+
+function onFilterChange(){
+  const period = $('periodSelect').value;
+  const year = $('yearSelect').value;
+  const month = $('monthSelect').value;
+  const shopId = $('shopSelect').value;
+
+  $('monthGroup').style.display = period === 'year' ? 'none' : 'flex';
+
+  params.set('period', period);
+  if (period === 'year') {
+    params.set('year', year);
+    params.delete('month');
+  } else {
+    params.set('month', `${year}-${month}`);
+    params.delete('year');
+  }
+  if (shopId === 'all') {
+    params.delete('shopId');
+  } else {
+    params.set('shopId', shopId);
+  }
+
+  const newUrl = `${location.pathname}?${params.toString()}`;
+  window.history.replaceState({}, '', newUrl);
+
+  fetchReportData();
+}
+
+async function fetchReportData(){
+  const period = params.get('period') === 'year' ? 'year' : 'month';
+  const t = params.get('t');
+  if(!t){
+    $('status').style.display = 'block';
+    $('status').textContent = '❌ ลิงก์ไม่ถูกต้อง (ไม่มี token)';
+    return;
+  }
+
+  $('status').style.display = 'block';
+  $('status').textContent = '⌛ กำลังโหลดรายงาน...';
+
+  const qs = new URLSearchParams();
+  qs.set('period', period);
+  if(period === 'year') qs.set('year', params.get('year') || '');
+  else qs.set('month', params.get('month') || '');
+  if(params.get('shopId')) qs.set('shopId', params.get('shopId'));
+  qs.set('t', t);
+
+  try {
+    const res = await fetch('/api/reports/data?' + qs.toString(), { cache: 'no-store' });
+    if (!res.ok) {
+      $('status').textContent = res.status === 401 ? '❌ ลิงก์หมดอายุหรือไม่ได้รับอนุญาต' : `❌ โหลดข้อมูลไม่สำเร็จ (${res.status})`;
       return;
     }
-    const json=await res.json();
-    const d=json.data||{};
-    renderReport(d.records||[], d.period||period, d.key||'', d.shopId==='all'?null:d.shopId);
-    $('status').style.display='none';
-  }catch(e){
-    $('status').textContent='❌ เชื่อมต่อไม่ได้: '+e.message;
+    const json = await res.json();
+    const d = json.data || {};
+    renderReport(d.records || [], d.period || period, d.key || '', d.shopId === 'all' ? null : d.shopId);
+    $('status').style.display = 'none';
+  } catch (e) {
+    $('status').textContent = '❌ เชื่อมต่อไม่ได้: ' + e.message;
   }
+}
+
+async function init(){
+  const now = new Date();
+  const period = params.get('period') === 'year' ? 'year' : 'month';
+  let year = now.getFullYear();
+  let month = String(now.getMonth() + 1).padStart(2, '0');
+
+  if (period === 'year' && params.get('year')) {
+    year = parseInt(params.get('year'), 10) || year;
+  } else if (params.get('month')) {
+    const parts = params.get('month').split('-');
+    if (parts[0]) year = parseInt(parts[0], 10) || year;
+    if (parts[1]) month = parts[1];
+  }
+
+  const shopId = params.get('shopId') || 'all';
+
+  setupFilters(period, year, month, shopId);
+  await fetchReportData();
 }
 init();
 </script>

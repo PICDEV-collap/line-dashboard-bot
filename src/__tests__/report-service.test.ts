@@ -1,5 +1,6 @@
 import {
   buildReportLinkMessage,
+  buildReportSelectorFlexCard,
   buildReportUrl,
   describeReportPeriod,
   getAppBaseUrl,
@@ -59,5 +60,28 @@ describe("report.service", () => {
     expect(msg).toContain("สายหนองปิง");
     expect(msg).toContain(url);
     expect(msg).toContain("ดาวน์โหลด PDF");
+  });
+
+  it("builds an interactive LINE Flex card with month, year, branch selector options", () => {
+    const intent: ReportSummaryIntent = { period: "month", month: "2026-06", shopId: "shop1" };
+    const flex = buildReportSelectorFlexCard(intent, "https://shop.example.com");
+
+    expect(flex.type).toBe("flex");
+    expect(flex.altText).toContain("รายงานสรุปผลประกอบการ");
+    expect(flex.altText).toContain("ตลาดญี่ปุ่น");
+    expect(flex.contents.type).toBe("bubble");
+
+    const jsonStr = JSON.stringify(flex);
+    // Branch selectors
+    expect(jsonStr).toContain("ทุกสาขา");
+    expect(jsonStr).toContain("ตลาดญี่ปุ่น");
+    expect(jsonStr).toContain("สายหนองปิง");
+    // Period selectors
+    expect(jsonStr).toContain("เดือนนี้");
+    expect(jsonStr).toContain("เดือนที่แล้ว");
+    expect(jsonStr).toContain("ประจำปีนี้");
+    // Interactive web selector link
+    expect(jsonStr).toContain("เลือกเดือน/ปี/สาขาบนเว็บ");
+    expect(jsonStr).toContain("https://shop.example.com/report.html?");
   });
 });
