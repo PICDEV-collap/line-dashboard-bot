@@ -20,8 +20,9 @@ describe("LINE Menu Redesign & Easy Data Entry (TDD)", () => {
       expect(menu.areas[1].action.label).toContain("สรุป");
       // Tile 3: เช็คหมู (Bottom-Left)
       expect(menu.areas[2].action.label).toContain("หมู");
-      // Tile 4: ช่วยเหลือ (Bottom-Right)
-      expect(menu.areas[3].action.label).toContain("ช่วย");
+      // Tile 4: Summary Report (Bottom-Right)
+      expect(menu.areas[3].action.label).toBe("Summary Report");
+      expect((menu.areas[3].action as { text?: string }).text).toBe("รายงานสรุป");
     });
   });
 

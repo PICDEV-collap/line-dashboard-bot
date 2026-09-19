@@ -14,7 +14,7 @@ export function getRichMenuDefinition() {
   return {
     size: { width: 2500, height: 843 },
     selected: true,
-    name: "ร้านครูตอม Main Menu v8 (Tomorrow Pork Option)",
+    name: "ร้านครูตอม Main Menu v9 (Summary Report)",
     chatBarText: "📌 เมนูร้านครูตอม",
     areas: [
       // Tile 1: 📝 กรอกรายรับ-รายจ่าย (Top Left)
@@ -32,10 +32,10 @@ export function getRichMenuDefinition() {
         bounds: { x: 0, y: 421, width: 1250, height: 422 },
         action: { type: "message", label: "เช็คยอดหมู", text: "เช็คหมู" },
       },
-      // Tile 4: ❓ ช่วยเหลือ (Bottom Right)
+      // Tile 4: 📈 Summary Report (Bottom Right)
       {
         bounds: { x: 1250, y: 421, width: 1250, height: 422 },
-        action: { type: "message", label: "ช่วยเหลือ", text: "ช่วย" },
+        action: { type: "message", label: "Summary Report", text: "รายงานสรุป" },
       },
     ],
   };

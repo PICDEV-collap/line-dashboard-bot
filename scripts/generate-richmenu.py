@@ -33,11 +33,11 @@ def generate_rich_menu_image(output_path='public/richmenu.png'):
             'col': 0, 'row': 1
         },
         {
-            'title': 'ช่วยเหลือ / คู่มือคำสั่ง',
-            'sub': 'ดูคำแนะนำและวิธีใช้งานบอท',
-            'bg': '#1e293b',
-            'border': '#64748b',
-            'accent': '#94a3b8',
+            'title': 'Summary Report',
+            'sub': 'รายงานสรุปผลประกอบการ • PDF',
+            'bg': '#312e81',
+            'border': '#6366f1',
+            'accent': '#818cf8',
             'col': 1, 'row': 1
         }
     ]

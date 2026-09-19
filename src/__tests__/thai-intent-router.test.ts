@@ -50,6 +50,7 @@ describe("report intent routing", () => {
     shopId?: string;
   }> = [
     { input: "รายงาน", period: "month", month: "2026-06" },
+    { input: "รายงานสรุป", period: "month", month: "2026-06" },
     { input: "ขอรายงานเดือนนี้", period: "month", month: "2026-06" },
     { input: "รายงานเดือนที่แล้ว", period: "month", month: "2026-05" },
     { input: "รายงานเดือนมีนาคม", period: "month", month: "2026-03" },
